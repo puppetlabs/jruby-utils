@@ -2,6 +2,8 @@
 
 A library for interacting with JRuby instances from Clojure.
 
+[![Build Status](https://travis-ci.org/puppetlabs/jruby-utils.svg)](https://travis-ci.org/puppetlabs/jruby-utils)
+
 ## License
 
 See [LICENSE](LICENSE).
