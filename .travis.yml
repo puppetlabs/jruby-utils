@@ -8,8 +8,7 @@ notifications:
   email: false
   hipchat:
     template:
-    - "%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message}"
-    - 'Change view: %{compare_url}'
-    - 'Build details: %{build_url}'
+    - '%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message} (<a href="%{build_url}">Details</a>/<a href="%{compare_url}">Change view</a>)'
+    format: html
     rooms:
       secure: MU2N9A1/0L/bO5byUb6f6t3Fye4iksb2gzUyABicy6aZ0y6hGKvQpxIqqVUQi7s8Wb0mBqhZBiscAoyG3ovVG8P7FqMrYLSmD2RIDT6kUtvJosq498kpZ3m6Gk2rK1PxoGKvL2HHaGmF87HLF8OedchZrF98aJkgGviTlRwu0YIBWqboig8X+Zm4hgXGAxqdbY8C/UFWaCzzFxFkCoZZJaFq4kpBDXMKCFhT4FP8E25ef24gPjO54vaBNMawwop51zrIduc2tV3RhA2PDJ6CmWLehy3XFyP8WCKEfCRcEUlh6fzPyv7n0gOEM3xfpAm2BI1nZc0hYKXm6/ot0J9qTyhtjhTzQO+SVASletvdb92gsUvR9Q5onvQWU3P0HeoEHMgGKWdo3211EcCvERu+5hfez29LzVgxBH1zMumZ1eUkzvkowfpwi0hPX9vvOqMlhUCjXOPFXaX07I64iQi1bzcHPqfvaGetJgFZ6TjAMMvUpXJ7pjmEdJwXphuZ1OF+ZVFDCSkJDEUas2tu9eU8HXX2W0y0/uge4qJR0mquLStOwEB1apNq1eu0wwWMsZJM7QVHDhzAdVLjg+I3v2YQz5FBdcSApmXfBivDGteFavgqArdjzvZtmJXNCEiif6cKedOnr1zagSWRJboGw42p78pX0WrqXGbhcVlwujY7Qmw=
