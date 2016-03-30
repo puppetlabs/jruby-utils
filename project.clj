@@ -8,12 +8,7 @@
 
   :dependencies [[org.clojure/clojure "1.7.0"]]
 
-  :lein-release {:scm         :git
-                 :deploy-via  :lein-deploy}
-
   :deploy-repositories [["releases" {:url "https://clojars.org/repo"
                                      :username :env/clojars_jenkins_username
                                      :password :env/clojars_jenkins_password
-                                     :sign-releases false}]]
-
-  :plugins [[lein-release "1.0.5"]])
+                                     :sign-releases false}]])
