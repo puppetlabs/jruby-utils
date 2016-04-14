@@ -26,12 +26,6 @@
   (jruby-testutils/jruby-puppet-tk-config
     (jruby-testutils/jruby-puppet-config {:max-active-instances pool-size})))
 
-#_(defn jruby-service-test-config-with-timeouts
-  [connect-timeout idle-timeout]
-  (merge (jruby-service-test-config 1)
-         {:http-client {:connect-timeout-milliseconds connect-timeout
-                        :idle-timeout-milliseconds    idle-timeout}}))
-
 (def default-services
   [jruby-puppet-pooled-service])
 

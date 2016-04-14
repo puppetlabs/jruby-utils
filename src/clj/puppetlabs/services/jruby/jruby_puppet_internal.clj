@@ -15,19 +15,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Definitions
 
-(def ruby-code-dir
-  "The name of the directory containing the ruby code in this project.
-
-  This directory is relative to `src/ruby` and works from source because the
-  `src/ruby` directory is defined as a resource in `project.clj` which places
-  the directory on the classpath which in turn makes the directory available on
-  the JRuby load path.  Similarly, this works from the uberjar because this
-  directory is placed into the root of the jar structure which is on the
-  classpath.
-
-  See also:  http://jruby.org/apidocs/org/jruby/runtime/load/LoadService.html"
-  "puppet-server-lib")
-
 (def compat-version
   "The JRuby compatibility version to use for all ruby components, e.g. the
   master service and CLI tools."
@@ -84,12 +71,6 @@
       "JARS_NO_REQUIRE" "true"
       "JARS_REQUIRE" "false")))
 
-(schema/defn ^:always-validate managed-load-path :- [schema/Str]
-  "Return a list of ruby LOAD_PATH directories built from the
-  user-configurable ruby-load-path setting of the jruby-puppet configuration."
-  [ruby-load-path :- [schema/Str]]
-  (cons ruby-code-dir ruby-load-path))
-
 (schema/defn ^:always-validate get-compile-mode :- RubyInstanceConfig$CompileMode
   [config-compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
   (case config-compile-mode
@@ -105,7 +86,7 @@
    gem-home :- schema/Str
    compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
   (doto jruby-config
-    (.setLoadPaths (managed-load-path ruby-load-path))
+    (.setLoadPaths ruby-load-path)
     (.setCompatVersion compat-version)
     (.setCompileMode (get-compile-mode compile-mode))
     (.setEnvironment (managed-environment (get-system-env) gem-home))))

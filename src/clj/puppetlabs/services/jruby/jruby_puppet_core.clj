@@ -1,8 +1,6 @@
 (ns puppetlabs.services.jruby.jruby-puppet-core
   (:require [clojure.tools.logging :as log]
-            [me.raynes.fs :as fs]
             [schema.core :as schema]
-            [puppetlabs.kitchensink.classpath :as ks-classpath]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.services.jruby.jruby-puppet-schemas :as jruby-schemas]
             [puppetlabs.services.jruby.jruby-puppet-internal :as jruby-internal]

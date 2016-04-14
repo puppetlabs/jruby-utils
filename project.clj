@@ -21,7 +21,7 @@
                  [org.jruby/jruby-core "1.7.20.1"
                   :exclusions [com.github.jnr/jffi com.github.jnr/jnr-x86asm]]
                  ;; jffi and jnr-x86asm are explicit dependencies because,
-                 ;; icn JRuby's poms, they are defined using version ranges,
+                 ;; in JRuby's poms, they are defined using version ranges,
                  ;; and :pedantic? :abort won't tolerate this.
                  [com.github.jnr/jffi "1.2.9"]
                  [com.github.jnr/jffi "1.2.9" :classifier "native"]
