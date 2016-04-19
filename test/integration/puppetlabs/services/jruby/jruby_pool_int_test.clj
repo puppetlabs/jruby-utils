@@ -5,7 +5,8 @@
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.services :as tk-services]
             [puppetlabs.services.protocols.jruby-puppet :as jruby-protocol]
-            [puppetlabs.services.jruby.jruby-puppet-service :as jruby]))
+            [puppetlabs.services.jruby.jruby-puppet-service :as jruby]
+            [puppetlabs.services.jruby.jruby-puppet-agents :as jruby-agents]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utilities
@@ -55,9 +56,25 @@
 (def script-to-check-if-constant-is-defined
   "! $instance_id.nil?")
 
+(defn await-jruby-agents
+  "Wait for pending actions on agents associated with the jruby pool
+  service to free up."
+  [{:keys [pool-agent flush-instance-agent]}]
+  ;; Dump a dummy action into each of the jruby pool agents and await that
+  ;; action's completion.  This assumes that any previously existing
+  ;; actions would have been flushed through prior to the new one being
+  ;; processed.
+  (jruby-agents/send-agent pool-agent #(constantly true))
+  (await pool-agent)
+  (jruby-agents/send-agent flush-instance-agent #(constantly true))
+  (await flush-instance-agent))
+
 (defn add-watch-for-flush-complete
   [pool-context]
   (let [flush-complete (promise)]
+    ;; Make sure none of the pool-related agents are processing anything
+    ;; before registering a watcher for flush completion
+    (await-jruby-agents pool-context)
     (add-watch (:pool-agent pool-context) :flush-callback
                (fn [k a old-state new-state]
                  (when (= k :flush-callback)
@@ -115,6 +132,15 @@
     (loop [instance (jruby-protocol/borrow-instance jruby-service :wait-for-new-pool)
            loop-count 0]
       (let [has-constant? (constant-defined? instance)]
+         ;; Where a max-requests-per-instance may have been imposed for the
+         ;; pool, we need to avoid having borrow counts increase on each of
+         ;; the pool instances while waiting for the new pool to show up.
+         ;; Otherwise, an individual instance might be flushed and
+         ;; misinterpreted as the new pool having been swapped in when the
+         ;; 'old' one is actually still in use.  Artificially decrement the
+         ;; borrow count here to compensate for the increase that the jruby
+         ;; pool would normally do when returning an instance.
+        (swap! (:state instance) update-in [:borrow-count] dec)
         (jruby-protocol/return-instance jruby-service instance :wait-for-new-pool)
         (cond
           (not has-constant?) true
@@ -254,6 +280,7 @@
          ;; set a ruby constant in each instance so that we can recognize them.
          ;; this counts as one request for each instance.
          (is (true? (set-constants-and-verify pool-context 4)))
+
          (let [flush-complete (add-watch-for-flush-complete pool-context)
                ;; borrow one instance and hold the reference to it, to prevent
                ;; the flush operation from completing
@@ -300,6 +327,10 @@
            ;; now we'll set the ruby constant on the 3 instances in the new pool
            (is (true? (set-constants-and-verify pool-context 3)))
 
+           ;; The flush should still not have completed at this point because
+           ;; the last instance from the old pool is still being borrowed
+           (is (not (realized? flush-complete)))
+
            ;; and finally, we return the last instance from the old pool
            (jruby-protocol/return-instance jruby-service instance1 :max-requests-flush-while-pool-flush-in-progress-test)
 
@@ -309,4 +340,12 @@
                     (get-all-stack-traces-as-str))))
 
          ;; we should have three instances with the constant and one without.
-         (is (true? (check-jrubies-for-constant-counts pool-context 3 1))))))))
+         (is (true? (check-jrubies-for-constant-counts pool-context 3 1)))
+
+         ;; The jruby return instance calls done within the previous
+         ;; check jrubies call may cause an instance to be in the process of
+         ;; being flushed when the server is shut down.  This ensures that
+         ;; the flushing is all done before the server is shut down - since
+         ;; that could otherwise cause an annoying error message about the
+         ;; pool not being full at shut down to be displayed.
+         (await-jruby-agents pool-context))))))
