@@ -1,11 +1,9 @@
 (ns puppetlabs.services.jruby.jruby-puppet-internal
   (:require [schema.core :as schema]
             [puppetlabs.services.jruby.jruby-puppet-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.puppet-environments :as puppet-env]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as ks])
-  (:import (com.puppetlabs.puppetserver PuppetProfiler JRubyPuppet)
-           (com.puppetlabs.puppetserver.pool JRubyPool)
+  (:import (com.puppetlabs.puppetserver.pool JRubyPool)
            (puppetlabs.services.jruby.jruby_puppet_schemas JRubyPuppetInstance PoisonPill ShutdownPoisonPill)
            (java.util HashMap)
            (org.jruby CompatVersion Main RubyInstanceConfig RubyInstanceConfig$CompileMode)
@@ -16,19 +14,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Definitions
-
-(def ruby-code-dir
-  "The name of the directory containing the ruby code in this project.
-
-  This directory is relative to `src/ruby` and works from source because the
-  `src/ruby` directory is defined as a resource in `project.clj` which places
-  the directory on the classpath which in turn makes the directory available on
-  the JRuby load path.  Similarly, this works from the uberjar because this
-  directory is placed into the root of the jar structure which is on the
-  classpath.
-
-  See also:  http://jruby.org/apidocs/org/jruby/runtime/load/LoadService.html"
-  "puppet-server-lib")
 
 (def compat-version
   "The JRuby compatibility version to use for all ruby components, e.g. the
@@ -86,12 +71,6 @@
       "JARS_NO_REQUIRE" "true"
       "JARS_REQUIRE" "false")))
 
-(schema/defn ^:always-validate managed-load-path :- [schema/Str]
-  "Return a list of ruby LOAD_PATH directories built from the
-  user-configurable ruby-load-path setting of the jruby-puppet configuration."
-  [ruby-load-path :- [schema/Str]]
-  (cons ruby-code-dir ruby-load-path))
-
 (schema/defn ^:always-validate get-compile-mode :- RubyInstanceConfig$CompileMode
   [config-compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
   (case config-compile-mode
@@ -107,7 +86,7 @@
    gem-home :- schema/Str
    compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
   (doto jruby-config
-    (.setLoadPaths (managed-load-path ruby-load-path))
+    (.setLoadPaths ruby-load-path)
     (.setCompatVersion compat-version)
     (.setCompileMode (get-compile-mode compile-mode))
     (.setEnvironment (managed-environment (get-system-env) gem-home))))
@@ -125,8 +104,7 @@
       (init-jruby-config ruby-load-path gem-home compile-mode)))
 
 (schema/defn ^:always-validate create-scripting-container :- ScriptingContainer
-  "Creates an instance of `org.jruby.embed.ScriptingContainer` and loads up the
-  puppet and facter code inside it."
+  "Creates an instance of `org.jruby.embed.ScriptingContainer`."
   [ruby-load-path :- [schema/Str]
    gem-home :- schema/Str
    compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
@@ -142,22 +120,7 @@
     ;; 'jar-dependencies' to not actually load any jars.  See the environment
     ;; variable configuration in 'init-jruby-config' for more
     ;; information.
-    (.runScriptlet "require 'jar-dependencies'")
-    (.runScriptlet "require 'puppet/server/master'")))
-
-(schema/defn ^:always-validate config->puppet-config :- HashMap
-  "Given the raw jruby-puppet configuration section, return a
-  HashMap with the configuration necessary for ruby Puppet."
-  [config :- jruby-schemas/JRubyPuppetConfig]
-  (let [puppet-config (new HashMap)]
-    (doseq [[setting dir] [[:master-conf-dir "confdir"]
-                           [:master-code-dir "codedir"]
-                           [:master-var-dir "vardir"]
-                           [:master-run-dir "rundir"]
-                           [:master-log-dir "logdir"]]]
-      (if-let [value (get config setting)]
-        (.put puppet-config dir (ks/absolute-path value))))
-    puppet-config))
+    (.runScriptlet "require 'jar-dependencies'")))
 
 (schema/defn borrow-with-timeout-fn :- JRubyPuppetInternalBorrowResult
   [timeout :- schema/Int
@@ -177,63 +140,37 @@
 (schema/defn ^:always-validate
   cleanup-pool-instance!
   "Cleans up and cleanly terminates a JRubyPuppet instance and removes it from the pool."
-  [{:keys [scripting-container jruby-puppet pool] :as instance} :- JRubyPuppetInstance]
+  [{:keys [scripting-container pool] :as instance} :- JRubyPuppetInstance]
   (.unregister pool instance)
-  (.terminate jruby-puppet)
+  ;; TODO: need to add support for a callback hook, so that consumers like
+  ;; puppet-server can do their own cleanup.
+  ;(.terminate jruby-puppet)
   (.terminate scripting-container)
   (log/infof "Cleaned up old JRuby instance with id %s." (:id instance)))
 
 (schema/defn ^:always-validate
   create-pool-instance! :- JRubyPuppetInstance
   "Creates a new JRubyPuppet instance and adds it to the pool."
-  [pool     :- jruby-schemas/pool-queue-type
-   id       :- schema/Int
-   config   :- jruby-schemas/JRubyPuppetConfig
-   flush-instance-fn :- IFn
-   profiler :- (schema/maybe PuppetProfiler)]
-  (let [{:keys [ruby-load-path gem-home compile-mode
-                http-client-ssl-protocols http-client-cipher-suites
-                http-client-connect-timeout-milliseconds
-                http-client-idle-timeout-milliseconds
-                use-legacy-auth-conf]} config]
+  [pool :- jruby-schemas/pool-queue-type
+   id :- schema/Int
+   config :- jruby-schemas/JRubyPuppetConfig
+   flush-instance-fn :- IFn]
+  (let [{:keys [ruby-load-path gem-home compile-mode]} config]
     (when-not ruby-load-path
       (throw (Exception.
                "JRuby service missing config value 'ruby-load-path'")))
     (log/infof "Creating JRuby instance with id %s." id)
-    (let [scripting-container   (create-scripting-container
-                                 ruby-load-path
-                                 gem-home
-                                 compile-mode)
-          env-registry          (puppet-env/environment-registry)
-          ruby-puppet-class     (.runScriptlet scripting-container "Puppet::Server::Master")
-          puppet-config         (config->puppet-config config)
-          puppet-server-config  (HashMap.)]
-      (when http-client-ssl-protocols
-        (.put puppet-server-config "ssl_protocols" (into-array String http-client-ssl-protocols)))
-      (when http-client-cipher-suites
-        (.put puppet-server-config "cipher_suites" (into-array String http-client-cipher-suites)))
-      (.put puppet-server-config "profiler" profiler)
-      (.put puppet-server-config "environment_registry" env-registry)
-      (.put puppet-server-config "http_connect_timeout_milliseconds"
-        http-client-connect-timeout-milliseconds)
-      (.put puppet-server-config "http_idle_timeout_milliseconds"
-        http-client-idle-timeout-milliseconds)
-      (.put puppet-server-config "use_legacy_auth_conf" use-legacy-auth-conf)
+    (let [scripting-container (create-scripting-container
+                               ruby-load-path
+                               gem-home
+                               compile-mode)]
       (let [instance (jruby-schemas/map->JRubyPuppetInstance
-                       {:pool                 pool
-                        :id                   id
-                        :max-requests         (:max-requests-per-instance config)
-                        :flush-instance-fn    flush-instance-fn
-                        :state                (atom {:borrow-count 0})
-                        :jruby-puppet         (.callMethodWithArgArray
-                                               scripting-container
-                                               ruby-puppet-class
-                                               "new"
-                                               (into-array Object
-                                                           [puppet-config puppet-server-config])
-                                               JRubyPuppet)
-                        :scripting-container  scripting-container
-                        :environment-registry env-registry})]
+                      {:pool pool
+                       :id id
+                       :max-requests (:max-requests-per-instance config)
+                       :flush-instance-fn flush-instance-fn
+                       :state (atom {:borrow-count 0})
+                       :scripting-container scripting-container})]
         (.register pool instance)
         instance))))
 

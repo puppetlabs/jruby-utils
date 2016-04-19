@@ -101,7 +101,8 @@
             {:keys [return _]} m
             exit-code (.getStatus return)]
         (is (= 42 exit-code))))
-    (testing "irb with -r puppet"
+    ;; TODO: put some other lib on the load path so that we can test a require
+    #_(testing "irb with -r puppet"
       (let [m (capture-out
                 (with-stdin-str "puts %{VERSION: #{Puppet.version}}"
                   (jruby-core/cli-run! min-config "irb" ["-r" "puppet" "-f"])))
@@ -115,7 +116,9 @@
 
 (deftest ^:integration cli-ruby!-test
   (testing "jruby cli command output"
-    (testing "ruby -r puppet"
+    ;; TODO: put some other lib on the load path so that we can test a require
+    ;; TODO: consider bringing the CLI clj files back into the repo?
+    #_(testing "ruby -r puppet"
       (let [m (capture-out
                 (with-stdin-str "puts %{VERSION: #{Puppet.version}}"
                   (jruby-core/cli-ruby! min-config ["-r" "puppet"])))
@@ -123,41 +126,3 @@
             exit-code (.getStatus return)]
         (is (= 0 exit-code))
         (is (re-find #"VERSION: \d+\.\d+\.\d+" out))))))
-
-(deftest add-facter-to-classpath-test
-  (letfn [(class-loader-files [] (map #(.getFile %)
-                                   (.getURLs
-                                     (ClassLoader/getSystemClassLoader))))
-          (create-temp-facter-jar [] (-> (ks/temp-dir)
-                                       (fs/file jruby-core/facter-jar)
-                                       (fs/touch)
-                                       (ks/absolute-path)))
-          (temp-dir-as-string [] (-> (ks/temp-dir) (ks/absolute-path)))
-          (fs-parent-as-string [path] (-> path (fs/parent) (ks/absolute-path)))
-          (jar-in-class-loader-file-list? [jar]
-            (some #(= jar %) (class-loader-files)))]
-    (testing "facter jar loaded from first position"
-      (let [temp-jar (create-temp-facter-jar)]
-        (jruby-core/add-facter-jar-to-system-classloader [(fs-parent-as-string temp-jar)])
-        (is (true? (jar-in-class-loader-file-list? temp-jar)))))
-    (testing "facter jar loaded from last position"
-      (let [temp-jar (create-temp-facter-jar)]
-        (jruby-core/add-facter-jar-to-system-classloader [(temp-dir-as-string)
-                                                          (fs-parent-as-string temp-jar)])
-        (is (true? (jar-in-class-loader-file-list? temp-jar)))))
-    (testing "only first jar loaded when two present"
-      (let [first-jar (create-temp-facter-jar)
-            last-jar (create-temp-facter-jar)]
-        (jruby-core/add-facter-jar-to-system-classloader [(fs-parent-as-string first-jar)
-                                                          (temp-dir-as-string)
-                                                          (fs-parent-as-string last-jar)])
-        (is (true? (jar-in-class-loader-file-list? first-jar))
-          "first jar in the list was unexpectedly not found")
-        (is (nil? (jar-in-class-loader-file-list? last-jar))
-          "last jar in the list was unexpectedly not found")))
-    (testing "class loader files unchanged when no jar found"
-      (let [class-loader-files-before-load (class-loader-files)
-            _ (jruby-core/add-facter-jar-to-system-classloader [(temp-dir-as-string)
-                                                                (temp-dir-as-string)])
-            class-loader-files-after-load (class-loader-files)]
-        (is (= class-loader-files-before-load class-loader-files-after-load))))))

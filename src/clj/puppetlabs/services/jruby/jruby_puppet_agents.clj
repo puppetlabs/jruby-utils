@@ -5,7 +5,6 @@
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.services.jruby.jruby-puppet-schemas :as jruby-schemas])
   (:import (clojure.lang IFn IDeref)
-           (com.puppetlabs.puppetserver PuppetProfiler)
            (puppetlabs.services.jruby.jruby_puppet_schemas PoisonPill RetryPoisonPill JRubyPuppetInstance ShutdownPoisonPill)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -40,8 +39,7 @@
   "Sequentially fill the pool with new JRubyPuppet instances.  NOTE: this
   function should never be called except by the pool-agent."
   [{:keys [pool-state] :as pool-context} :- jruby-schemas/PoolContext
-   config :- jruby-schemas/JRubyPuppetConfig
-   profiler :- (schema/maybe PuppetProfiler)]
+   config :- jruby-schemas/JRubyPuppetConfig]
   (let [pool (:pool @pool-state)]
     (log/debug (str "Initializing JRubyPuppet instances with the following settings:\n"
                     (ks/pprint-to-string config)))
@@ -51,8 +49,7 @@
           (let [id (inc i)]
             (log/debugf "Priming JRubyPuppet instance %d of %d" id count)
             (jruby-internal/create-pool-instance! pool id config
-                                                  (partial send-flush-instance! pool-context)
-                                                  profiler)
+                                                  (partial send-flush-instance! pool-context))
             (log/infof "Finished creating JRubyPuppet instance %d of %d"
                        id count))))
       (catch Exception e
@@ -67,13 +64,11 @@
   [pool-context :- jruby-schemas/PoolContext
    instance :- JRubyPuppetInstance
    new-pool :- jruby-schemas/pool-queue-type
-   new-id   :- schema/Int
-   config   :- jruby-schemas/JRubyPuppetConfig
-   profiler :- (schema/maybe PuppetProfiler)]
+   new-id :- schema/Int
+   config :- jruby-schemas/JRubyPuppetConfig]
   (jruby-internal/cleanup-pool-instance! instance)
   (jruby-internal/create-pool-instance! new-pool new-id config
-                                        (partial send-flush-instance! pool-context)
-                                        profiler))
+                                        (partial send-flush-instance! pool-context)))
 
 (schema/defn ^:always-validate
   pool-initialized? :- schema/Bool
@@ -90,7 +85,7 @@
    old-pool-state :- jruby-schemas/PoolState
    new-pool-state :- jruby-schemas/PoolState
    refill? :- schema/Bool]
-  (let [{:keys [config profiler pool-state]} pool-context
+  (let [{:keys [config pool-state]} pool-context
         new-pool (:pool new-pool-state)
         old-pool (:pool old-pool-state)
         old-pool-size (:size old-pool-state)]
@@ -107,8 +102,7 @@
             (jruby-internal/cleanup-pool-instance! instance)
             (when refill?
               (jruby-internal/create-pool-instance! new-pool id config
-                                                    (partial send-flush-instance! pool-context)
-                                                    profiler)
+                                                    (partial send-flush-instance! pool-context))
               (log/infof "Finished creating JRubyPuppet instance %d of %d"
                          id old-pool-size))
             (finally
@@ -177,8 +171,8 @@
   send-prime-pool! :- jruby-schemas/JRubyPoolAgent
   "Sends a request to the agent to prime the pool using the given pool context."
   [pool-context :- jruby-schemas/PoolContext]
-  (let [{:keys [pool-agent config profiler]} pool-context]
-    (send-agent pool-agent #(prime-pool! pool-context config profiler))))
+  (let [{:keys [pool-agent config]} pool-context]
+    (send-agent pool-agent #(prime-pool! pool-context config))))
 
 (schema/defn ^:always-validate
   send-flush-and-repopulate-pool! :- jruby-schemas/JRubyPoolAgent
@@ -212,6 +206,6 @@
   ;; step 1 will never complete because the `max-requests` instance will never be returned to the pool.
   ;;
   ;; Using a separate agent for the 'max-requests' instance flush alleviates this issue.
-  (let [{:keys [flush-instance-agent config profiler]} pool-context
+  (let [{:keys [flush-instance-agent config]} pool-context
         id (next-instance-id (:id instance) pool-context)]
-    (send-agent flush-instance-agent #(flush-instance! pool-context instance pool id config profiler))))
+    (send-agent flush-instance-agent #(flush-instance! pool-context instance pool id config))))
