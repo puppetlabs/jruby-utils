@@ -56,26 +56,13 @@
 (def script-to-check-if-constant-is-defined
   "! $instance_id.nil?")
 
-(defn await-jruby-agents
-  "Wait for pending actions on agents associated with the jruby pool
-  service to free up."
-  [{:keys [pool-agent flush-instance-agent]}]
-  ;; Dump a dummy action into each of the jruby pool agents and await that
-  ;; action's completion.  This assumes that any previously existing
-  ;; actions would have been flushed through prior to the new one being
-  ;; processed.
-  (jruby-agents/send-agent pool-agent #(constantly true))
-  (await pool-agent)
-  (jruby-agents/send-agent flush-instance-agent #(constantly true))
-  (await flush-instance-agent))
-
 (defn add-watch-for-flush-complete
-  [pool-context]
+  [{:keys [pool-agent]}]
   (let [flush-complete (promise)]
-    ;; Make sure none of the pool-related agents are processing anything
+    ;; Make sure the pool agent isn't processing anything
     ;; before registering a watcher for flush completion
-    (await-jruby-agents pool-context)
-    (add-watch (:pool-agent pool-context) :flush-callback
+    (await pool-agent)
+    (add-watch pool-agent :flush-callback
                (fn [k a old-state new-state]
                  (when (= k :flush-callback)
                    (remove-watch a :flush-callback)
@@ -348,4 +335,4 @@
          ;; the flushing is all done before the server is shut down - since
          ;; that could otherwise cause an annoying error message about the
          ;; pool not being full at shut down to be displayed.
-         (await-jruby-agents pool-context))))))
+         (await (:flush-instance-agent pool-context)))))))
