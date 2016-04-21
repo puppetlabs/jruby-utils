@@ -1,4 +1,4 @@
-package com.puppetlabs.puppetserver.pool;
+package com.puppetlabs.jrubyutils.pool;
 
 import java.util.Set;
 import java.util.concurrent.TimeUnit;

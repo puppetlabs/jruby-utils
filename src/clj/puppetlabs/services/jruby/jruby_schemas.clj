@@ -1,15 +1,15 @@
-(ns puppetlabs.services.jruby.jruby-puppet-schemas
+(ns puppetlabs.services.jruby.jruby-schemas
   (:require [schema.core :as schema])
   (:import (clojure.lang Atom Agent IFn PersistentArrayMap PersistentHashMap)
-           (com.puppetlabs.puppetserver.pool LockablePool)
+           (com.puppetlabs.jrubyutils.pool LockablePool)
            (org.jruby Main Main$Status RubyInstanceConfig)
-           (com.puppetlabs.puppetserver.jruby ScriptingContainer)))
+           (com.puppetlabs.jrubyutils.jruby ScriptingContainer)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
 
 (def pool-queue-type
-  "The Java datastructure type used to store JRubyPuppet instances which are
+  "The Java datastructure type used to store JRuby instances which are
   free to be borrowed."
   LockablePool)
 
@@ -40,19 +40,19 @@
   "Schema defining the supported values for the JRuby CompileMode setting."
   (apply schema/enum supported-jruby-compile-modes))
 
-(def JRubyPuppetConfig
-  "Schema defining the config map for the JRubyPuppet pooling functions.
+(def JRubyConfig
+  "Schema defining the config map for the JRuby pooling functions.
 
   The keys should have the following values:
 
-    * :ruby-load-path - a vector of file paths, containing the locations of puppet source code.
+    * :ruby-load-path - a vector of file paths, containing the locations of ruby source code.
 
     * :gem-home - The location that JRuby gems are stored
 
     * :compile-mode - The value to use for JRuby's CompileMode setting.  Legal
         values are `:jit`, `:force`, and `:off`.  Defaults to `:off`.
 
-    * :max-active-instances - The maximum number of JRubyPuppet instances that
+    * :max-active-instances - The maximum number of JRuby instances that
         will be pooled."
   {:ruby-load-path [schema/Str]
    :gem-home schema/Str
@@ -72,35 +72,34 @@
                        (ifn? (:shutdown-on-error state))))))))
 
 (def PoolState
-  "A map that describes all attributes of a particular JRubyPuppet pool."
+  "A map that describes all attributes of a particular JRuby pool."
   {:pool         pool-queue-type
    :size schema/Int})
 
 (def PoolStateContainer
-  "An atom containing the current state of all of the JRubyPuppet pool."
+  "An atom containing the current state of all of the JRuby pool."
   (schema/pred #(and (instance? Atom %)
                      (nil? (schema/check PoolState @%)))
                'PoolStateContainer))
 
 (def PoolContext
-  "The data structure that stores all JRubyPuppet pools and the original configuration."
-  {:config                JRubyPuppetConfig
+  "The data structure that stores all JRuby pools and the original configuration."
+  {:config                JRubyConfig
    :pool-agent            JRubyPoolAgent
    :flush-instance-agent  JRubyPoolAgent
    :pool-state            PoolStateContainer})
 
 (def JRubyInstanceState
-  "State metadata for an individual JRubyPuppet instance"
+  "State metadata for an individual JRuby instance"
   {:borrow-count schema/Int})
 
 (def JRubyInstanceStateContainer
-  "An atom containing the current state of a given JRubyPuppet instance."
+  "An atom containing the current state of a given JRuby instance."
   (schema/pred #(and (instance? Atom %)
                      (nil? (schema/check JRubyInstanceState @%)))
                'JRubyInstanceState))
 
-;; TODO: rename, get rid of references to puppet
-(schema/defrecord JRubyPuppetInstance
+(schema/defrecord JRubyInstance
   [pool :- pool-queue-type
    id :- schema/Int
    max-requests :- schema/Int
@@ -109,14 +108,14 @@
    scripting-container :- ScriptingContainer]
   Object
   (toString [this] (format "%s@%s {:id %s :state (Atom: %s)}"
-                           (.getName JRubyPuppetInstance)
+                           (.getName JRubyInstance)
                            (Integer/toHexString (.hashCode this))
                            id
                            @state)))
 
-(defn jruby-puppet-instance?
+(defn jruby-instance?
   [x]
-  (instance? JRubyPuppetInstance x))
+  (instance? JRubyInstance x))
 
 (defn jruby-main-instance?
   [x]
@@ -146,17 +145,17 @@
   [x]
   (instance? ShutdownPoisonPill x))
 
-(def JRubyPuppetInstanceOrPill
+(def JRubyInstanceOrPill
   (schema/conditional
-    jruby-puppet-instance? (schema/pred jruby-puppet-instance?)
-    retry-poison-pill? (schema/pred retry-poison-pill?)
-    shutdown-poison-pill? (schema/pred shutdown-poison-pill?)))
+   jruby-instance? (schema/pred jruby-instance?)
+   retry-poison-pill? (schema/pred retry-poison-pill?)
+   shutdown-poison-pill? (schema/pred shutdown-poison-pill?)))
 
-(def JRubyPuppetBorrowResult
+(def JRubyBorrowResult
   (schema/pred (some-fn nil?
                         retry-poison-pill?
                         shutdown-poison-pill?
-                        jruby-puppet-instance?)))
+                        jruby-instance?)))
 
 (def JRubyMain
   (schema/pred jruby-main-instance?))
@@ -221,12 +220,12 @@
   {:type (schema/eq :instance-borrowed)
    :reason JRubyEventReason
    :requested-event JRubyRequestedEvent
-   :instance JRubyPuppetBorrowResult})
+   :instance JRubyBorrowResult})
 
 (def JRubyReturnedEvent
   {:type (schema/eq :instance-returned)
    :reason JRubyEventReason
-   :instance JRubyPuppetInstanceOrPill})
+   :instance JRubyInstanceOrPill})
 
 (def JRubyLockRequestedEvent
   {:type (schema/eq :lock-requested)

@@ -1,12 +1,12 @@
-(ns puppetlabs.services.jruby.jruby-puppet-service
+(ns puppetlabs.services.jruby.jruby-service
   (:require [clojure.tools.logging :as log]
-            [puppetlabs.services.jruby.jruby-puppet-core :as core]
-            [puppetlabs.services.jruby.jruby-puppet-agents :as jruby-agents]
+            [puppetlabs.services.jruby.jruby-core :as core]
+            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
             [puppetlabs.trapperkeeper.core :as trapperkeeper]
             [puppetlabs.trapperkeeper.services :as tk-services]
-            [puppetlabs.services.protocols.jruby-puppet :as jruby]
+            [puppetlabs.services.protocols.jruby :as jruby]
             [slingshot.slingshot :as sling]
-            [puppetlabs.services.jruby.jruby-puppet-schemas :as jruby-schemas]))
+            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -14,8 +14,8 @@
 ;; This service uses TK's normal config service instead of the
 ;; PuppetServerConfigService.  This is because that service depends on this one.
 
-(trapperkeeper/defservice jruby-puppet-pooled-service
-                          jruby/JRubyPuppetService
+(trapperkeeper/defservice jruby-pooled-service
+                          jruby/JRubyService
                           [[:ConfigService get-config]
                            [:ShutdownService shutdown-on-error]]
   (init
@@ -68,20 +68,18 @@
     (let [event-callbacks (:event-callbacks (tk-services/service-context this))]
       (swap! event-callbacks conj callback-fn))))
 
-;; TODO: rename, get rid of references to Puppet
-(defmacro with-jruby-puppet
-  "Encapsulates the behavior of borrowing and returning an instance of
-  JRubyPuppet.  Example usage:
+(defmacro with-jruby-instance
+  "Encapsulates the behavior of borrowing and returning a JRuby instance.
+  Example usage:
 
-  (let [jruby-service (get-service :JRubyPuppetService)]
-    (with-jruby-puppet
-      jruby-puppet
+  (let [jruby-service (get-service :JRubyService)]
+    (with-jruby-instance
+      jruby-instance
       jruby-service
-      (do-something-with-a-jruby-puppet-instance jruby-puppet)))
+      (do-something-with-a-jruby-instance jruby-instance)))
 
-  Will throw an IllegalStateException if borrowing an instance of
-  JRubyPuppet times out."
-  [jruby-puppet jruby-service reason & body]
+  Will throw an IllegalStateException if borrowing a JRuby instance times out."
+  [jruby-instance jruby-service reason & body]
   `(loop [pool-instance# (jruby/borrow-instance ~jruby-service ~reason)]
      (if (nil? pool-instance#)
        (sling/throw+
@@ -91,7 +89,7 @@
                        "you get this error repeatedly, your server might be "
                        "misconfigured or trying to serve too many agent nodes. "
                        "Check Puppet Server settings: "
-                       "jruby-puppet.max-active-instances.")}))
+                       "jruby.max-active-instances.")}))
      (when (jruby-schemas/shutdown-poison-pill? pool-instance#)
        (jruby/return-instance ~jruby-service pool-instance# ~reason)
        (sling/throw+
@@ -103,7 +101,7 @@
          (jruby/return-instance ~jruby-service pool-instance# ~reason)
          (recur (jruby/borrow-instance ~jruby-service ~reason)))
        ;; TODO rename stuff
-       (let [~jruby-puppet pool-instance#]
+       (let [~jruby-instance pool-instance#]
          (try
            ~@body
            (finally

@@ -3,9 +3,9 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
-            [puppetlabs.services.jruby.jruby-puppet-agents :as jruby-agents]
-            [puppetlabs.services.jruby.jruby-puppet-core :as jruby-core]
-            [puppetlabs.services.jruby.jruby-puppet-internal :as jruby-internal]
+            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby.jruby-core :as jruby-core]
+            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils]))
 
 (use-fixtures :each jruby-testutils/mock-pool-instance-fixture)
@@ -19,8 +19,8 @@
       (is (thrown-with-msg? ExceptionInfo
                             #"Input to create-pool-context does not match schema"
                             (jruby-core/create-pool-context malformed-config nil)))))
-  (let [minimal-config {:jruby-puppet {:gem-home        "/dev/null"
-                                       :ruby-load-path  ["/dev/null"]}}
+  (let [minimal-config {:jruby {:gem-home        "/dev/null"
+                                :ruby-load-path  ["/dev/null"]}}
         config        (jruby-core/initialize-config minimal-config)]
     (testing "max-active-instances is set to default if not specified"
       (is (= (jruby-core/default-pool-size (ks/num-cpus)) (:max-active-instances config))))
@@ -28,7 +28,7 @@
       (is (= 0 (:max-requests-per-instance config))))
     (testing "max-requests-per-instance is honored if specified"
       (is (= 5 (-> minimal-config
-                   (assoc-in [:jruby-puppet :max-requests-per-instance] 5)
+                   (assoc-in [:jruby :max-requests-per-instance] 5)
                    (jruby-core/initialize-config)
                    :max-requests-per-instance))))
     (testing "compile-mode is set to default if not specified"
@@ -36,17 +36,17 @@
              (:compile-mode config))))
     (testing "compile-mode is honored if specified"
       (is (= :off (-> minimal-config
-                      (assoc-in [:jruby-puppet :compile-mode] "off")
+                      (assoc-in [:jruby :compile-mode] "off")
                       (jruby-core/initialize-config)
                       :compile-mode)))
       (is (= :jit (-> minimal-config
-                      (assoc-in [:jruby-puppet :compile-mode] "jit")
+                      (assoc-in [:jruby :compile-mode] "jit")
                       (jruby-core/initialize-config)
                       :compile-mode))))))
 
 (deftest test-jruby-service-core-funcs
   (let [pool-size        2
-        config           (jruby-testutils/jruby-puppet-config {:max-active-instances pool-size})
+        config           (jruby-testutils/jruby-config {:max-active-instances pool-size})
         pool-context (jruby-core/create-pool-context config jruby-testutils/default-shutdown-fn)
         pool             (jruby-core/get-pool pool-context)]
 
@@ -61,7 +61,7 @@
       (let [all-the-jrubys (jruby-testutils/drain-pool pool-context pool-size)]
         (is (= 0 (jruby-core/free-instance-count pool)))
         (doseq [instance all-the-jrubys]
-          (is (not (nil? instance)) "One of JRubyPuppet instances is nil"))
+          (is (not (nil? instance)) "One of JRuby instances is nil"))
         (jruby-testutils/fill-drained-pool all-the-jrubys)
         (is (= pool-size (jruby-core/free-instance-count pool)))))
 
@@ -75,7 +75,7 @@
             "The timeout value was not honored.")
         (jruby-testutils/fill-drained-pool all-the-jrubys)
         (is (= (jruby-core/free-instance-count pool) pool-size)
-            "All JRubyPuppet instances were not returned to the pool.")))
+            "All JRuby instances were not returned to the pool.")))
 
     (testing "Removing an instance decrements the pool size by 1."
       (let [jruby-instance (jruby-core/borrow-from-pool pool-context :test [])]
@@ -102,7 +102,7 @@
 
 (deftest prime-pools-failure
   (let [pool-size 2
-        config        (jruby-testutils/jruby-puppet-config {:max-active-instances pool-size})
+        config        (jruby-testutils/jruby-config {:max-active-instances pool-size})
         pool-context  (jruby-core/create-pool-context config jruby-testutils/default-shutdown-fn)
         err-msg       (re-pattern "Unable to borrow JRuby instance from pool")]
     (with-redefs [jruby-internal/create-pool-instance! (fn [_] (throw (IllegalStateException. "BORK!")))]
@@ -124,7 +124,7 @@
 
 (deftest test-default-pool-size
   (logutils/with-test-logging
-    (let [config (jruby-testutils/jruby-puppet-config)
+    (let [config (jruby-testutils/jruby-config)
           pool (jruby-core/create-pool-context config jruby-testutils/default-shutdown-fn)
           pool-state @(:pool-state pool)]
       (is (= (jruby-core/default-pool-size (ks/num-cpus)) (:size pool-state))))))
@@ -133,7 +133,7 @@
   ([max-requests]
     (create-pool-context max-requests 1))
   ([max-requests max-instances]
-   (let [config (jruby-testutils/jruby-puppet-config {:max-active-instances max-instances
+   (let [config (jruby-testutils/jruby-config {:max-active-instances max-instances
                                                       :max-requests-per-instance max-requests})
          pool-context (jruby-core/create-pool-context config jruby-testutils/default-shutdown-fn)]
      (jruby-agents/prime-pool! pool-context config)

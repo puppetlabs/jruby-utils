@@ -1,9 +1,9 @@
-(ns puppetlabs.services.jruby.jruby-puppet-internal-test
+(ns puppetlabs.services.jruby.jruby-internal-test
   (:require [clojure.test :refer :all]
-            [puppetlabs.services.jruby.jruby-puppet-internal :as jruby-internal]
+            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
-            [puppetlabs.services.jruby.jruby-puppet-schemas :as jruby-schemas])
-  (:import (com.puppetlabs.puppetserver.pool JRubyPool)
+            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas])
+  (:import (com.puppetlabs.jrubyutils.pool JRubyPool)
            (org.jruby RubyInstanceConfig$CompileMode)
            (clojure.lang ExceptionInfo)))
 
@@ -29,7 +29,7 @@
 (deftest ^:integration settings-plumbed-into-jruby-container
   (testing "setting plumbed into jruby container for"
     (let [pool (JRubyPool. 1)
-          config (jruby-testutils/jruby-puppet-config
+          config (jruby-testutils/jruby-config
                   {:compile-mode :jit})
           instance (jruby-internal/create-pool-instance! pool 0 config #())
           container (:scripting-container instance)]

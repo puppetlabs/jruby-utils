@@ -1,11 +1,11 @@
-(ns puppetlabs.services.protocols.jruby-puppet)
+(ns puppetlabs.services.protocols.jruby)
 
-(defprotocol JRubyPuppetService
-  "Describes the JRubyPuppet provider service which pools JRubyPuppet instances."
+(defprotocol JRubyService
+  "Describes the JRuby provider service which pools JRuby instances."
 
   (borrow-instance
     [this reason]
-    "Borrows an instance from the JRubyPuppet interpreter pool. If there are no
+    "Borrows an instance from the JRuby interpreter pool. If there are no
     interpreters left in the pool then the operation blocks until there is one
     available. A timeout (integer measured in milliseconds) can be configured
     which will either return an interpreter if one is available within the
@@ -16,8 +16,8 @@
     JRuby instance.  It may be used for metrics and logging purposes.")
 
   (return-instance
-    [this jrubypuppet-instance reason]
-    "Returns the JRubyPuppet interpreter back to the pool.
+    [this jruby-instance reason]
+    "Returns the JRuby interpreter back to the pool.
 
     `reason` is an identifier (usually a map) describing the reason for borrowing the
     JRuby instance.  It may be used for metrics and logging purposes, so for
@@ -26,7 +26,7 @@
 
   (free-instance-count
     [this]
-    "The number of free JRubyPuppet instances left in the pool.")
+    "The number of free JRuby instances left in the pool.")
 
   (flush-jruby-pool!
     [this]

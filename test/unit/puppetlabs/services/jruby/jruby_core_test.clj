@@ -1,9 +1,9 @@
-(ns puppetlabs.services.jruby.jruby-puppet-core-test
+(ns puppetlabs.services.jruby.jruby-core-test
   (:require [clojure.test :refer :all]
             [me.raynes.fs :as fs]
             [schema.test :as schema-test]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.services.jruby.jruby-puppet-core :as jruby-core]
+            [puppetlabs.services.jruby.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils])
   (:import (java.io ByteArrayOutputStream PrintStream ByteArrayInputStream)))
 
@@ -12,7 +12,7 @@
 (def min-config
   {:product
    {:name "puppet-server", :update-server-url "http://localhost:11111"},
-   :jruby-puppet
+   :jruby
    {:gem-home "./target/jruby-gem-home",
     :ruby-load-path ["./ruby/puppet/lib" "./ruby/facter/lib" "./ruby/hiera/lib"]}})
 

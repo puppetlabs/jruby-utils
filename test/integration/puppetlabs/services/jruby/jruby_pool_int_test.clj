@@ -4,9 +4,9 @@
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.services :as tk-services]
-            [puppetlabs.services.protocols.jruby-puppet :as jruby-protocol]
-            [puppetlabs.services.jruby.jruby-puppet-service :as jruby]
-            [puppetlabs.services.jruby.jruby-puppet-agents :as jruby-agents]))
+            [puppetlabs.services.protocols.jruby :as jruby-protocol]
+            [puppetlabs.services.jruby.jruby-service :as jruby]
+            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utilities
@@ -155,16 +155,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Tests
 
-;; TODO: this test seems redundant to the one in jruby-puppet-agents-test
+;; TODO: this test seems redundant to the one in puppetlabs.services.jruby.jruby-agents-test
 (deftest ^:integration flush-jruby-pool-test
   (testing "Flushing the pool results in all new JRuby instances"
     (tk-testutils/with-app-with-config
       app
-      [jruby/jruby-puppet-pooled-service]
-      (jruby-testutils/jruby-puppet-tk-config
-       (jruby-testutils/jruby-puppet-config {:max-active-instances      4
+      [jruby/jruby-pooled-service]
+      (jruby-testutils/jruby-tk-config
+       (jruby-testutils/jruby-config {:max-active-instances      4
                                              :borrow-timeout default-borrow-timeout}))
-      (let [jruby-service (tk-app/get-service app :JRubyPuppetService)
+      (let [jruby-service (tk-app/get-service app :JRubyService)
             context (tk-services/service-context jruby-service)
             pool-context (:pool-context context)]
         ;; set a ruby constant in each instance so that we can recognize them
@@ -181,11 +181,11 @@
   (testing "instance borrowed from old pool before pool flush begins and returned *after* new pool is available"
     (tk-testutils/with-app-with-config
       app
-      [jruby/jruby-puppet-pooled-service]
-      (jruby-testutils/jruby-puppet-tk-config
-       (jruby-testutils/jruby-puppet-config {:max-active-instances      4
+      [jruby/jruby-pooled-service]
+      (jruby-testutils/jruby-tk-config
+       (jruby-testutils/jruby-config {:max-active-instances      4
                                              :borrow-timeout default-borrow-timeout}))
-      (let [jruby-service (tk-app/get-service app :JRubyPuppetService)
+      (let [jruby-service (tk-app/get-service app :JRubyService)
             context (tk-services/service-context jruby-service)
             pool-context (:pool-context context)]
         ;; set a ruby constant in each instance so that we can recognize them
@@ -211,11 +211,11 @@
   (testing "file handle opened from old pool instance is held open across pool flush"
     (tk-testutils/with-app-with-config
       app
-      [jruby/jruby-puppet-pooled-service]
-      (jruby-testutils/jruby-puppet-tk-config
-       (jruby-testutils/jruby-puppet-config {:max-active-instances      4
+      [jruby/jruby-pooled-service]
+      (jruby-testutils/jruby-tk-config
+       (jruby-testutils/jruby-config {:max-active-instances      4
                                              :borrow-timeout default-borrow-timeout}))
-      (let [jruby-service (tk-app/get-service app :JRubyPuppetService)
+      (let [jruby-service (tk-app/get-service app :JRubyService)
             context (tk-services/service-context jruby-service)
             pool-context (:pool-context context)]
         ;; set a ruby constant in each instance so that we can recognize them
@@ -254,14 +254,14 @@
     (jruby-testutils/with-mock-pool-instance-fixture
      (tk-testutils/with-app-with-config
        app
-       [jruby/jruby-puppet-pooled-service]
-       (jruby-testutils/jruby-puppet-tk-config
-        (jruby-testutils/jruby-puppet-config {:max-active-instances 4
+       [jruby/jruby-pooled-service]
+       (jruby-testutils/jruby-tk-config
+        (jruby-testutils/jruby-config {:max-active-instances 4
                                               :max-requests-per-instance 10
                                               :borrow-timeout
                                               default-borrow-timeout}))
 
-       (let [jruby-service (tk-app/get-service app :JRubyPuppetService)
+       (let [jruby-service (tk-app/get-service app :JRubyService)
              context (tk-services/service-context jruby-service)
              pool-context (:pool-context context)]
          ;; set a ruby constant in each instance so that we can recognize them.

@@ -1,16 +1,16 @@
-(ns puppetlabs.services.jruby.jruby-puppet-internal
+(ns puppetlabs.services.jruby.jruby-internal
   (:require [schema.core :as schema]
-            [puppetlabs.services.jruby.jruby-puppet-schemas :as jruby-schemas]
+            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as ks])
-  (:import (com.puppetlabs.puppetserver.pool JRubyPool)
-           (puppetlabs.services.jruby.jruby_puppet_schemas JRubyPuppetInstance PoisonPill ShutdownPoisonPill)
+  (:import (com.puppetlabs.jrubyutils.pool JRubyPool)
+           (puppetlabs.services.jruby.jruby_schemas JRubyInstance PoisonPill ShutdownPoisonPill)
            (java.util HashMap)
            (org.jruby CompatVersion Main RubyInstanceConfig RubyInstanceConfig$CompileMode)
            (org.jruby.embed LocalContextScope)
            (java.util.concurrent TimeUnit)
            (clojure.lang IFn)
-           (com.puppetlabs.puppetserver.jruby ScriptingContainer)))
+           (com.puppetlabs.jrubyutils.jruby ScriptingContainer)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Definitions
@@ -23,12 +23,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
 
-(def JRubyPuppetInternalBorrowResult
+(def JRubyInternalBorrowResult
   (schema/pred (some-fn nil?
-                 jruby-schemas/poison-pill?
-                 jruby-schemas/retry-poison-pill?
-                 jruby-schemas/shutdown-poison-pill?
-                 jruby-schemas/jruby-puppet-instance?)))
+                        jruby-schemas/poison-pill?
+                        jruby-schemas/retry-poison-pill?
+                        jruby-schemas/shutdown-poison-pill?
+                        jruby-schemas/jruby-instance?)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private
@@ -40,14 +40,13 @@
   (into {} (System/getenv)))
 
 (defn instantiate-free-pool
-  "Instantiate a new queue object to use as the pool of free JRubyPuppet's."
+  "Instantiate a new queue object to use as the pool of free JRuby's."
   [size]
   {:post [(instance? jruby-schemas/pool-queue-type %)]}
   (JRubyPool. size))
 
 (schema/defn ^:always-validate managed-environment :- jruby-schemas/EnvMap
-  "The environment variables that should be passed to the Puppet JRuby
-  interpreters.
+  "The environment variables that should be passed to the JRuby interpreters.
 
   We don't want them to read any ruby environment variables, like $RUBY_LIB or
   anything like that, so pass it an empty environment map - except - Puppet
@@ -122,7 +121,7 @@
     ;; information.
     (.runScriptlet "require 'jar-dependencies'")))
 
-(schema/defn borrow-with-timeout-fn :- JRubyPuppetInternalBorrowResult
+(schema/defn borrow-with-timeout-fn :- JRubyInternalBorrowResult
   [timeout :- schema/Int
    pool :- jruby-schemas/pool-queue-type]
   (.borrowItemWithTimeout pool timeout TimeUnit/MILLISECONDS))
@@ -133,14 +132,14 @@
 (schema/defn ^:always-validate
   create-pool-from-config :- jruby-schemas/PoolState
   "Create a new PoolState based on the config input."
-  [{size :max-active-instances} :- jruby-schemas/JRubyPuppetConfig]
+  [{size :max-active-instances} :- jruby-schemas/JRubyConfig]
   {:pool (instantiate-free-pool size)
    :size size})
 
 (schema/defn ^:always-validate
   cleanup-pool-instance!
-  "Cleans up and cleanly terminates a JRubyPuppet instance and removes it from the pool."
-  [{:keys [scripting-container pool] :as instance} :- JRubyPuppetInstance]
+  "Cleans up and cleanly terminates a JRuby instance and removes it from the pool."
+  [{:keys [scripting-container pool] :as instance} :- JRubyInstance]
   (.unregister pool instance)
   ;; TODO: need to add support for a callback hook, so that consumers like
   ;; puppet-server can do their own cleanup.
@@ -149,11 +148,11 @@
   (log/infof "Cleaned up old JRuby instance with id %s." (:id instance)))
 
 (schema/defn ^:always-validate
-  create-pool-instance! :- JRubyPuppetInstance
-  "Creates a new JRubyPuppet instance and adds it to the pool."
+  create-pool-instance! :- JRubyInstance
+  "Creates a new JRuby instance and adds it to the pool."
   [pool :- jruby-schemas/pool-queue-type
    id :- schema/Int
-   config :- jruby-schemas/JRubyPuppetConfig
+   config :- jruby-schemas/JRubyConfig
    flush-instance-fn :- IFn]
   (let [{:keys [ruby-load-path gem-home compile-mode]} config]
     (when-not ruby-load-path
@@ -164,7 +163,7 @@
                                ruby-load-path
                                gem-home
                                compile-mode)]
-      (let [instance (jruby-schemas/map->JRubyPuppetInstance
+      (let [instance (jruby-schemas/map->JRubyInstance
                       {:pool pool
                        :id id
                        :max-requests (:max-requests-per-instance config)
@@ -182,21 +181,21 @@
 
 (schema/defn ^:always-validate
   get-pool :- jruby-schemas/pool-queue-type
-  "Gets the JRubyPuppet pool object from the pool context."
+  "Gets the JRuby pool object from the pool context."
   [context :- jruby-schemas/PoolContext]
   (:pool (get-pool-state context)))
 
 (schema/defn ^:always-validate
   get-pool-size :- schema/Int
-  "Gets the size of the JRubyPuppet pool from the pool context."
+  "Gets the size of the JRuby pool from the pool context."
   [context :- jruby-schemas/PoolContext]
   (get-in context [:config :max-active-instances]))
 
-(schema/defn borrow-without-timeout-fn :- JRubyPuppetInternalBorrowResult
+(schema/defn borrow-without-timeout-fn :- JRubyInternalBorrowResult
   [pool :- jruby-schemas/pool-queue-type]
   (.borrowItem pool))
 
-(schema/defn borrow-from-pool!* :- jruby-schemas/JRubyPuppetBorrowResult
+(schema/defn borrow-from-pool!* :- jruby-schemas/JRubyBorrowResult
   "Given a borrow function and a pool, attempts to borrow a JRuby instance from a pool.
   If successful, updates the state information and returns the JRuby instance.
   Returns nil if the borrow function returns nil; throws an exception if
@@ -211,7 +210,7 @@
                      "Unable to borrow JRuby instance from pool"
                      (:err instance))))
 
-          (jruby-schemas/jruby-puppet-instance? instance)
+          (jruby-schemas/jruby-instance? instance)
           instance
 
           ((some-fn nil? jruby-schemas/retry-poison-pill?) instance)
@@ -225,16 +224,16 @@
                    (str "Borrowed unrecognized object from pool!: " instance))))))
 
 (schema/defn ^:always-validate
-  borrow-from-pool :- jruby-schemas/JRubyPuppetInstanceOrPill
-  "Borrows a JRubyPuppet interpreter from the pool. If there are no instances
+  borrow-from-pool :- jruby-schemas/JRubyInstanceOrPill
+  "Borrows a JRuby interpreter from the pool. If there are no instances
   left in the pool then this function will block until there is one available."
   [pool-context :- jruby-schemas/PoolContext]
   (borrow-from-pool!* borrow-without-timeout-fn
                       (get-pool pool-context)))
 
 (schema/defn ^:always-validate
-  borrow-from-pool-with-timeout :- jruby-schemas/JRubyPuppetBorrowResult
-  "Borrows a JRubyPuppet interpreter from the pool, like borrow-from-pool but a
+  borrow-from-pool-with-timeout :- jruby-schemas/JRubyBorrowResult
+  "Borrows a JRuby interpreter from the pool, like borrow-from-pool but a
   blocking timeout is provided. If an instance is available then it will be
   immediately returned to the caller, if not then this function will block
   waiting for an instance to be free for the number of milliseconds given in
@@ -249,8 +248,8 @@
 (schema/defn ^:always-validate
   return-to-pool
   "Return a borrowed pool instance to its free pool."
-  [instance :- jruby-schemas/JRubyPuppetInstanceOrPill]
-  (if (jruby-schemas/jruby-puppet-instance? instance)
+  [instance :- jruby-schemas/JRubyInstanceOrPill]
+  (if (jruby-schemas/jruby-instance? instance)
     (let [new-state (swap! (:state instance)
                            update-in [:borrow-count] inc)
           {:keys [max-requests flush-instance-fn pool]} instance]
@@ -274,7 +273,7 @@
   "Return a new JRuby Main instance which should only be used for CLI purposes,
   e.g. for the ruby, gem, and irb subcommands.  Internal core services should
   use `create-scripting-container` instead of `new-main`."
-  [config :- jruby-schemas/JRubyPuppetConfig]
+  [config :- jruby-schemas/JRubyConfig]
   (let [{:keys [ruby-load-path gem-home compile-mode]} config
         jruby-config (init-jruby-config
                       (RubyInstanceConfig.)

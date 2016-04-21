@@ -1,34 +1,34 @@
-(ns puppetlabs.services.jruby.jruby-puppet-agents-test
+(ns puppetlabs.services.jruby.jruby-agents-test
   (:require [clojure.test :refer :all]
             [schema.test :as schema-test]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-testutils]
-            [puppetlabs.services.jruby.jruby-puppet-service :as jruby]
+            [puppetlabs.services.jruby.jruby-service :as jruby]
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
-            [puppetlabs.services.jruby.jruby-puppet-core :as jruby-core]
+            [puppetlabs.services.jruby.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.services :as tk-services]
-            [puppetlabs.services.protocols.jruby-puppet :as jruby-protocol]
-            [puppetlabs.services.jruby.jruby-puppet-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.jruby-puppet-internal :as jruby-internal]
-            [puppetlabs.services.jruby.jruby-puppet-agents :as jruby-agents]
+            [puppetlabs.services.protocols.jruby :as jruby-protocol]
+            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
+            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils])
-  (:import (puppetlabs.services.jruby.jruby_puppet_schemas RetryPoisonPill JRubyPuppetInstance)
-           (com.puppetlabs.puppetserver.pool JRubyPool)))
+  (:import (puppetlabs.services.jruby.jruby_schemas RetryPoisonPill JRubyInstance)
+           (com.puppetlabs.jrubyutils.pool JRubyPool)))
 
 (use-fixtures :once schema-test/validate-schemas)
 (use-fixtures :each jruby-testutils/mock-pool-instance-fixture)
 
 (def default-services
-  [jruby/jruby-puppet-pooled-service])
+  [jruby/jruby-pooled-service])
 
 (deftest basic-flush-test
   (testing "Flushing the pool results in all new JRuby instances"
     (tk-testutils/with-app-with-config
       app
       default-services
-      (-> (jruby-testutils/jruby-puppet-tk-config
-            (jruby-testutils/jruby-puppet-config {:max-active-instances 4})))
-      (let [jruby-service (tk-app/get-service app :JRubyPuppetService)
+      (-> (jruby-testutils/jruby-tk-config
+           (jruby-testutils/jruby-config {:max-active-instances 4})))
+      (let [jruby-service (tk-app/get-service app :JRubyService)
             context (tk-services/service-context jruby-service)
             pool-context (:pool-context context)]
         (jruby-testutils/reduce-over-jrubies! pool-context 4 #(format "InstanceID = %s" %))
@@ -50,9 +50,9 @@
     (tk-testutils/with-app-with-config
       app
       default-services
-      (-> (jruby-testutils/jruby-puppet-tk-config
-            (jruby-testutils/jruby-puppet-config {:max-active-instances 1})))
-      (let [jruby-service (tk-app/get-service app :JRubyPuppetService)
+      (-> (jruby-testutils/jruby-tk-config
+           (jruby-testutils/jruby-config {:max-active-instances 1})))
+      (let [jruby-service (tk-app/get-service app :JRubyService)
             context (tk-services/service-context jruby-service)
             pool-context (:pool-context context)
             old-pool (jruby-core/get-pool pool-context)
@@ -62,7 +62,7 @@
                                     (remove-watch pool-state key)
                                     (deliver pool-state-swapped true)))]
         ; borrow an instance so we know that the pool is ready
-        (jruby/with-jruby-puppet jruby-puppet jruby-service :retry-poison-pill-test)
+        (jruby/with-jruby-instance jruby-instance jruby-service :retry-poison-pill-test)
         (add-watch (:pool-state pool-context) :pool-state-watch pool-state-watch-fn)
         (jruby-protocol/flush-jruby-pool! jruby-service)
         ; wait until we know the new pool has been swapped in
@@ -75,13 +75,13 @@
           (is (jruby-schemas/retry-poison-pill? old-pool-instance)))))))
 
 (deftest with-jruby-retry-test-via-mock-get-pool
-  (testing "with-jruby-puppet retries if it encounters a RetryPoisonPill"
+  (testing "with-jruby-instance retries if it encounters a RetryPoisonPill"
     (tk-testutils/with-app-with-config
       app
       default-services
-      (-> (jruby-testutils/jruby-puppet-tk-config
-            (jruby-testutils/jruby-puppet-config {:max-active-instances 1})))
-      (let [jruby-service (tk-app/get-service app :JRubyPuppetService)
+      (-> (jruby-testutils/jruby-tk-config
+           (jruby-testutils/jruby-config {:max-active-instances 1})))
+      (let [jruby-service (tk-app/get-service app :JRubyService)
             real-pool     (-> (tk-services/service-context jruby-service)
                               :pool-context
                               (jruby-core/get-pool))
@@ -95,16 +95,16 @@
                                     (swap! num-borrows inc)
                                     result))]
         (with-redefs [jruby-internal/get-pool get-mock-pool]
-          (jruby/with-jruby-puppet
-            jruby-puppet
-            jruby-service
-            :with-jruby-retry-test
-            (is (instance? JRubyPuppetInstance jruby-puppet))))
+          (jruby/with-jruby-instance
+           jruby-instance
+           jruby-service
+           :with-jruby-retry-test
+           (is (instance? JRubyInstance jruby-instance))))
         (is (= 4 @num-borrows))))))
 
 (deftest next-instance-id-test
   (let [pool-context (jruby-core/create-pool-context
-                       (jruby-testutils/jruby-puppet-config {:max-active-instances 8})
+                       (jruby-testutils/jruby-config {:max-active-instances 8})
                        jruby-testutils/default-shutdown-fn)]
     (testing "next instance id should be based on the pool size"
       (is (= 10 (jruby-agents/next-instance-id 2 pool-context)))
@@ -120,10 +120,10 @@
     (logutils/with-test-logging
       (tk-testutils/with-app-with-config
         app
-        [jruby/jruby-puppet-pooled-service]
-        (-> (jruby-testutils/jruby-puppet-tk-config
-              (jruby-testutils/jruby-puppet-config {:max-active-instances 1})))
-        (let [jruby-service (tk-app/get-service app :JRubyPuppetService)
+        [jruby/jruby-pooled-service]
+        (-> (jruby-testutils/jruby-tk-config
+             (jruby-testutils/jruby-config {:max-active-instances 1})))
+        (let [jruby-service (tk-app/get-service app :JRubyService)
               context (tk-services/service-context jruby-service)]
           (jruby-protocol/flush-jruby-pool! jruby-service)
           ; wait until the flush is complete

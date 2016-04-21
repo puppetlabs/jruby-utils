@@ -1,4 +1,4 @@
-package com.puppetlabs.puppetserver.pool;
+package com.puppetlabs.jrubyutils.pool;
 
 import java.util.Deque;
 import java.util.LinkedList;
@@ -9,7 +9,7 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * An implementation of LockablePool for managing a pool of JRubyPuppet
+ * An implementation of LockablePool for managing a pool of JRuby
  * instances.
  *
  * @param <E> the type of element that can be added to the pool.
