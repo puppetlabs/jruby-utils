@@ -84,12 +84,7 @@
      (if (nil? pool-instance#)
        (sling/throw+
         {:type    ::jruby-timeout
-         :message (str "Attempt to borrow a JRubyInstance from the pool "
-                       "timed out; Puppet Server is temporarily overloaded. If "
-                       "you get this error repeatedly, your server might be "
-                       "misconfigured or trying to serve too many agent nodes. "
-                       "Check Puppet Server settings: "
-                       "jruby.max-active-instances.")}))
+         :message (str "Attempt to borrow a JRubyInstance from the pool timed out.")}))
      (when (jruby-schemas/shutdown-poison-pill? pool-instance#)
        (jruby/return-instance ~jruby-service pool-instance# ~reason)
        (sling/throw+
