@@ -95,10 +95,6 @@
   [ruby-load-path :- [schema/Str]
    gem-home :- schema/Str
    compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
-  {:pre [(sequential? ruby-load-path)
-         (every? string? ruby-load-path)
-         (string? gem-home)]
-   :post [(instance? ScriptingContainer %)]}
   (-> (ScriptingContainer. LocalContextScope/SINGLETHREAD)
       (init-jruby-config ruby-load-path gem-home compile-mode)))
 
