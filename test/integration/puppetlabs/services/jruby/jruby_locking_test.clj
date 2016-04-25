@@ -2,8 +2,8 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
             [puppetlabs.trapperkeeper.app :as tk-app]
-            [puppetlabs.services.jruby.jruby-puppet-service :as jruby-service]
-            [puppetlabs.services.protocols.jruby-puppet :as jruby-protocol]
+            [puppetlabs.services.jruby.jruby-service :as jruby-service]
+            [puppetlabs.services.protocols.jruby :as jruby-protocol]
             [schema.test :as schema-test]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
             [puppetlabs.trapperkeeper.core :as tk]))
@@ -13,8 +13,8 @@
 
 (defn jruby-service-test-config
   [pool-size]
-  (jruby-testutils/jruby-puppet-tk-config
-    (jruby-testutils/jruby-puppet-config {:max-active-instances pool-size
+  (jruby-testutils/jruby-tk-config
+    (jruby-testutils/jruby-config {:max-active-instances pool-size
                                           :borrow-timeout 1})))
 
 (defn can-borrow-from-different-thread?
@@ -28,10 +28,10 @@
 (deftest ^:integration with-lock-test
   (tk-bootstrap/with-app-with-config
     app
-    [jruby-service/jruby-puppet-pooled-service]
+    [jruby-service/jruby-pooled-service]
     (jruby-service-test-config 1)
     (jruby-testutils/wait-for-jrubies app)
-    (let [jruby-service (tk-app/get-service app :JRubyPuppetService)]
+    (let [jruby-service (tk-app/get-service app :JRubyService)]
       (testing "initial state of write lock is unlocked"
         (is (can-borrow-from-different-thread? jruby-service))
       (testing "with-lock macro holds write lock while executing body"
@@ -43,10 +43,10 @@
 (deftest ^:integration with-lock-exception-test
   (tk-bootstrap/with-app-with-config
     app
-    [jruby-service/jruby-puppet-pooled-service]
+    [jruby-service/jruby-pooled-service]
     (jruby-service-test-config 1)
     (jruby-testutils/wait-for-jrubies app)
-    (let [jruby-service (tk-app/get-service app :JRubyPuppetService)]
+    (let [jruby-service (tk-app/get-service app :JRubyService)]
 
       (testing "initial state of write lock is unlocked"
         (is (can-borrow-from-different-thread? jruby-service)))
@@ -64,21 +64,21 @@
     (let [events (atom [])
           callback (fn [{:keys [type] :as event}]
                      (swap! events conj type))
-          event-service (tk/service [[:JRubyPuppetService register-event-handler]]
+          event-service (tk/service [[:JRubyService register-event-handler]]
                                     (init [this context]
                                           (register-event-handler callback)
                                           context))]
       (tk-bootstrap/with-app-with-config
         app
-        [jruby-service/jruby-puppet-pooled-service
+        [jruby-service/jruby-pooled-service
          event-service]
         (jruby-service-test-config 1)
         (jruby-testutils/wait-for-jrubies app)
-        (let [jruby-service (tk-app/get-service app :JRubyPuppetService)]
+        (let [jruby-service (tk-app/get-service app :JRubyService)]
 
           (testing "locking events trigger event notifications"
-            (jruby-service/with-jruby-puppet
-              jruby-puppet
+            (jruby-service/with-jruby-instance
+              jruby-instance
               jruby-service
               :with-lock-events-test
               (testing "borrowing a jruby triggers 'requested'/'borrow' events"
@@ -99,10 +99,10 @@
   (testing "contention for instances with borrows and locking handled properly"
     (tk-bootstrap/with-app-with-config
      app
-      [jruby-service/jruby-puppet-pooled-service]
+      [jruby-service/jruby-pooled-service]
      (jruby-service-test-config 2)
      (jruby-testutils/wait-for-jrubies app)
-     (let [jruby-service (tk-app/get-service app :JRubyPuppetService)
+     (let [jruby-service (tk-app/get-service app :JRubyService)
            instance (jruby-protocol/borrow-instance
                      jruby-service
                      :with-lock-and-borrow-contention-test)

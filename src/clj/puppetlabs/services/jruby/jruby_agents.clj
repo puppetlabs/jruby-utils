@@ -1,11 +1,11 @@
-(ns puppetlabs.services.jruby.jruby-puppet-agents
+(ns puppetlabs.services.jruby.jruby-agents
   (:require [schema.core :as schema]
-            [puppetlabs.services.jruby.jruby-puppet-internal :as jruby-internal]
+            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.services.jruby.jruby-puppet-schemas :as jruby-schemas])
+            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas])
   (:import (clojure.lang IFn IDeref)
-           (puppetlabs.services.jruby.jruby_puppet_schemas PoisonPill RetryPoisonPill JRubyPuppetInstance ShutdownPoisonPill)))
+           (puppetlabs.services.jruby.jruby_schemas PoisonPill RetryPoisonPill JRubyInstance ShutdownPoisonPill)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private
@@ -36,36 +36,36 @@
 
 (schema/defn ^:always-validate
   prime-pool!
-  "Sequentially fill the pool with new JRubyPuppet instances.  NOTE: this
+  "Sequentially fill the pool with new JRubyInstances.  NOTE: this
   function should never be called except by the pool-agent."
   [{:keys [pool-state] :as pool-context} :- jruby-schemas/PoolContext
-   config :- jruby-schemas/JRubyPuppetConfig]
+   config :- jruby-schemas/JRubyConfig]
   (let [pool (:pool @pool-state)]
-    (log/debug (str "Initializing JRubyPuppet instances with the following settings:\n"
+    (log/debug (str "Initializing JRubyInstances with the following settings:\n"
                     (ks/pprint-to-string config)))
     (try
       (let [count (.remainingCapacity pool)]
         (dotimes [i count]
           (let [id (inc i)]
-            (log/debugf "Priming JRubyPuppet instance %d of %d" id count)
+            (log/debugf "Priming JRubyInstance %d of %d" id count)
             (jruby-internal/create-pool-instance! pool id config
                                                   (partial send-flush-instance! pool-context))
-            (log/infof "Finished creating JRubyPuppet instance %d of %d"
+            (log/infof "Finished creating JRubyInstance %d of %d"
                        id count))))
       (catch Exception e
         (.clear pool)
         (.insertPill pool (PoisonPill. e))
-        (throw (IllegalStateException. "There was a problem adding a JRubyPuppet instance to the pool." e))))))
+        (throw (IllegalStateException. "There was a problem adding a JRubyInstance to the pool." e))))))
 
 (schema/defn ^:always-validate
   flush-instance!
-  "Flush a single JRuby instance.  Create a new replacement instance
+  "Flush a single JRubyInstance.  Create a new replacement instance
   and insert it into the specified pool."
   [pool-context :- jruby-schemas/PoolContext
-   instance :- JRubyPuppetInstance
+   instance :- JRubyInstance
    new-pool :- jruby-schemas/pool-queue-type
    new-id :- schema/Int
-   config :- jruby-schemas/JRubyPuppetConfig]
+   config :- jruby-schemas/JRubyConfig]
   (jruby-internal/cleanup-pool-instance! instance)
   (jruby-internal/create-pool-instance! new-pool new-id config
                                         (partial send-flush-instance! pool-context)))
@@ -103,7 +103,7 @@
             (when refill?
               (jruby-internal/create-pool-instance! new-pool id config
                                                     (partial send-flush-instance! pool-context))
-              (log/infof "Finished creating JRubyPuppet instance %d of %d"
+              (log/infof "Finished creating JRubyInstance %d of %d"
                          id old-pool-size))
             (finally
               (.releaseItem old-pool instance false))))
@@ -111,7 +111,7 @@
           (.clear new-pool)
           (.insertPill new-pool (PoisonPill. e))
           (throw (IllegalStateException.
-                  "There was a problem adding a JRubyPuppet instance to the pool."
+                  "There was a problem adding a JRubyInstance to the pool."
                   e)))))
     ;; Add a "RetryPoisonPill" to the pool in case something else is in the
     ;; process of borrowing from the old pool.
@@ -192,7 +192,7 @@
   "Sends requests to the flush-instance agent to flush the instance and create a new one."
   [pool-context :- jruby-schemas/PoolContext
    pool :- jruby-schemas/pool-queue-type
-   instance :- JRubyPuppetInstance]
+   instance :- JRubyInstance]
   ;; We use a separate agent from the main `pool-agent` here, because there is a possibility for deadlock otherwise.
   ;; e.g.:
   ;; 1. A flush-pool request comes in, and we start using the main pool agent to flush the pool.  We do that by

@@ -1,13 +1,13 @@
-(ns puppetlabs.services.jruby.jruby-puppet-core
+(ns puppetlabs.services.jruby.jruby-core
   (:require [clojure.tools.logging :as log]
             [schema.core :as schema]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.services.jruby.jruby-puppet-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.jruby-puppet-internal :as jruby-internal]
-            [puppetlabs.services.jruby.jruby-puppet-agents :as jruby-agents]
+            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
+            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log])
-  (:import (puppetlabs.services.jruby.jruby_puppet_schemas JRubyPuppetInstance)
+  (:import (puppetlabs.services.jruby.jruby_schemas JRubyInstance)
            (clojure.lang IFn)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -40,12 +40,12 @@
 
 (schema/defn ^:always-validate
   get-pool :- jruby-schemas/pool-queue-type
-  "Gets the JRubyPuppet pool object from the pool context."
+  "Gets the JRuby pool object from the pool context."
   [context :- jruby-schemas/PoolContext]
   (jruby-internal/get-pool context))
 
 (schema/defn ^:always-validate
-  registered-instances :- [JRubyPuppetInstance]
+  registered-instances :- [JRubyInstance]
   [context :- jruby-schemas/PoolContext]
   (-> (get-pool context)
       .getRegisteredElements
@@ -67,14 +67,14 @@
 
 (schema/defn create-borrowed-event :- jruby-schemas/JRubyBorrowedEvent
   [requested-event :- jruby-schemas/JRubyRequestedEvent
-   instance :- jruby-schemas/JRubyPuppetBorrowResult]
+   instance :- jruby-schemas/JRubyBorrowResult]
   {:type :instance-borrowed
    :reason (:reason requested-event)
    :requested-event requested-event
    :instance instance})
 
 (schema/defn create-returned-event :- jruby-schemas/JRubyReturnedEvent
-  [instance :- jruby-schemas/JRubyPuppetInstanceOrPill
+  [instance :- jruby-schemas/JRubyInstanceOrPill
    reason :- jruby-schemas/JRubyEventReason]
   {:type :instance-returned
    :reason reason
@@ -113,12 +113,12 @@
 (schema/defn instance-borrowed :- jruby-schemas/JRubyBorrowedEvent
   [event-callbacks :- [IFn]
    requested-event :- jruby-schemas/JRubyRequestedEvent
-   instance :- jruby-schemas/JRubyPuppetBorrowResult]
+   instance :- jruby-schemas/JRubyBorrowResult]
   (notify-event-listeners event-callbacks (create-borrowed-event requested-event instance)))
 
 (schema/defn instance-returned :- jruby-schemas/JRubyReturnedEvent
   [event-callbacks :- [IFn]
-   instance :- jruby-schemas/JRubyPuppetInstanceOrPill
+   instance :- jruby-schemas/JRubyInstanceOrPill
    reason :- jruby-schemas/JRubyEventReason]
   (notify-event-listeners event-callbacks (create-returned-event instance reason)))
 
@@ -142,9 +142,9 @@
 ;;; Public
 
 (schema/defn ^:always-validate
-  initialize-config :- jruby-schemas/JRubyPuppetConfig
+  initialize-config :- jruby-schemas/JRubyConfig
   [config :- {schema/Keyword schema/Any}]
-  (-> (get-in config [:jruby-puppet])
+  (-> (get-in config [:jruby])
       (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
@@ -152,33 +152,33 @@
 
 (schema/defn ^:always-validate
   create-pool-context :- jruby-schemas/PoolContext
-  "Creates a new JRubyPuppet pool context with an empty pool. Once the JRubyPuppet
+  "Creates a new JRuby pool context with an empty pool. Once the JRuby
   pool object has been created, it will need to be filled using `prime-pool!`."
-  [config :- jruby-schemas/JRubyPuppetConfig
+  [config :- jruby-schemas/JRubyConfig
    agent-shutdown-fn :- (schema/pred ifn?)]
   {:config                config
    :pool-agent            (jruby-agents/pool-agent agent-shutdown-fn)
    ;; For an explanation of why we need a separate agent for the `flush-instance`,
-   ;; see the comments in jruby-puppet-agents/send-flush-instance
+   ;; see the comments in puppetlabs.services.jruby.jruby-agents/send-flush-instance
    :flush-instance-agent  (jruby-agents/pool-agent agent-shutdown-fn)
    :pool-state            (atom (jruby-internal/create-pool-from-config config))})
 
 (schema/defn ^:always-validate
   free-instance-count
-  "Returns the number of JRubyPuppet instances available in the pool."
+  "Returns the number of JRubyInstances available in the pool."
   [pool :- jruby-schemas/pool-queue-type]
   {:post [(>= % 0)]}
   (.size pool))
 
 (schema/defn ^:always-validate
   instance-state :- jruby-schemas/JRubyInstanceState
-  "Get the state metadata for a JRubyPuppet instance."
-  [jruby-puppet :- (schema/pred jruby-schemas/jruby-puppet-instance?)]
-  @(:state jruby-puppet))
+  "Get the state metadata for a JRubyInstance."
+  [jruby-instance :- (schema/pred jruby-schemas/jruby-instance?)]
+  @(:state jruby-instance))
 
 (schema/defn ^:always-validate
-  borrow-from-pool :- jruby-schemas/JRubyPuppetInstanceOrPill
-  "Borrows a JRubyPuppet interpreter from the pool. If there are no instances
+  borrow-from-pool :- jruby-schemas/JRubyInstanceOrPill
+  "Borrows a JRuby interpreter from the pool. If there are no instances
   left in the pool then this function will block until there is one available."
   [pool-context :- jruby-schemas/PoolContext
    reason :- schema/Any
@@ -189,8 +189,8 @@
     instance))
 
 (schema/defn ^:always-validate
-  borrow-from-pool-with-timeout :- jruby-schemas/JRubyPuppetBorrowResult
-  "Borrows a JRubyPuppet interpreter from the pool, like borrow-from-pool but a
+  borrow-from-pool-with-timeout :- jruby-schemas/JRubyBorrowResult
+  "Borrows a JRuby interpreter from the pool, like borrow-from-pool but a
   blocking timeout is provided. If an instance is available then it will be
   immediately returned to the caller, if not then this function will block
   waiting for an instance to be free for the number of milliseconds given in
@@ -211,7 +211,7 @@
 (schema/defn ^:always-validate
   return-to-pool
   "Return a borrowed pool instance to its free pool."
-  [instance :- jruby-schemas/JRubyPuppetInstanceOrPill
+  [instance :- jruby-schemas/JRubyInstanceOrPill
    reason :- schema/Any
    event-callbacks :- [IFn]]
   (instance-returned event-callbacks instance reason)

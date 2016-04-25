@@ -1,4 +1,4 @@
-package com.puppetlabs.puppetserver.jruby;
+package com.puppetlabs.jruby_utils.jruby;
 
 import org.jruby.embed.LocalContextScope;
 import org.jruby.embed.LocalVariableBehavior;

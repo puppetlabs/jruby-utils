@@ -1,9 +1,9 @@
-(ns puppetlabs.services.jruby.jruby-puppet-service-test
-  (:import (puppetlabs.services.jruby.jruby_puppet_schemas JRubyPuppetInstance))
+(ns puppetlabs.services.jruby.jruby-service-test
+  (:import (puppetlabs.services.jruby.jruby_schemas JRubyInstance))
   (:require [clojure.test :refer :all]
-            [puppetlabs.services.protocols.jruby-puppet :as jruby-protocol]
+            [puppetlabs.services.protocols.jruby :as jruby-protocol]
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
-            [puppetlabs.services.jruby.jruby-puppet-service :refer :all]
+            [puppetlabs.services.jruby.jruby-service :refer :all]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.kitchensink.testutils :as ks-testutils]
             [puppetlabs.trapperkeeper.app :as app]
@@ -12,9 +12,9 @@
             [clojure.stacktrace :as stacktrace]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as bootstrap]
             [puppetlabs.trapperkeeper.testutils.logging :as logging]
-            [puppetlabs.services.jruby.jruby-puppet-core :as jruby-core]
-            [puppetlabs.services.jruby.jruby-puppet-internal :as jruby-internal]
-            [puppetlabs.services.jruby.jruby-puppet-schemas :as jruby-schemas]
+            [puppetlabs.services.jruby.jruby-core :as jruby-core]
+            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
             [me.raynes.fs :as fs]
             [schema.test :as schema-test]))
 
@@ -23,15 +23,15 @@
 
 (defn jruby-service-test-config
   [pool-size]
-  (jruby-testutils/jruby-puppet-tk-config
-    (jruby-testutils/jruby-puppet-config {:max-active-instances pool-size})))
+  (jruby-testutils/jruby-tk-config
+   (jruby-testutils/jruby-config {:max-active-instances pool-size})))
 
 (def default-services
-  [jruby-puppet-pooled-service])
+  [jruby-pooled-service])
 
 (deftest test-error-during-init
   (testing
-   (str "If there is an exception while putting a JRubyPuppet instance in "
+   (str "If there is an exception while putting a JRubyInstance in "
         "the pool the application should shut down.")
     (logging/with-test-logging
      (with-redefs [jruby-internal/create-pool-instance!
@@ -57,7 +57,7 @@
         app
         default-services
         (jruby-service-test-config pool-size)
-        (let [service (app/get-service app :JRubyPuppetService)
+        (let [service (app/get-service app :JRubyService)
               all-the-instances
               (mapv (fn [_] (jruby-protocol/borrow-instance service :test-pool-size))
                     (range pool-size))]
@@ -65,14 +65,14 @@
           (is (= pool-size (count all-the-instances)))
           (doseq [instance all-the-instances]
             (is (not (nil? instance))
-                "One of the JRubyPuppet instances retrieved from the pool is nil")
+                "One of the JRubyInstances retrieved from the pool is nil")
             (jruby-protocol/return-instance service instance :test-pool-size))
           (is (= pool-size (jruby-protocol/free-instance-count service))))))))
 
 (deftest test-pool-population-during-init
-  (testing "A JRuby instance can be borrowed from the 'init' phase of a service"
+  (testing "A JRubyInstance can be borrowed from the 'init' phase of a service"
     (let [test-service (tk/service
-                         [[:JRubyPuppetService borrow-instance return-instance]]
+                         [[:JRubyService borrow-instance return-instance]]
                          (init [this context]
                                (return-instance
                                  (borrow-instance :test-pool-population)
@@ -88,33 +88,33 @@
        ; If execution gets here, the test passed.
        (is (true? true))))))
 
-(deftest test-with-jruby-puppet
-  (testing "the `with-jruby-puppet macro`"
+(deftest test-with-jruby-instance
+  (testing "the `with-jruby-instance macro`"
     (bootstrap/with-app-with-config
       app
       default-services
       (jruby-service-test-config 1)
-      (let [service (app/get-service app :JRubyPuppetService)]
-        (with-jruby-puppet
-          jruby-puppet
+      (let [service (app/get-service app :JRubyService)]
+        (with-jruby-instance
+          jruby-instance
           service
-          :test-with-jruby-puppet
-          (is (instance? JRubyPuppetInstance jruby-puppet))
+          :test-with-jruby-instance
+          (is (instance? JRubyInstance jruby-instance))
           (is (= 0 (jruby-protocol/free-instance-count service))))
         (is (= 1 (jruby-protocol/free-instance-count service)))
-        ;; borrow and return one more time: we're using `with-jruby-puppet`
+        ;; borrow and return one more time: we're using `with-jruby-instance`
         ;; here even though it looks a bit strange, because that is what this
         ;; test is intended to cover.
-        (with-jruby-puppet
-          jruby-puppet
+        (with-jruby-instance
+          jruby-instance
           service
-          :test-with-jruby-puppet)
-        (let [jruby (jruby-protocol/borrow-instance service :test-with-jruby-puppet)]
+          :test-with-jruby-instance)
+        (let [jruby (jruby-protocol/borrow-instance service :test-with-jruby-instance)]
           ;; the counter gets incremented when the instance is returned to the
           ;; pool, so right now it should be at 2 since we've called
-          ;; `with-jruby-puppet` twice.
+          ;; `with-jruby-instance` twice.
           (is (= 2 (:borrow-count (jruby-core/instance-state jruby))))
-          (jruby-protocol/return-instance service jruby :test-with-jruby-puppet))))))
+          (jruby-protocol/return-instance service jruby :test-with-jruby-instance))))))
 
 (deftest test-jruby-events
   (testing "jruby service sends event notifications"
@@ -139,7 +139,7 @@
                        (reset! returned {:sequence (swap! counter inc)
                                          :reason reason
                                          :instance instance})))
-          event-service (tk/service [[:JRubyPuppetService register-event-handler]]
+          event-service (tk/service [[:JRubyService register-event-handler]]
                           (init [this context]
                             (register-event-handler callback)
                             context))]
@@ -147,25 +147,25 @@
         app
         (conj default-services event-service)
         (jruby-service-test-config 1)
-        (let [service (app/get-service app :JRubyPuppetService)]
-          ;; We're making an empty call to `with-jruby-puppet` here, because
+        (let [service (app/get-service app :JRubyService)]
+          ;; We're making an empty call to `with-jruby-instance` here, because
           ;; we want to trigger a borrow/return via the same code path that
           ;; would be used in production.
-          (with-jruby-puppet
-            jruby-puppet
+          (with-jruby-instance
+            jruby-instance
             service
             :test-jruby-events)
           (is (= {:sequence 1 :reason :test-jruby-events}
                 (dissoc @requested :event)))
           (is (= {:sequence 2 :reason :test-jruby-events}
                 (dissoc @borrowed :instance :requested-event)))
-          (is (jruby-schemas/jruby-puppet-instance? (:instance @borrowed)))
+          (is (jruby-schemas/jruby-instance? (:instance @borrowed)))
           (is (identical? (:event @requested) (:requested-event @borrowed)))
           (is (= {:sequence 3 :reason :test-jruby-events}
                 (dissoc @returned :instance)))
           (is (= (:instance @borrowed) (:instance @returned)))
-          (with-jruby-puppet
-            jruby-puppet
+          (with-jruby-instance
+            jruby-instance
             service
             :test-jruby-events)
           (is (= 4 (:sequence @requested)))
@@ -176,19 +176,19 @@
   (testing "configured :borrow-timeout is honored by the borrow-instance service function"
     (let [timeout   250
           pool-size 1
-          config  (jruby-testutils/jruby-puppet-tk-config
-                    (jruby-testutils/jruby-puppet-config {:max-active-instances pool-size
+          config  (jruby-testutils/jruby-tk-config
+                    (jruby-testutils/jruby-config {:max-active-instances pool-size
                                                           :borrow-timeout timeout}))]
       (bootstrap/with-app-with-config
         app
         default-services
         config
-        (let [service (app/get-service app :JRubyPuppetService)
+        (let [service (app/get-service app :JRubyService)
               context (services/service-context service)
               pool-context (:pool-context context)]
           (let [jrubies (jruby-testutils/drain-pool pool-context pool-size)]
             (is (= 1 (count jrubies)))
-            (is (every? jruby-schemas/jruby-puppet-instance? jrubies))
+            (is (every? jruby-schemas/jruby-instance? jrubies))
             (let [test-start-in-millis (System/currentTimeMillis)]
               (is (nil? (jruby-protocol/borrow-instance service :test-borrow-timeout-configuration)))
               (is (>= (- (System/currentTimeMillis) test-start-in-millis) timeout))
@@ -209,6 +209,6 @@
       ;; finishes.  It should be possible to remove this when SERVER-1087 is
       ;; resolved.
       (jruby-testutils/wait-for-jrubies app)
-      (let [service (app/get-service app :JRubyPuppetService)
+      (let [service (app/get-service app :JRubyService)
             context (services/service-context service)]
         (is (= (:borrow-timeout context) jruby-core/default-borrow-timeout))))))
