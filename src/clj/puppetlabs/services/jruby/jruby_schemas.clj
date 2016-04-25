@@ -9,7 +9,7 @@
 ;;; Schemas
 
 (def pool-queue-type
-  "The Java datastructure type used to store JRuby instances which are
+  "The Java datastructure type used to store JRubyInstances which are
   free to be borrowed."
   LockablePool)
 
@@ -52,7 +52,7 @@
     * :compile-mode - The value to use for JRuby's CompileMode setting.  Legal
         values are `:jit`, `:force`, and `:off`.  Defaults to `:off`.
 
-    * :max-active-instances - The maximum number of JRuby instances that
+    * :max-active-instances - The maximum number of JRubyInstances that
         will be pooled."
   {:ruby-load-path [schema/Str]
    :gem-home schema/Str
@@ -90,11 +90,11 @@
    :pool-state            PoolStateContainer})
 
 (def JRubyInstanceState
-  "State metadata for an individual JRuby instance"
+  "State metadata for an individual JRubyInstance"
   {:borrow-count schema/Int})
 
 (def JRubyInstanceStateContainer
-  "An atom containing the current state of a given JRuby instance."
+  "An atom containing the current state of a given JRubyInstance."
   (schema/pred #(and (instance? Atom %)
                      (nil? (schema/check JRubyInstanceState @%)))
                'JRubyInstanceState))

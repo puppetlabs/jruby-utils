@@ -77,7 +77,7 @@
 
 (defn mock-pool-instance-fixture
   "Test fixture which changes the behavior of the JRubyPool to create
-  mock JRuby instances."
+  mock JRubyInstances."
   [f]
   (with-redefs
     [jruby-internal/create-pool-instance! create-mock-pool-instance]
@@ -94,19 +94,19 @@
   (mapv (fn [_] (jruby-core/borrow-from-pool pool-context :test [])) (range size)))
 
 (defn fill-drained-pool
-  "Returns a list of JRuby instances back to their pool."
+  "Returns a list of JRubyInstances back to their pool."
   [instance-list]
   (doseq [instance instance-list]
     (jruby-core/return-to-pool instance :test [])))
 
 (defn reduce-over-jrubies!
   "Utility function; takes a JRuby pool and size, and a function f from integer
-  to string.  For each JRuby instance in the pool, f will be called, passing in
+  to string.  For each JRubyInstance in the pool, f will be called, passing in
   an integer offset into the jruby array (0..size), and f is expected to return
   a string containing a script to run against the jruby instance.
 
   Returns a vector containing the results of executing the scripts against the
-  JRuby instances."
+  JRubyInstances."
   [pool-context size f]
   (let [jrubies (drain-pool pool-context size)
         result  (reduce

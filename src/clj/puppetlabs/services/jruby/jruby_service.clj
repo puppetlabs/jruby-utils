@@ -69,7 +69,7 @@
       (swap! event-callbacks conj callback-fn))))
 
 (defmacro with-jruby-instance
-  "Encapsulates the behavior of borrowing and returning a JRuby instance.
+  "Encapsulates the behavior of borrowing and returning a JRubyInstance.
   Example usage:
 
   (let [jruby-service (get-service :JRubyService)]
@@ -78,13 +78,13 @@
       jruby-service
       (do-something-with-a-jruby-instance jruby-instance)))
 
-  Will throw an IllegalStateException if borrowing a JRuby instance times out."
+  Will throw an IllegalStateException if borrowing a JRubyInstance times out."
   [jruby-instance jruby-service reason & body]
   `(loop [pool-instance# (jruby/borrow-instance ~jruby-service ~reason)]
      (if (nil? pool-instance#)
        (sling/throw+
         {:type    ::jruby-timeout
-         :message (str "Attempt to borrow a JRuby instance from the pool "
+         :message (str "Attempt to borrow a JRubyInstance from the pool "
                        "timed out; Puppet Server is temporarily overloaded. If "
                        "you get this error repeatedly, your server might be "
                        "misconfigured or trying to serve too many agent nodes. "
@@ -94,7 +94,7 @@
        (jruby/return-instance ~jruby-service pool-instance# ~reason)
        (sling/throw+
         {:type    ::service-unavailable
-         :message (str "Attempted to borrow a JRuby instance from the pool "
+         :message (str "Attempted to borrow a JRubyInstance from the pool "
                        "during a shutdown. Please try again.")}))
      (if (jruby-schemas/retry-poison-pill? pool-instance#)
        (do

@@ -31,7 +31,7 @@
 
 (deftest test-error-during-init
   (testing
-   (str "If there is an exception while putting a JRuby instance in "
+   (str "If there is an exception while putting a JRubyInstance in "
         "the pool the application should shut down.")
     (logging/with-test-logging
      (with-redefs [jruby-internal/create-pool-instance!
@@ -65,12 +65,12 @@
           (is (= pool-size (count all-the-instances)))
           (doseq [instance all-the-instances]
             (is (not (nil? instance))
-                "One of the JRuby instances retrieved from the pool is nil")
+                "One of the JRubyInstances retrieved from the pool is nil")
             (jruby-protocol/return-instance service instance :test-pool-size))
           (is (= pool-size (jruby-protocol/free-instance-count service))))))))
 
 (deftest test-pool-population-during-init
-  (testing "A JRuby instance can be borrowed from the 'init' phase of a service"
+  (testing "A JRubyInstance can be borrowed from the 'init' phase of a service"
     (let [test-service (tk/service
                          [[:JRubyService borrow-instance return-instance]]
                          (init [this context]

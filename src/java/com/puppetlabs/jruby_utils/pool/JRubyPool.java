@@ -9,8 +9,7 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * An implementation of LockablePool for managing a pool of JRuby
- * instances.
+ * An implementation of LockablePool for managing a pool of JRubyInstances.
  *
  * @param <E> the type of element that can be added to the pool.
  */

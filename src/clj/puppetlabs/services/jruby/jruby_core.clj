@@ -165,14 +165,14 @@
 
 (schema/defn ^:always-validate
   free-instance-count
-  "Returns the number of JRuby instances available in the pool."
+  "Returns the number of JRubyInstances available in the pool."
   [pool :- jruby-schemas/pool-queue-type]
   {:post [(>= % 0)]}
   (.size pool))
 
 (schema/defn ^:always-validate
   instance-state :- jruby-schemas/JRubyInstanceState
-  "Get the state metadata for a JRuby instance."
+  "Get the state metadata for a JRubyInstance."
   [jruby-instance :- (schema/pred jruby-schemas/jruby-instance?)]
   @(:state jruby-instance))
 

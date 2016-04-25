@@ -36,30 +36,30 @@
 
 (schema/defn ^:always-validate
   prime-pool!
-  "Sequentially fill the pool with new JRuby instances.  NOTE: this
+  "Sequentially fill the pool with new JRubyInstances.  NOTE: this
   function should never be called except by the pool-agent."
   [{:keys [pool-state] :as pool-context} :- jruby-schemas/PoolContext
    config :- jruby-schemas/JRubyConfig]
   (let [pool (:pool @pool-state)]
-    (log/debug (str "Initializing JRuby instances with the following settings:\n"
+    (log/debug (str "Initializing JRubyInstances with the following settings:\n"
                     (ks/pprint-to-string config)))
     (try
       (let [count (.remainingCapacity pool)]
         (dotimes [i count]
           (let [id (inc i)]
-            (log/debugf "Priming JRuby instance %d of %d" id count)
+            (log/debugf "Priming JRubyInstance %d of %d" id count)
             (jruby-internal/create-pool-instance! pool id config
                                                   (partial send-flush-instance! pool-context))
-            (log/infof "Finished creating JRuby instance %d of %d"
+            (log/infof "Finished creating JRubyInstance %d of %d"
                        id count))))
       (catch Exception e
         (.clear pool)
         (.insertPill pool (PoisonPill. e))
-        (throw (IllegalStateException. "There was a problem adding a JRuby instance to the pool." e))))))
+        (throw (IllegalStateException. "There was a problem adding a JRubyInstance to the pool." e))))))
 
 (schema/defn ^:always-validate
   flush-instance!
-  "Flush a single JRuby instance.  Create a new replacement instance
+  "Flush a single JRubyInstance.  Create a new replacement instance
   and insert it into the specified pool."
   [pool-context :- jruby-schemas/PoolContext
    instance :- JRubyInstance
@@ -103,7 +103,7 @@
             (when refill?
               (jruby-internal/create-pool-instance! new-pool id config
                                                     (partial send-flush-instance! pool-context))
-              (log/infof "Finished creating JRuby instance %d of %d"
+              (log/infof "Finished creating JRubyInstance %d of %d"
                          id old-pool-size))
             (finally
               (.releaseItem old-pool instance false))))
@@ -111,7 +111,7 @@
           (.clear new-pool)
           (.insertPill new-pool (PoisonPill. e))
           (throw (IllegalStateException.
-                  "There was a problem adding a JRuby instance to the pool."
+                  "There was a problem adding a JRubyInstance to the pool."
                   e)))))
     ;; Add a "RetryPoisonPill" to the pool in case something else is in the
     ;; process of borrowing from the old pool.

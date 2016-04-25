@@ -157,7 +157,7 @@
 
 ;; TODO: this test seems redundant to the one in puppetlabs.services.jruby.jruby-agents-test
 (deftest ^:integration flush-jruby-pool-test
-  (testing "Flushing the pool results in all new JRuby instances"
+  (testing "Flushing the pool results in all new JRubyInstances"
     (tk-testutils/with-app-with-config
       app
       [jruby/jruby-pooled-service]

@@ -138,18 +138,18 @@
 
 (schema/defn ^:always-validate
   cleanup-pool-instance!
-  "Cleans up and cleanly terminates a JRuby instance and removes it from the pool."
+  "Cleans up and cleanly terminates a JRubyInstance and removes it from the pool."
   [{:keys [scripting-container pool] :as instance} :- JRubyInstance]
   (.unregister pool instance)
   ;; TODO: need to add support for a callback hook, so that consumers like
   ;; puppet-server can do their own cleanup.
   ;(.terminate jruby-puppet)
   (.terminate scripting-container)
-  (log/infof "Cleaned up old JRuby instance with id %s." (:id instance)))
+  (log/infof "Cleaned up old JRubyInstance with id %s." (:id instance)))
 
 (schema/defn ^:always-validate
   create-pool-instance! :- JRubyInstance
-  "Creates a new JRuby instance and adds it to the pool."
+  "Creates a new JRubyInstance and adds it to the pool."
   [pool :- jruby-schemas/pool-queue-type
    id :- schema/Int
    config :- jruby-schemas/JRubyConfig
@@ -158,7 +158,7 @@
     (when-not ruby-load-path
       (throw (Exception.
                "JRuby service missing config value 'ruby-load-path'")))
-    (log/infof "Creating JRuby instance with id %s." id)
+    (log/infof "Creating JRubyInstance with id %s." id)
     (let [scripting-container (create-scripting-container
                                ruby-load-path
                                gem-home
@@ -196,8 +196,8 @@
   (.borrowItem pool))
 
 (schema/defn borrow-from-pool!* :- jruby-schemas/JRubyBorrowResult
-  "Given a borrow function and a pool, attempts to borrow a JRuby instance from a pool.
-  If successful, updates the state information and returns the JRuby instance.
+  "Given a borrow function and a pool, attempts to borrow a JRubyInstance from a pool.
+  If successful, updates the state information and returns the JRubyInstance.
   Returns nil if the borrow function returns nil; throws an exception if
   the borrow function's return value indicates an error condition."
   [borrow-fn :- (schema/pred ifn?)
@@ -207,7 +207,7 @@
           (do
             (.releaseItem pool instance)
             (throw (IllegalStateException.
-                     "Unable to borrow JRuby instance from pool"
+                     "Unable to borrow JRubyInstance from pool"
                      (:err instance))))
 
           (jruby-schemas/jruby-instance? instance)
@@ -256,7 +256,7 @@
       (if (and (pos? max-requests)
                (>= (:borrow-count new-state) max-requests))
         (do
-          (log/infof (str "Flushing JRuby instance %s because it has exceeded the "
+          (log/infof (str "Flushing JRubyInstance %s because it has exceeded the "
                           "maximum number of requests (%s)")
                      (:id instance)
                      max-requests)
@@ -270,7 +270,7 @@
     (.releaseItem (:pool instance) instance)))
 
 (schema/defn ^:always-validate new-main :- jruby-schemas/JRubyMain
-  "Return a new JRuby Main instance which should only be used for CLI purposes,
+  "Return a new JRubyMain instance which should only be used for CLI purposes,
   e.g. for the ruby, gem, and irb subcommands.  Internal core services should
   use `create-scripting-container` instead of `new-main`."
   [config :- jruby-schemas/JRubyConfig]

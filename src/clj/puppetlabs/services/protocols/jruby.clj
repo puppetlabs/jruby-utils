@@ -1,7 +1,7 @@
 (ns puppetlabs.services.protocols.jruby)
 
 (defprotocol JRubyService
-  "Describes the JRuby provider service which pools JRuby instances."
+  "Describes the JRuby provider service which pools JRubyInstances."
 
   (borrow-instance
     [this reason]
@@ -13,24 +13,24 @@
     interpreters are available. This timeout defaults to 1200000 milliseconds.
 
     `reason` is an identifier (usually a map) describing the reason for borrowing the
-    JRuby instance.  It may be used for metrics and logging purposes.")
+    JRubyInstance.  It may be used for metrics and logging purposes.")
 
   (return-instance
     [this jruby-instance reason]
     "Returns the JRuby interpreter back to the pool.
 
     `reason` is an identifier (usually a map) describing the reason for borrowing the
-    JRuby instance.  It may be used for metrics and logging purposes, so for
+    JRubyInstance.  It may be used for metrics and logging purposes, so for
     best results it should be set to the same value as it was set during the
     `borrow-instance` call.")
 
   (free-instance-count
     [this]
-    "The number of free JRuby instances left in the pool.")
+    "The number of free JRubyInstances left in the pool.")
 
   (flush-jruby-pool!
     [this]
-    "Flush all the current JRuby instances and repopulate the pool.")
+    "Flush all the current JRubyInstances and repopulate the pool.")
 
   (register-event-handler
     [this callback]

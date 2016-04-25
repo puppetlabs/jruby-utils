@@ -22,7 +22,7 @@
   [jruby/jruby-pooled-service])
 
 (deftest basic-flush-test
-  (testing "Flushing the pool results in all new JRuby instances"
+  (testing "Flushing the pool results in all new JRubyInstances"
     (tk-testutils/with-app-with-config
       app
       default-services

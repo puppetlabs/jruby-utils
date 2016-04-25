@@ -61,7 +61,7 @@
       (let [all-the-jrubys (jruby-testutils/drain-pool pool-context pool-size)]
         (is (= 0 (jruby-core/free-instance-count pool)))
         (doseq [instance all-the-jrubys]
-          (is (not (nil? instance)) "One of JRuby instances is nil"))
+          (is (not (nil? instance)) "One of JRubyInstances is nil"))
         (jruby-testutils/fill-drained-pool all-the-jrubys)
         (is (= pool-size (jruby-core/free-instance-count pool)))))
 
@@ -75,7 +75,7 @@
             "The timeout value was not honored.")
         (jruby-testutils/fill-drained-pool all-the-jrubys)
         (is (= (jruby-core/free-instance-count pool) pool-size)
-            "All JRuby instances were not returned to the pool.")))
+            "All JRubyInstances were not returned to the pool.")))
 
     (testing "Removing an instance decrements the pool size by 1."
       (let [jruby-instance (jruby-core/borrow-from-pool pool-context :test [])]
@@ -104,7 +104,7 @@
   (let [pool-size 2
         config        (jruby-testutils/jruby-config {:max-active-instances pool-size})
         pool-context  (jruby-core/create-pool-context config jruby-testutils/default-shutdown-fn)
-        err-msg       (re-pattern "Unable to borrow JRuby instance from pool")]
+        err-msg       (re-pattern "Unable to borrow JRubyInstance from pool")]
     (with-redefs [jruby-internal/create-pool-instance! (fn [_] (throw (IllegalStateException. "BORK!")))]
                  (is (thrown? IllegalStateException (jruby-agents/prime-pool! pool-context config))))
     (testing "borrow and borrow-with-timeout both throw an exception if the pool failed to initialize"
@@ -140,14 +140,14 @@
      pool-context)))
 
 (deftest flush-jruby-after-max-requests
-  (testing "JRuby instance is not flushed if it has not exceeded max requests"
+  (testing "JRubyInstance is not flushed if it has not exceeded max requests"
     (let [pool-context  (create-pool-context 2)
           instance      (jruby-core/borrow-from-pool pool-context :test [])
           id            (:id instance)]
       (jruby-core/return-to-pool instance :test [])
       (let [instance (jruby-core/borrow-from-pool pool-context :test [])]
         (is (= id (:id instance))))))
-  (testing "JRuby instance is flushed after exceeding max requests"
+  (testing "JRubyInstance is flushed after exceeding max requests"
     (let [pool-context  (create-pool-context 2)]
       (is (= 1 (count (jruby-core/registered-instances pool-context))))
       (let [instance (jruby-core/borrow-from-pool pool-context :test [])
@@ -175,14 +175,14 @@
                                   :test
                                   [])))))))))
 
-  (testing "JRuby instance is not flushed if max requests setting is set to 0"
+  (testing "JRubyInstance is not flushed if max requests setting is set to 0"
     (let [pool-context  (create-pool-context 0)
           instance      (jruby-core/borrow-from-pool pool-context :test [])
           id            (:id instance)]
       (jruby-core/return-to-pool instance :test [])
       (let [instance (jruby-core/borrow-from-pool pool-context :test [])]
         (is (= id (:id instance))))))
-  (testing "Can flush a JRuby instance that is not the first one in the pool"
+  (testing "Can flush a JRubyInstance that is not the first one in the pool"
     (let [pool-context  (create-pool-context 2 3)
           instance1     (jruby-core/borrow-from-pool pool-context :test [])
           instance2     (jruby-core/borrow-from-pool pool-context :test [])
