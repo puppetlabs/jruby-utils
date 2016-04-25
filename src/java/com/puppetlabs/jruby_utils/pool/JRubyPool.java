@@ -1,4 +1,4 @@
-package com.puppetlabs.jrubyutils.pool;
+package com.puppetlabs.jruby_utils.pool;
 
 import java.util.Deque;
 import java.util.LinkedList;

@@ -3,14 +3,14 @@
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as ks])
-  (:import (com.puppetlabs.jrubyutils.pool JRubyPool)
+  (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
            (puppetlabs.services.jruby.jruby_schemas JRubyInstance PoisonPill ShutdownPoisonPill)
            (java.util HashMap)
            (org.jruby CompatVersion Main RubyInstanceConfig RubyInstanceConfig$CompileMode)
            (org.jruby.embed LocalContextScope)
            (java.util.concurrent TimeUnit)
            (clojure.lang IFn)
-           (com.puppetlabs.jrubyutils.jruby ScriptingContainer)))
+           (com.puppetlabs.jruby_utils.jruby ScriptingContainer)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Definitions

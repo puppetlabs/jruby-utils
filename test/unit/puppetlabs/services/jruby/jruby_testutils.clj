@@ -8,7 +8,7 @@
   (:import (org.jruby.embed LocalContextScope)
            (puppetlabs.services.jruby.jruby_schemas JRubyInstance)
            (clojure.lang IFn)
-           (com.puppetlabs.jrubyutils.jruby ScriptingContainer)))
+           (com.puppetlabs.jruby_utils.jruby ScriptingContainer)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constants

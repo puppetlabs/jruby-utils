@@ -1,6 +1,6 @@
-(ns puppetlabs.jrubyutils.lockable-pool-test
+(ns puppetlabs.jruby_utils.lockable-pool-test
   (:require [clojure.test :refer :all])
-  (:import (com.puppetlabs.jrubyutils.pool JRubyPool)
+  (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
            (java.util.concurrent TimeUnit ExecutionException)))
 
 (defn timed-deref

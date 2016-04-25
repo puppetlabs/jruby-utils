@@ -13,7 +13,7 @@
             [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils])
   (:import (puppetlabs.services.jruby.jruby_schemas RetryPoisonPill JRubyInstance)
-           (com.puppetlabs.jrubyutils.pool JRubyPool)))
+           (com.puppetlabs.jruby_utils.pool JRubyPool)))
 
 (use-fixtures :once schema-test/validate-schemas)
 (use-fixtures :each jruby-testutils/mock-pool-instance-fixture)

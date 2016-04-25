@@ -3,7 +3,7 @@
             [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas])
-  (:import (com.puppetlabs.jrubyutils.pool JRubyPool)
+  (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
            (org.jruby RubyInstanceConfig$CompileMode)
            (clojure.lang ExceptionInfo)))
 
