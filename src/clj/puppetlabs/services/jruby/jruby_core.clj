@@ -145,6 +145,7 @@
   initialize-config :- jruby-schemas/JRubyConfig
   [config :- {schema/Keyword schema/Any}]
   (-> (get-in config [:jruby])
+      (dissoc :lifecycle-fns)
       (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
@@ -155,13 +156,15 @@
   "Creates a new JRuby pool context with an empty pool. Once the JRuby
   pool object has been created, it will need to be filled using `prime-pool!`."
   [config :- jruby-schemas/JRubyConfig
-   agent-shutdown-fn :- (schema/pred ifn?)]
-  {:config                config
-   :pool-agent            (jruby-agents/pool-agent agent-shutdown-fn)
-   ;; For an explanation of why we need a separate agent for the `flush-instance`,
-   ;; see the comments in puppetlabs.services.jruby.jruby-agents/send-flush-instance
-   :flush-instance-agent  (jruby-agents/pool-agent agent-shutdown-fn)
-   :pool-state            (atom (jruby-internal/create-pool-from-config config))})
+   lifecycle-fns :- jruby-schemas/LifecycleFns]
+  (let [agent-shutdown-fn (:shutdown-on-error lifecycle-fns)]
+    {:config config
+     :pool-agent (jruby-agents/pool-agent agent-shutdown-fn)
+     ;; For an explanation of why we need a separate agent for the `flush-instance`,
+     ;; see the comments in puppetlabs.services.jruby.jruby-agents/send-flush-instance
+     :flush-instance-agent (jruby-agents/pool-agent agent-shutdown-fn)
+     :pool-state (atom (jruby-internal/create-pool-from-config config))
+     :lifecycle lifecycle-fns}))
 
 (schema/defn ^:always-validate
   free-instance-count

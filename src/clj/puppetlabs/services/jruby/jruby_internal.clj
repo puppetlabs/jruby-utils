@@ -4,7 +4,7 @@
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as ks])
   (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
-           (puppetlabs.services.jruby.jruby_schemas JRubyInstance PoisonPill ShutdownPoisonPill)
+           (puppetlabs.services.jruby.jruby_schemas JRubyInstance PoisonPill ShutdownPoisonPill JRubyInstance)
            (java.util HashMap)
            (org.jruby CompatVersion Main RubyInstanceConfig RubyInstanceConfig$CompileMode)
            (org.jruby.embed LocalContextScope)
@@ -135,11 +135,10 @@
 (schema/defn ^:always-validate
   cleanup-pool-instance!
   "Cleans up and cleanly terminates a JRubyInstance and removes it from the pool."
-  [{:keys [scripting-container pool] :as instance} :- JRubyInstance]
+  [{:keys [scripting-container pool] :as instance} :- JRubyInstance
+   shutdown-fn :- IFn]
   (.unregister pool instance)
-  ;; TODO: need to add support for a callback hook, so that consumers like
-  ;; puppet-server can do their own cleanup.
-  ;(.terminate jruby-puppet)
+  (shutdown-fn instance)
   (.terminate scripting-container)
   (log/infof "Cleaned up old JRubyInstance with id %s." (:id instance)))
 
@@ -149,7 +148,8 @@
   [pool :- jruby-schemas/pool-queue-type
    id :- schema/Int
    config :- jruby-schemas/JRubyConfig
-   flush-instance-fn :- IFn]
+   flush-instance-fn :- IFn
+   init-fn :- IFn]
   (let [{:keys [ruby-load-path gem-home compile-mode]} config]
     (when-not ruby-load-path
       (throw (Exception.
@@ -165,8 +165,9 @@
                        :max-requests (:max-requests-per-instance config)
                        :flush-instance-fn flush-instance-fn
                        :state (atom {:borrow-count 0})
-                       :scripting-container scripting-container})]
-        (.register pool instance)
+                       :scripting-container scripting-container})
+            modified-instance (init-fn instance)]
+        (.register pool modified-instance)
         instance))))
 
 (schema/defn ^:always-validate

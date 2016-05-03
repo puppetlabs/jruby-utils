@@ -82,12 +82,18 @@
                      (nil? (schema/check PoolState @%)))
                'PoolStateContainer))
 
+(def LifecycleFns
+  {:initialize IFn
+   :shutdown IFn
+   :shutdown-on-error IFn})
+
 (def PoolContext
   "The data structure that stores all JRuby pools and the original configuration."
   {:config                JRubyConfig
    :pool-agent            JRubyPoolAgent
    :flush-instance-agent  JRubyPoolAgent
-   :pool-state            PoolStateContainer})
+   :pool-state            PoolStateContainer
+   :lifecycle LifecycleFns})
 
 (def JRubyInstanceState
   "State metadata for an individual JRubyInstance"
@@ -105,13 +111,7 @@
    max-requests :- schema/Int
    flush-instance-fn :- IFn
    state :- JRubyInstanceStateContainer
-   scripting-container :- ScriptingContainer]
-  Object
-  (toString [this] (format "%s@%s {:id %s :state (Atom: %s)}"
-                           (.getName JRubyInstance)
-                           (Integer/toHexString (.hashCode this))
-                           id
-                           @state)))
+   scripting-container :- ScriptingContainer])
 
 (defn jruby-instance?
   [x]
