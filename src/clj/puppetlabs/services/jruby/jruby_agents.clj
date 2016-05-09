@@ -63,7 +63,7 @@
   "Flush a single JRubyInstance.  Create a new replacement instance
   and insert it into the specified pool."
   [pool-context :- jruby-schemas/PoolContext
-   instance :- JRubyInstance
+   instance :- jruby-schemas/JRubyInstanceSchema
    new-pool :- jruby-schemas/pool-queue-type
    new-id :- schema/Int
    config :- jruby-schemas/JRubyConfig]
@@ -196,7 +196,7 @@
   "Sends requests to the flush-instance agent to flush the instance and create a new one."
   [pool-context :- jruby-schemas/PoolContext
    pool :- jruby-schemas/pool-queue-type
-   instance :- JRubyInstance]
+   instance :- jruby-schemas/JRubyInstanceSchema]
   ;; We use a separate agent from the main `pool-agent` here, because there is a possibility for deadlock otherwise.
   ;; e.g.:
   ;; 1. A flush-pool request comes in, and we start using the main pool agent to flush the pool.  We do that by

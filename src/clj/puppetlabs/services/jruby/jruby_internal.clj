@@ -135,7 +135,7 @@
 (schema/defn ^:always-validate
   cleanup-pool-instance!
   "Cleans up and cleanly terminates a JRubyInstance and removes it from the pool."
-  [{:keys [scripting-container pool] :as instance} :- JRubyInstance
+  [{:keys [scripting-container pool] :as instance} :- jruby-schemas/JRubyInstanceSchema
    shutdown-fn :- IFn]
   (.unregister pool instance)
   (shutdown-fn instance)
@@ -143,7 +143,7 @@
   (log/infof "Cleaned up old JRubyInstance with id %s." (:id instance)))
 
 (schema/defn ^:always-validate
-  create-pool-instance! :- JRubyInstance
+  create-pool-instance! :- jruby-schemas/JRubyInstanceSchema
   "Creates a new JRubyInstance and adds it to the pool."
   [pool :- jruby-schemas/pool-queue-type
    id :- schema/Int

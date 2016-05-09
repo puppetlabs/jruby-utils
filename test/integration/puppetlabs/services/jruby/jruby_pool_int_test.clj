@@ -6,7 +6,10 @@
             [puppetlabs.trapperkeeper.services :as tk-services]
             [puppetlabs.services.protocols.jruby :as jruby-protocol]
             [puppetlabs.services.jruby.jruby-service :as jruby]
-            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]))
+            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby.jruby-core :as core]
+            [clojure.tools.logging :as log]
+            [puppetlabs.trapperkeeper.testutils.logging :as logutils]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utilities
@@ -323,3 +326,33 @@
          ;; that could otherwise cause an annoying error message about the
          ;; pool not being full at shut down to be displayed.
          (timed-await (:flush-instance-agent pool-context)))))))
+
+(deftest initialization-and-cleanup-hooks-test
+  (testing "custom initialization and cleanup callbacks get called appropriately"
+    (let [lifecycle-fns {:initialize (fn [instance] (assoc instance :foo "FOO"))
+                         :shutdown (fn [instance] (log/error "Terminating" (:foo instance)))}
+          config (assoc-in (jruby-testutils/jruby-tk-config
+                            (jruby-testutils/jruby-config
+                             {:max-active-instances 1
+                              :max-requests-per-instance 10
+                              :borrow-timeout default-borrow-timeout}))
+                           [:jruby :lifecycle-fns] lifecycle-fns)]
+      (logutils/with-test-logging
+       (tk-testutils/with-app-with-config
+        app
+        [jruby/jruby-pooled-service]
+        config
+        (let [jruby-service (tk-app/get-service app :JRubyService)
+              context (tk-services/service-context jruby-service)
+              pool-context (:pool-context context)]
+          ;; set a ruby constant in each instance so that we can recognize them
+          (is (true? (set-constants-and-verify pool-context 1)))
+          (let [instance (jruby-protocol/borrow-instance jruby-service
+                                                         :initialization-and-cleanup-hooks-test)]
+            (is (= "FOO" (:foo instance)))
+            (jruby-protocol/return-instance jruby-service instance :initialization-and-cleanup-hooks-test))
+
+          (jruby-protocol/flush-jruby-pool! jruby-service)
+          ; wait until the flush is complete
+          (await (get-in context [:pool-context :pool-agent]))
+          (is (logged? #"Terminating FOO"))))))))
