@@ -31,7 +31,8 @@
     (let [pool (JRubyPool. 1)
           config (jruby-testutils/jruby-config
                   {:compile-mode :jit})
-          instance (jruby-internal/create-pool-instance! pool 0 config #() identity)
+          instance (jruby-internal/create-pool-instance! pool 0 config #() identity
+                                                         jruby-internal/default-initialize-env-variables)
           container (:scripting-container instance)]
       (try
         (= RubyInstanceConfig$CompileMode/JIT

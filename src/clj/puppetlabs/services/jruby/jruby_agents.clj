@@ -41,7 +41,8 @@
   [{:keys [pool-state lifecycle] :as pool-context} :- jruby-schemas/PoolContext
    config :- jruby-schemas/JRubyConfig]
   (let [pool (:pool @pool-state)
-        init-fn (:initialize lifecycle)]
+        init-fn (:initialize lifecycle)
+        initialize-env-variables-fn (:initialize-env-variables lifecycle)]
     (log/debug (str "Initializing JRubyInstances with the following settings:\n"
                     (ks/pprint-to-string config)))
     (try
@@ -50,7 +51,7 @@
           (let [id (inc i)]
             (log/debugf "Priming JRubyInstance %d of %d" id count)
             (jruby-internal/create-pool-instance!
-             pool id config (partial send-flush-instance! pool-context) init-fn)
+             pool id config (partial send-flush-instance! pool-context) init-fn initialize-env-variables-fn)
             (log/infof "Finished creating JRubyInstance %d of %d"
                        id count))))
       (catch Exception e
@@ -68,10 +69,11 @@
    new-id :- schema/Int
    config :- jruby-schemas/JRubyConfig]
   (let [init-fn (get-in pool-context [:lifecycle :initialize])
-        shutdown-fn (get-in pool-context [:lifecycle :shutdown])]
+        shutdown-fn (get-in pool-context [:lifecycle :shutdown])
+        initialize-env-variables-fn (get-in pool-context [:lifecycle :initialize-env-variables])]
     (jruby-internal/cleanup-pool-instance! instance shutdown-fn)
     (jruby-internal/create-pool-instance!
-     new-pool new-id config (partial send-flush-instance! pool-context) init-fn)))
+     new-pool new-id config (partial send-flush-instance! pool-context) init-fn initialize-env-variables-fn)))
 
 (schema/defn ^:always-validate
   pool-initialized? :- schema/Bool
@@ -93,7 +95,8 @@
         old-pool (:pool old-pool-state)
         old-pool-size (:size old-pool-state)
         init-fn (:initialize lifecycle)
-        shutdown-fn (:shutdown lifecycle)]
+        shutdown-fn (:shutdown lifecycle)
+        initialize-env-variables-fn (:initialize-env-variables lifecycle)]
     (log/info "Replacing old JRuby pool with new instance.")
     (reset! pool-state new-pool-state)
     (log/info "Swapped JRuby pools, beginning cleanup of old pool.")
@@ -106,7 +109,12 @@
           (try
             (jruby-internal/cleanup-pool-instance! instance shutdown-fn)
             (when refill?
-              (jruby-internal/create-pool-instance! new-pool id config (partial send-flush-instance! pool-context) init-fn)
+              (jruby-internal/create-pool-instance! new-pool
+                                                    id
+                                                    config
+                                                    (partial send-flush-instance! pool-context)
+                                                    init-fn
+                                                    initialize-env-variables-fn)
               (log/infof "Finished creating JRubyInstance %d of %d"
                          id old-pool-size))
             (finally

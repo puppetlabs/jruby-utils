@@ -21,10 +21,12 @@
                            [:ShutdownService shutdown-on-error]]
   (init
     [this context]
-    (let [lifecycle-fns (-> (get-in (get-config) [:jruby :lifecycle-fns])
+    (let [config (core/initialize-config (get-config))
+          lifecycle-fns (-> (get-in (get-config) [:jruby :lifecycle-fns])
                             (update-in [:initialize] #(or % identity))
-                            (update-in [:shutdown] #(or % identity)))
-          config (core/initialize-config (get-config))
+                            (update-in [:shutdown] #(or % identity))
+                            (update-in [:initialize-env-variables]
+                                       #(or % jruby-internal/default-initialize-env-variables)))
           service-id (tk-services/service-id this)
           agent-shutdown-fn (partial shutdown-on-error service-id)]
       (core/verify-config-found! config)

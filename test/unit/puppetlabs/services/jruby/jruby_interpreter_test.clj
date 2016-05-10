@@ -8,7 +8,8 @@
     (let [jruby-interpreter (jruby-internal/create-scripting-container
                               jruby-testutils/ruby-load-path
                               jruby-testutils/gem-home
-                              jruby-testutils/compile-mode)
+                              jruby-testutils/compile-mode
+                              jruby-internal/default-initialize-env-variables)
           jruby-env (.runScriptlet jruby-interpreter "ENV")]
 
       ; $HOME and $PATH are left in by `jruby-env`

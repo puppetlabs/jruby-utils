@@ -85,7 +85,8 @@
 (def LifecycleFns
   {:initialize IFn
    :shutdown IFn
-   :shutdown-on-error IFn})
+   :shutdown-on-error IFn
+   :initialize-env-variables IFn})
 
 (def PoolContext
   "The data structure that stores all JRuby pools and the original configuration."

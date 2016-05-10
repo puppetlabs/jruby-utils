@@ -49,8 +49,8 @@
   "The environment variables that should be passed to the JRuby interpreters.
 
   We don't want them to read any ruby environment variables, like $RUBY_LIB or
-  anything like that, so pass it an empty environment map - except - Puppet
-  needs HOME and PATH for facter resolution, so leave those, along with GEM_HOME
+  anything like that, so pass it an empty environment map - except - most things
+  needs HOME and PATH to work, so leave those, along with GEM_HOME
   which is necessary for third party extensions that depend on gems.
 
   We need to set the JARS..REQUIRE variables in order to instruct JRuby's
@@ -70,6 +70,14 @@
       "JARS_NO_REQUIRE" "true"
       "JARS_REQUIRE" "false")))
 
+(schema/defn ^:always-validate default-initialize-env-variables :- jruby-schemas/ConfigurableJRuby
+  "Default lifecycle fn for setting environment variables on the
+  scripting container"
+  [scripting-container :- jruby-schemas/ConfigurableJRuby
+   gem-home :- schema/Str]
+  (.setEnvironment scripting-container (managed-environment (get-system-env) gem-home))
+  scripting-container)
+
 (schema/defn ^:always-validate get-compile-mode :- RubyInstanceConfig$CompileMode
   [config-compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
   (case config-compile-mode
@@ -83,32 +91,35 @@
   [jruby-config :- jruby-schemas/ConfigurableJRuby
    ruby-load-path :- [schema/Str]
    gem-home :- schema/Str
-   compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
+   compile-mode :- jruby-schemas/SupportedJRubyCompileModes
+   initialize-env-variables-fn :- IFn]
   (doto jruby-config
     (.setLoadPaths ruby-load-path)
     (.setCompatVersion compat-version)
-    (.setCompileMode (get-compile-mode compile-mode))
-    (.setEnvironment (managed-environment (get-system-env) gem-home))))
+    (.setCompileMode (get-compile-mode compile-mode)))
+  (initialize-env-variables-fn jruby-config gem-home))
 
 (schema/defn ^:always-validate empty-scripting-container :- ScriptingContainer
   "Creates a clean instance of a JRuby `ScriptingContainer` with no code loaded."
   [ruby-load-path :- [schema/Str]
    gem-home :- schema/Str
-   compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
+   compile-mode :- jruby-schemas/SupportedJRubyCompileModes
+   initialize-env-variables-fn :- IFn]
   (-> (ScriptingContainer. LocalContextScope/SINGLETHREAD)
-      (init-jruby-config ruby-load-path gem-home compile-mode)))
+      (init-jruby-config ruby-load-path gem-home compile-mode initialize-env-variables-fn)))
 
 (schema/defn ^:always-validate create-scripting-container :- ScriptingContainer
   "Creates an instance of `org.jruby.embed.ScriptingContainer`."
   [ruby-load-path :- [schema/Str]
    gem-home :- schema/Str
-   compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
+   compile-mode :- jruby-schemas/SupportedJRubyCompileModes
+   initialize-env-variables-fn :- IFn]
   ;; for information on other legal values for `LocalContextScope`, there
   ;; is some documentation available in the JRuby source code; e.g.:
   ;; https://github.com/jruby/jruby/blob/1.7.11/core/src/main/java/org/jruby/embed/LocalContextScope.java#L58
   ;; I'm convinced that this is the safest and most reasonable value
   ;; to use here, but we could potentially explore optimizations in the future.
-  (doto (empty-scripting-container ruby-load-path gem-home compile-mode)
+  (doto (empty-scripting-container ruby-load-path gem-home compile-mode initialize-env-variables-fn)
     ;; As of JRuby 1.7.20 (and the associated 'jruby-openssl' it pulls in),
     ;; we need to explicitly require 'jar-dependencies' so that it is used
     ;; to manage jar loading.  We do this so that we can instruct
@@ -149,7 +160,8 @@
    id :- schema/Int
    config :- jruby-schemas/JRubyConfig
    flush-instance-fn :- IFn
-   init-fn :- IFn]
+   init-fn :- IFn
+   initialize-env-variables-fn :- IFn]
   (let [{:keys [ruby-load-path gem-home compile-mode]} config]
     (when-not ruby-load-path
       (throw (Exception.
@@ -158,7 +170,8 @@
     (let [scripting-container (create-scripting-container
                                ruby-load-path
                                gem-home
-                               compile-mode)]
+                               compile-mode
+                               initialize-env-variables-fn)]
       (let [instance (jruby-schemas/map->JRubyInstance
                       {:pool pool
                        :id id
@@ -168,7 +181,7 @@
                        :scripting-container scripting-container})
             modified-instance (init-fn instance)]
         (.register pool modified-instance)
-        instance))))
+        modified-instance))))
 
 (schema/defn ^:always-validate
   get-pool-state :- jruby-schemas/PoolState
@@ -276,5 +289,6 @@
                       (RubyInstanceConfig.)
                       ruby-load-path
                       gem-home
-                      compile-mode)]
+                      compile-mode
+                      default-initialize-env-variables)]
     (Main. jruby-config)))

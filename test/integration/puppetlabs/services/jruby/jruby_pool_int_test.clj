@@ -356,3 +356,33 @@
           ; wait until the flush is complete
           (await (get-in context [:pool-context :pool-agent]))
           (is (logged? #"Terminating FOO"))))))))
+
+(deftest initialize-env-variables-hook-test
+  (testing "can set custom environment variables via :initialize-env-variables hook"
+    (let [lifecycle-fns {:initialize-env-variables (fn [scripting-container gem-home]
+                                                     (.setEnvironment scripting-container
+                                                                      {"CUSTOMENV" "foobar"})
+                                                     scripting-container)}
+          config (assoc-in (jruby-testutils/jruby-tk-config
+                            (jruby-testutils/jruby-config
+                             {:max-active-instances 1
+                              :max-requests-per-instance 10
+                              :borrow-timeout default-borrow-timeout}))
+                           [:jruby :lifecycle-fns] lifecycle-fns)]
+      (tk-testutils/with-app-with-config
+       app
+       [jruby/jruby-pooled-service]
+       config
+       (let [jruby-service (tk-app/get-service app :JRubyService)
+             context (tk-services/service-context jruby-service)
+             pool-context (:pool-context context)]
+         ;; set a ruby constant in each instance so that we can recognize them
+         (is (true? (set-constants-and-verify pool-context 1)))
+
+         (let [instance (jruby-protocol/borrow-instance jruby-service
+                                                        :initialize-environment-variables-test)
+               scripting-container (:scripting-container instance)
+               jruby-env (.runScriptlet scripting-container "ENV")]
+           (is (= {"CUSTOMENV" "foobar"} jruby-env))
+           (jruby-protocol/return-instance jruby-service instance
+                                           :initialize-environment-variables-test)))))))
