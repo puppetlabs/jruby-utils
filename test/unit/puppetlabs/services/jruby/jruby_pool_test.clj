@@ -18,7 +18,7 @@
     (let [malformed-config {:illegal-key [1 2 3]}]
       (is (thrown-with-msg? ExceptionInfo
                             #"Input to create-pool-context does not match schema"
-                            (jruby-core/create-pool-context malformed-config nil)))))
+                            (jruby-core/create-pool-context malformed-config)))))
   (let [minimal-config {:jruby {:gem-home        "/dev/null"
                                 :ruby-load-path  ["/dev/null"]}}
         config        (jruby-core/initialize-config minimal-config)]
@@ -47,7 +47,7 @@
 (deftest test-jruby-service-core-funcs
   (let [pool-size        2
         config           (jruby-testutils/jruby-config {:max-active-instances pool-size})
-        pool-context (jruby-core/create-pool-context config jruby-testutils/create-default-lifecycle-fns)
+        pool-context (jruby-core/create-pool-context config)
         pool             (jruby-core/get-pool pool-context)]
 
     (testing "The pool should not yet be full as it is being primed in the
@@ -103,13 +103,12 @@
 (deftest prime-pools-failure
   (let [pool-size 2
         config        (jruby-testutils/jruby-config {:max-active-instances pool-size})
-        pool-context (jruby-core/create-pool-context config jruby-testutils/create-default-lifecycle-fns)
+        pool-context (jruby-core/create-pool-context config)
         err-msg       (re-pattern "Unable to borrow JRubyInstance from pool")]
    (is (thrown? IllegalStateException (jruby-agents/prime-pool!
-                                        (assoc-in pool-context [:lifecycle :initialize]
-                                                  (fn [_]
-                                                    (throw (IllegalStateException. "BORK!"))))
-                                        config)))
+                                       pool-context
+                                       (assoc-in config [:lifecycle :initialize]
+                                                 (fn [_] (throw (IllegalStateException. "BORK!")))))))
     (testing "borrow and borrow-with-timeout both throw an exception if the pool failed to initialize"
       (is (thrown-with-msg? IllegalStateException
             err-msg
@@ -128,7 +127,7 @@
 (deftest test-default-pool-size
   (logutils/with-test-logging
     (let [config (jruby-testutils/jruby-config)
-          pool (jruby-core/create-pool-context config jruby-testutils/create-default-lifecycle-fns)
+          pool (jruby-core/create-pool-context config)
           pool-state @(:pool-state pool)]
       (is (= (jruby-core/default-pool-size (ks/num-cpus)) (:size pool-state))))))
 
@@ -138,7 +137,7 @@
   ([max-requests max-instances]
    (let [config (jruby-testutils/jruby-config {:max-active-instances max-instances
                                                :max-requests-per-instance max-requests})
-         pool-context (jruby-core/create-pool-context config jruby-testutils/create-default-lifecycle-fns)]
+         pool-context (jruby-core/create-pool-context config)]
      (jruby-agents/prime-pool! pool-context config)
      pool-context)))
 

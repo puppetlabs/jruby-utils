@@ -1,5 +1,4 @@
 (ns puppetlabs.services.jruby.jruby-service-test
-  (:import (puppetlabs.services.jruby.jruby_schemas JRubyInstance))
   (:require [clojure.test :refer :all]
             [puppetlabs.services.protocols.jruby :as jruby-protocol]
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
@@ -16,7 +15,8 @@
             [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
             [me.raynes.fs :as fs]
-            [schema.test :as schema-test]))
+            [schema.test :as schema-test])
+  (:import (puppetlabs.services.jruby.jruby_schemas JRubyInstance)))
 
 (use-fixtures :each jruby-testutils/mock-pool-instance-fixture)
 (use-fixtures :once schema-test/validate-schemas)
@@ -34,21 +34,20 @@
    (str "If there is an exception while putting a JRubyInstance in "
         "the pool the application should shut down.")
     (logging/with-test-logging
-     (with-redefs [jruby-internal/create-pool-instance!
-                   (fn [& _] (throw (Exception. "42")))]
-       (let [got-expected-exception (atom false)]
-         (try
-           (bootstrap/with-app-with-config
-            app
-            default-services
-            (jruby-service-test-config 1)
-            (tk/run-app app))
-           (catch Exception e
-             (let [cause (stacktrace/root-cause e)]
-               (is (= (.getMessage cause) "42"))
-               (reset! got-expected-exception true))))
-         (is (true? @got-expected-exception)
-             "Did not get expected exception."))))))
+     (let [got-expected-exception (atom false)]
+       (try
+         (bootstrap/with-app-with-config
+          app
+          default-services
+          (assoc-in (jruby-service-test-config 1) [:jruby :lifecycle :initialize]
+                    (fn [_] (throw (Exception. "42"))))
+          (tk/run-app app))
+         (catch Exception e
+           (let [cause (stacktrace/root-cause e)]
+             (is (= (.getMessage cause) "42"))
+             (reset! got-expected-exception true))))
+       (is (true? @got-expected-exception)
+           "Did not get expected exception.")))))
 
 (deftest test-pool-size
   (testing "The pool is created and the size is correctly reported"

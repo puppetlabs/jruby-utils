@@ -336,7 +336,7 @@
                              {:max-active-instances 1
                               :max-requests-per-instance 10
                               :borrow-timeout default-borrow-timeout}))
-                           [:jruby :lifecycle-fns] lifecycle-fns)]
+                           [:jruby :lifecycle] lifecycle-fns)]
       (logutils/with-test-logging
        (tk-testutils/with-app-with-config
         app
@@ -368,7 +368,7 @@
                              {:max-active-instances 1
                               :max-requests-per-instance 10
                               :borrow-timeout default-borrow-timeout}))
-                           [:jruby :lifecycle-fns] lifecycle-fns)]
+                           [:jruby :lifecycle] lifecycle-fns)]
       (tk-testutils/with-app-with-config
        app
        [jruby/jruby-pooled-service]

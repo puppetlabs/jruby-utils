@@ -106,8 +106,7 @@
 
 (deftest next-instance-id-test
   (let [pool-context (jruby-core/create-pool-context
-                      (jruby-testutils/jruby-config {:max-active-instances 8})
-                      jruby-testutils/create-default-lifecycle-fns)]
+                      (jruby-testutils/jruby-config {:max-active-instances 8}))]
     (testing "next instance id should be based on the pool size"
       (is (= 10 (jruby-agents/next-instance-id 2 pool-context)))
       (is (= 100 (jruby-agents/next-instance-id 92 pool-context))))
@@ -118,11 +117,10 @@
 (deftest custom-termination-test
   (testing "Flushing the pool causes shutdown hook to be called"
     (logutils/with-test-logging
-      (let [config (assoc-in (-> (jruby-testutils/jruby-tk-config
-                                  (jruby-testutils/jruby-config {:max-active-instances 1})))
-                             [:jruby :lifecycle-fns]
-                             {:initialize identity
-                              :shutdown (fn [x] (log/error "Hello from shutdown") x)})]
+     (let [config (assoc-in (jruby-testutils/jruby-tk-config
+                             (jruby-testutils/jruby-config {:max-active-instances 1}))
+                            [:jruby :lifecycle]
+                            {:shutdown (fn [x] (log/error "Hello from shutdown") x)})]
         (tk-testutils/with-app-with-config
          app
          [jruby/jruby-pooled-service]

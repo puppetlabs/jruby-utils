@@ -142,29 +142,37 @@
 ;;; Public
 
 (schema/defn ^:always-validate
+  initialize-lifecycle-fns :- jruby-schemas/LifecycleFns
+  [config :- (schema/maybe {schema/Keyword schema/Any})]
+  (-> config
+      (update-in [:initialize] #(or % identity))
+      (update-in [:shutdown] #(or % identity))
+      (update-in [:shutdown-on-error] #(or % (fn [f] (f))))
+      (update-in [:initialize-env-variables]
+                 #(or % jruby-internal/default-initialize-env-variables))))
+
+(schema/defn ^:always-validate
   initialize-config :- jruby-schemas/JRubyConfig
   [config :- {schema/Keyword schema/Any}]
   (-> (get-in config [:jruby])
-      (dissoc :lifecycle-fns)
       (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
-      (update-in [:max-requests-per-instance] #(or % 0))))
+      (update-in [:max-requests-per-instance] #(or % 0))
+      (update-in [:lifecycle] #(initialize-lifecycle-fns %))))
 
 (schema/defn ^:always-validate
   create-pool-context :- jruby-schemas/PoolContext
   "Creates a new JRuby pool context with an empty pool. Once the JRuby
   pool object has been created, it will need to be filled using `prime-pool!`."
-  [config :- jruby-schemas/JRubyConfig
-   lifecycle-fns :- jruby-schemas/LifecycleFns]
-  (let [agent-shutdown-fn (:shutdown-on-error lifecycle-fns)]
+  [config :- jruby-schemas/JRubyConfig]
+  (let [agent-shutdown-fn (get-in config [:lifecycle :shutdown-on-error])]
     {:config config
      :pool-agent (jruby-agents/pool-agent agent-shutdown-fn)
      ;; For an explanation of why we need a separate agent for the `flush-instance`,
      ;; see the comments in puppetlabs.services.jruby.jruby-agents/send-flush-instance
      :flush-instance-agent (jruby-agents/pool-agent agent-shutdown-fn)
-     :pool-state (atom (jruby-internal/create-pool-from-config config))
-     :lifecycle lifecycle-fns}))
+     :pool-state (atom (jruby-internal/create-pool-from-config config))}))
 
 (schema/defn ^:always-validate
   free-instance-count

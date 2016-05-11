@@ -4,7 +4,7 @@
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as ks])
   (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
-           (puppetlabs.services.jruby.jruby_schemas JRubyInstance PoisonPill ShutdownPoisonPill JRubyInstance)
+           (puppetlabs.services.jruby.jruby_schemas JRubyInstance PoisonPill ShutdownPoisonPill)
            (java.util HashMap)
            (org.jruby CompatVersion Main RubyInstanceConfig RubyInstanceConfig$CompileMode)
            (org.jruby.embed LocalContextScope)
@@ -88,16 +88,16 @@
 (schema/defn ^:always-validate init-jruby-config :- jruby-schemas/ConfigurableJRuby
   "Applies configuration to a JRuby... thing.  See comments in `ConfigurableJRuby`
   schema for more details."
-  [jruby-config :- jruby-schemas/ConfigurableJRuby
+  [jruby :- jruby-schemas/ConfigurableJRuby
    ruby-load-path :- [schema/Str]
    gem-home :- schema/Str
    compile-mode :- jruby-schemas/SupportedJRubyCompileModes
    initialize-env-variables-fn :- IFn]
-  (doto jruby-config
+  (doto jruby
     (.setLoadPaths ruby-load-path)
     (.setCompatVersion compat-version)
     (.setCompileMode (get-compile-mode compile-mode)))
-  (initialize-env-variables-fn jruby-config gem-home))
+  (initialize-env-variables-fn jruby gem-home))
 
 (schema/defn ^:always-validate empty-scripting-container :- ScriptingContainer
   "Creates a clean instance of a JRuby `ScriptingContainer` with no code loaded."
@@ -159,10 +159,10 @@
   [pool :- jruby-schemas/pool-queue-type
    id :- schema/Int
    config :- jruby-schemas/JRubyConfig
-   flush-instance-fn :- IFn
-   init-fn :- IFn
-   initialize-env-variables-fn :- IFn]
-  (let [{:keys [ruby-load-path gem-home compile-mode]} config]
+   flush-instance-fn :- IFn]
+  (let [{:keys [ruby-load-path gem-home compile-mode lifecycle]} config
+        init-fn (:initialize lifecycle)
+        init-env-vars-fn (:initialize-env-variables lifecycle)]
     (when-not ruby-load-path
       (throw (Exception.
                "JRuby service missing config value 'ruby-load-path'")))
@@ -171,7 +171,7 @@
                                ruby-load-path
                                gem-home
                                compile-mode
-                               initialize-env-variables-fn)]
+                               init-env-vars-fn)]
       (let [instance (jruby-schemas/map->JRubyInstance
                       {:pool pool
                        :id id

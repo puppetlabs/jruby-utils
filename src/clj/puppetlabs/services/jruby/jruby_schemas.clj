@@ -40,6 +40,12 @@
   "Schema defining the supported values for the JRuby CompileMode setting."
   (apply schema/enum supported-jruby-compile-modes))
 
+(def LifecycleFns
+  {:initialize IFn
+   :shutdown IFn
+   :shutdown-on-error IFn
+   :initialize-env-variables IFn})
+
 (def JRubyConfig
   "Schema defining the config map for the JRuby pooling functions.
 
@@ -59,7 +65,8 @@
    :compile-mode SupportedJRubyCompileModes
    :borrow-timeout schema/Int
    :max-active-instances schema/Int
-   :max-requests-per-instance schema/Int})
+   :max-requests-per-instance schema/Int
+   :lifecycle LifecycleFns})
 
 (def JRubyPoolAgent
   "An agent configured for use in managing JRuby pools"
@@ -82,19 +89,12 @@
                      (nil? (schema/check PoolState @%)))
                'PoolStateContainer))
 
-(def LifecycleFns
-  {:initialize IFn
-   :shutdown IFn
-   :shutdown-on-error IFn
-   :initialize-env-variables IFn})
-
 (def PoolContext
   "The data structure that stores all JRuby pools and the original configuration."
   {:config                JRubyConfig
    :pool-agent            JRubyPoolAgent
    :flush-instance-agent  JRubyPoolAgent
-   :pool-state            PoolStateContainer
-   :lifecycle LifecycleFns})
+   :pool-state            PoolStateContainer})
 
 (def JRubyInstanceState
   "State metadata for an individual JRubyInstance"

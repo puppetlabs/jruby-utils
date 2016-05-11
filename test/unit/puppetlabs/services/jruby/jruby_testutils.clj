@@ -6,7 +6,7 @@
             [puppetlabs.trapperkeeper.services :as tk-service]
             [schema.core :as schema])
   (:import (org.jruby.embed LocalContextScope)
-           (puppetlabs.services.jruby.jruby_schemas JRubyInstance JRubyInstance)
+           (puppetlabs.services.jruby.jruby_schemas JRubyInstance)
            (clojure.lang IFn)
            (com.puppetlabs.jruby_utils.jruby ScriptingContainer)))
 
@@ -44,34 +44,22 @@
   ([options]
    (merge (jruby-config) options)))
 
-(defn default-shutdown-fn
-  [f]
-  (f))
-
 (def default-flush-fn
   identity)
-
-(def create-default-lifecycle-fns
-  {:initialize (fn [x] x)
-   :shutdown identity
-   :shutdown-on-error default-shutdown-fn
-   :initialize-env-variables jruby-internal/default-initialize-env-variables})
 
 (defn create-pool-instance
   ([]
    (create-pool-instance (jruby-config {:max-active-instances 1})))
   ([config]
    (let [pool (jruby-internal/instantiate-free-pool 1)]
-     (jruby-internal/create-pool-instance! pool 1 config default-flush-fn identity identity))))
+     (jruby-internal/create-pool-instance! pool 1 config default-flush-fn))))
 
 (schema/defn ^:always-validate
   create-mock-pool-instance :- JRubyInstance
   [pool :- jruby-schemas/pool-queue-type
    id :- schema/Int
    config :- jruby-schemas/JRubyConfig
-   flush-instance-fn :- IFn
-   init-fn :- IFn
-   init-env-vars-fn :- IFn]
+   flush-instance-fn :- IFn]
   (let [instance (jruby-schemas/map->JRubyInstance
                   {:pool pool
                    :id id
@@ -80,9 +68,10 @@
                    :state (atom {:borrow-count 0})
                    :scripting-container (ScriptingContainer.
                                          LocalContextScope/SINGLETHREAD)})
+        init-fn (get-in config [:lifecycle :initialize])
         modified-instance (init-fn instance)]
     (.register pool modified-instance)
-    instance))
+    modified-instance))
 
 (defn mock-pool-instance-fixture
   "Test fixture which changes the behavior of the JRubyPool to create
