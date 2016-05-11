@@ -3,7 +3,6 @@
             [puppetlabs.services.protocols.jruby :as jruby-protocol]
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
             [puppetlabs.services.jruby.jruby-service :refer :all]
-            [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.kitchensink.testutils :as ks-testutils]
             [puppetlabs.trapperkeeper.app :as app]
             [puppetlabs.trapperkeeper.core :as tk]
@@ -12,13 +11,10 @@
             [puppetlabs.trapperkeeper.testutils.bootstrap :as bootstrap]
             [puppetlabs.trapperkeeper.testutils.logging :as logging]
             [puppetlabs.services.jruby.jruby-core :as jruby-core]
-            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
-            [me.raynes.fs :as fs]
             [schema.test :as schema-test])
   (:import (puppetlabs.services.jruby.jruby_schemas JRubyInstance)))
 
-(use-fixtures :each jruby-testutils/mock-pool-instance-fixture)
 (use-fixtures :once schema-test/validate-schemas)
 
 (defn jruby-service-test-config

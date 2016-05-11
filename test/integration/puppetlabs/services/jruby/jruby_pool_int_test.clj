@@ -6,8 +6,6 @@
             [puppetlabs.trapperkeeper.services :as tk-services]
             [puppetlabs.services.protocols.jruby :as jruby-protocol]
             [puppetlabs.services.jruby.jruby-service :as jruby]
-            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
-            [puppetlabs.services.jruby.jruby-core :as core]
             [clojure.tools.logging :as log]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils]))
 
@@ -239,93 +237,92 @@
 
 (deftest ^:integration max-requests-flush-while-pool-flush-in-progress-test
   (testing "instance from new pool hits max-requests while flush in progress"
-    (jruby-testutils/with-mock-pool-instance-fixture
-     (tk-testutils/with-app-with-config
-       app
-       [jruby/jruby-pooled-service]
-       (jruby-testutils/jruby-tk-config
-        (jruby-testutils/jruby-config {:max-active-instances 4
-                                              :max-requests-per-instance 10
-                                              :borrow-timeout
-                                              default-borrow-timeout}))
+    (tk-testutils/with-app-with-config
+     app
+     [jruby/jruby-pooled-service]
+     (jruby-testutils/jruby-tk-config
+      (jruby-testutils/jruby-config {:max-active-instances 4
+                                     :max-requests-per-instance 10
+                                     :borrow-timeout
+                                     default-borrow-timeout}))
 
-       (let [jruby-service (tk-app/get-service app :JRubyService)
-             context (tk-services/service-context jruby-service)
-             pool-context (:pool-context context)
-             pool-agent (:pool-agent pool-context)]
-         ;; set a ruby constant in each instance so that we can recognize them.
-         ;; this counts as one request for each instance.
-         (is (true? (set-constants-and-verify pool-context 4)))
+     (let [jruby-service (tk-app/get-service app :JRubyService)
+           context (tk-services/service-context jruby-service)
+           pool-context (:pool-context context)
+           pool-agent (:pool-agent pool-context)]
+       ;; set a ruby constant in each instance so that we can recognize them.
+       ;; this counts as one request for each instance.
+       (is (true? (set-constants-and-verify pool-context 4)))
 
-         ;; borrow one instance and hold the reference to it, to prevent
-         ;; the flush operation from completing
-         (let [instance1 (jruby-protocol/borrow-instance jruby-service
+       ;; borrow one instance and hold the reference to it, to prevent
+       ;; the flush operation from completing
+       (let [instance1 (jruby-protocol/borrow-instance jruby-service
+                                                       :max-requests-flush-while-pool-flush-in-progress-test)]
+         ;; we are going to borrow and return a second instance until we get its
+         ;; request count up to max-requests - 1, so that we can use it to test
+         ;; flushing behavior the next time we return it.
+         (is (true? (borrow-until-desired-borrow-count jruby-service 9)))
+         ;; now we grab a reference to that instance and hold onto it for later.
+         (let [instance2 (jruby-protocol/borrow-instance jruby-service
                                                          :max-requests-flush-while-pool-flush-in-progress-test)]
-           ;; we are going to borrow and return a second instance until we get its
-           ;; request count up to max-requests - 1, so that we can use it to test
-           ;; flushing behavior the next time we return it.
-           (is (true? (borrow-until-desired-borrow-count jruby-service 9)))
-           ;; now we grab a reference to that instance and hold onto it for later.
-           (let [instance2 (jruby-protocol/borrow-instance jruby-service
-                                                           :max-requests-flush-while-pool-flush-in-progress-test)]
-             (is (= 9 (:borrow-count @(:state instance2))))
+           (is (= 9 (:borrow-count @(:state instance2))))
 
-             ;; trigger a flush
-             (jruby-protocol/flush-jruby-pool! jruby-service)
-             ;; wait for the new pool to become available
-             (is (true? (wait-for-new-pool jruby-service)))
-             ;; there will only be two instances in the new pool, because we are holding
-             ;; references to two from the old pool.
-             (is (true? (set-constants-and-verify pool-context 2)))
-             ;; borrow and return instance from the new pool until an instance flush is triggered
-             (is (true? (borrow-until-desired-borrow-count
-                         jruby-service
-                         10)))
+           ;; trigger a flush
+           (jruby-protocol/flush-jruby-pool! jruby-service)
+           ;; wait for the new pool to become available
+           (is (true? (wait-for-new-pool jruby-service)))
+           ;; there will only be two instances in the new pool, because we are holding
+           ;; references to two from the old pool.
+           (is (true? (set-constants-and-verify pool-context 2)))
+           ;; borrow and return instance from the new pool until an instance flush is triggered
+           (is (true? (borrow-until-desired-borrow-count
+                       jruby-service
+                       10)))
 
-             ;; at this point, we still have the main flush in progress, waiting for us
-             ;; to release the two instances from the old pool.  we should also have
-             ;; caused a flush of one of the two instances in the new pool, meaning that
-             ;; exactly one of the two in the new pool should have the ruby constant defined.
-             (is (true? (check-jrubies-for-constant-counts pool-context 1 1)))
+           ;; at this point, we still have the main flush in progress, waiting for us
+           ;; to release the two instances from the old pool.  we should also have
+           ;; caused a flush of one of the two instances in the new pool, meaning that
+           ;; exactly one of the two in the new pool should have the ruby constant defined.
+           (is (true? (check-jrubies-for-constant-counts pool-context 1 1)))
 
-             ;; now we'll set the ruby constants on both instances in the new pool
-             (is (true? (set-constants-and-verify pool-context 2)))
+           ;; now we'll set the ruby constants on both instances in the new pool
+           (is (true? (set-constants-and-verify pool-context 2)))
 
-             ;; now we're going to return instance2 to the pool.  This should cause it
-             ;; to get flushed, but after that, the main pool flush operation should
-             ;; pull it out of the old pool and create a new instance in the new pool
-             ;; to replace it.  So we should end up with 3 instances in the new pool,
-             ;; two of which should have the ruby constants and one of which should not.
-             (jruby-protocol/return-instance jruby-service instance2 :max-requests-flush-while-pool-flush-in-progress-test)
-             (is (true? (check-jrubies-for-constant-counts pool-context 2 1))))
+           ;; now we're going to return instance2 to the pool.  This should cause it
+           ;; to get flushed, but after that, the main pool flush operation should
+           ;; pull it out of the old pool and create a new instance in the new pool
+           ;; to replace it.  So we should end up with 3 instances in the new pool,
+           ;; two of which should have the ruby constants and one of which should not.
+           (jruby-protocol/return-instance jruby-service instance2 :max-requests-flush-while-pool-flush-in-progress-test)
+           (is (true? (check-jrubies-for-constant-counts pool-context 2 1))))
 
-           ;; now we'll set the ruby constant on the 3 instances in the new pool
-           (is (true? (set-constants-and-verify pool-context 3)))
+         ;; now we'll set the ruby constant on the 3 instances in the new pool
+         (is (true? (set-constants-and-verify pool-context 3)))
 
-           ;; The flush should still not have completed at this point because
-           ;; the last instance from the old pool is still being borrowed.
-           ;; Wait for some arbitrary (but short) period of time to see that
-           ;; that the agent is still busy - presumably handling the flush.
-           (is (false? (await-for 50 pool-agent)))
+         ;; The flush should still not have completed at this point because
+         ;; the last instance from the old pool is still being borrowed.
+         ;; Wait for some arbitrary (but short) period of time to see that
+         ;; that the agent is still busy - presumably handling the flush.
+         (is (false? (await-for 50 pool-agent)))
 
-           ;; and finally, we return the last instance from the old pool
-           (jruby-protocol/return-instance jruby-service instance1 :max-requests-flush-while-pool-flush-in-progress-test)
+         ;; and finally, we return the last instance from the old pool
+         (jruby-protocol/return-instance jruby-service instance1 :max-requests-flush-while-pool-flush-in-progress-test)
 
-           ;; wait until the flush is complete
-           (is (true? (timed-await pool-agent))
-               (str "timed out waiting for the flush to complete, stack:\n"
-                    (get-all-stack-traces-as-str))))
+         ;; wait until the flush is complete
+         (is (true? (timed-await pool-agent))
+             (str "timed out waiting for the flush to complete, stack:\n"
+                  (get-all-stack-traces-as-str))))
 
-         ;; we should have three instances with the constant and one without.
-         (is (true? (check-jrubies-for-constant-counts pool-context 3 1)))
+       ;; we should have three instances with the constant and one without.
+       (is (true? (check-jrubies-for-constant-counts pool-context 3 1)))
 
-         ;; The jruby return instance calls done within the previous
-         ;; check jrubies call may cause an instance to be in the process of
-         ;; being flushed when the server is shut down.  This ensures that
-         ;; the flushing is all done before the server is shut down - since
-         ;; that could otherwise cause an annoying error message about the
-         ;; pool not being full at shut down to be displayed.
-         (timed-await (:flush-instance-agent pool-context)))))))
+       ;; The jruby return instance calls done within the previous
+       ;; check jrubies call may cause an instance to be in the process of
+       ;; being flushed when the server is shut down.  This ensures that
+       ;; the flushing is all done before the server is shut down - since
+       ;; that could otherwise cause an annoying error message about the
+       ;; pool not being full at shut down to be displayed.
+       (timed-await (:flush-instance-agent pool-context))))))
 
 (deftest initialization-and-cleanup-hooks-test
   (testing "custom initialization and cleanup callbacks get called appropriately"

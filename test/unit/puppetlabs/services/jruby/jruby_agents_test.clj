@@ -18,7 +18,6 @@
            (com.puppetlabs.jruby_utils.pool JRubyPool)))
 
 (use-fixtures :once schema-test/validate-schemas)
-(use-fixtures :each jruby-testutils/mock-pool-instance-fixture)
 
 (def default-services
   [jruby/jruby-pooled-service])

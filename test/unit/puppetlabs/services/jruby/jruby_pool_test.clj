@@ -8,8 +8,6 @@
             [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils]))
 
-(use-fixtures :each jruby-testutils/mock-pool-instance-fixture)
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
 
