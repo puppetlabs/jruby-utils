@@ -74,8 +74,8 @@
   "Default lifecycle fn for initializing the settings on the scripting
   container. Currently it just sets the environment variables."
   [scripting-container :- jruby-schemas/ConfigurableJRuby
-   gem-home :- schema/Str]
-  (.setEnvironment scripting-container (managed-environment (get-system-env) gem-home))
+   config :- jruby-schemas/JRubyConfig]
+  (.setEnvironment scripting-container (managed-environment (get-system-env) (:gem-home config)))
   scripting-container)
 
 (schema/defn ^:always-validate get-compile-mode :- RubyInstanceConfig$CompileMode
@@ -85,41 +85,34 @@
     :force RubyInstanceConfig$CompileMode/FORCE
     :off RubyInstanceConfig$CompileMode/OFF))
 
-(schema/defn ^:always-validate init-jruby-config :- jruby-schemas/ConfigurableJRuby
+(schema/defn ^:always-validate init-jruby :- jruby-schemas/ConfigurableJRuby
   "Applies configuration to a JRuby... thing.  See comments in `ConfigurableJRuby`
   schema for more details."
   [jruby :- jruby-schemas/ConfigurableJRuby
-   ruby-load-path :- [schema/Str]
-   gem-home :- schema/Str
-   compile-mode :- jruby-schemas/SupportedJRubyCompileModes
-   initialize-scripting-container-fn :- IFn]
-  (doto jruby
-    (.setLoadPaths ruby-load-path)
-    (.setCompatVersion compat-version)
-    (.setCompileMode (get-compile-mode compile-mode)))
-  (initialize-scripting-container-fn jruby gem-home))
+   config :- jruby-schemas/JRubyConfig]
+  (let [{:keys [ruby-load-path compile-mode lifecycle]} config
+        initialize-scripting-container-fn (:initialize-scripting-container lifecycle)]
+    (doto jruby
+      (.setLoadPaths ruby-load-path)
+      (.setCompatVersion compat-version)
+      (.setCompileMode (get-compile-mode compile-mode)))
+    (initialize-scripting-container-fn jruby config)))
 
 (schema/defn ^:always-validate empty-scripting-container :- ScriptingContainer
   "Creates a clean instance of a JRuby `ScriptingContainer` with no code loaded."
-  [ruby-load-path :- [schema/Str]
-   gem-home :- schema/Str
-   compile-mode :- jruby-schemas/SupportedJRubyCompileModes
-   initialize-scripting-container-fn :- IFn]
+  [config :- jruby-schemas/JRubyConfig]
   (-> (ScriptingContainer. LocalContextScope/SINGLETHREAD)
-      (init-jruby-config ruby-load-path gem-home compile-mode initialize-scripting-container-fn)))
+      (init-jruby config)))
 
 (schema/defn ^:always-validate create-scripting-container :- ScriptingContainer
   "Creates an instance of `org.jruby.embed.ScriptingContainer`."
-  [ruby-load-path :- [schema/Str]
-   gem-home :- schema/Str
-   compile-mode :- jruby-schemas/SupportedJRubyCompileModes
-   initialize-scripting-container-fn :- IFn]
+  [config :- jruby-schemas/JRubyConfig]
   ;; for information on other legal values for `LocalContextScope`, there
   ;; is some documentation available in the JRuby source code; e.g.:
   ;; https://github.com/jruby/jruby/blob/1.7.11/core/src/main/java/org/jruby/embed/LocalContextScope.java#L58
   ;; I'm convinced that this is the safest and most reasonable value
   ;; to use here, but we could potentially explore optimizations in the future.
-  (doto (empty-scripting-container ruby-load-path gem-home compile-mode initialize-scripting-container-fn)
+  (doto (empty-scripting-container config)
     ;; As of JRuby 1.7.20 (and the associated 'jruby-openssl' it pulls in),
     ;; we need to explicitly require 'jar-dependencies' so that it is used
     ;; to manage jar loading.  We do this so that we can instruct
@@ -160,18 +153,14 @@
    id :- schema/Int
    config :- jruby-schemas/JRubyConfig
    flush-instance-fn :- IFn]
-  (let [{:keys [ruby-load-path gem-home compile-mode lifecycle]} config
-        initialize-pool-instance-fn (:initialize-pool-instance lifecycle)
-        initialize-scripting-container-fn (:initialize-scripting-container lifecycle)]
+  (let [{:keys [ruby-load-path lifecycle]} config
+        initialize-pool-instance-fn (:initialize-pool-instance lifecycle)]
     (when-not ruby-load-path
       (throw (Exception.
                "JRuby service missing config value 'ruby-load-path'")))
     (log/infof "Creating JRubyInstance with id %s." id)
     (let [scripting-container (create-scripting-container
-                               ruby-load-path
-                               gem-home
-                               compile-mode
-                               initialize-scripting-container-fn)]
+                               config)]
       (let [instance (jruby-schemas/map->JRubyInstance
                       {:pool pool
                        :id id
@@ -284,11 +273,7 @@
   e.g. for the ruby, gem, and irb subcommands.  Internal core services should
   use `create-scripting-container` instead of `new-main`."
   [config :- jruby-schemas/JRubyConfig]
-  (let [{:keys [ruby-load-path gem-home compile-mode]} config
-        jruby-config (init-jruby-config
+  (let [jruby-config (init-jruby
                       (RubyInstanceConfig.)
-                      ruby-load-path
-                      gem-home
-                      compile-mode
-                      default-initialize-scripting-container)]
+                      config)]
     (Main. jruby-config)))
