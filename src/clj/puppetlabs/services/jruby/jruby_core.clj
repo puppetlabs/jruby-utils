@@ -145,11 +145,11 @@
   initialize-lifecycle-fns :- jruby-schemas/LifecycleFns
   [config :- (schema/maybe {schema/Keyword schema/Any})]
   (-> config
-      (update-in [:initialize] #(or % identity))
-      (update-in [:shutdown] #(or % identity))
+      (update-in [:initialize-pool-instance] #(or % identity))
+      (update-in [:cleanup] #(or % identity))
       (update-in [:shutdown-on-error] #(or % (fn [f] (f))))
-      (update-in [:initialize-env-variables]
-                 #(or % jruby-internal/default-initialize-env-variables))))
+      (update-in [:initialize-scripting-container]
+                 #(or % jruby-internal/default-initialize-scripting-container))))
 
 (schema/defn ^:always-validate
   initialize-config :- jruby-schemas/JRubyConfig

@@ -35,7 +35,7 @@
          (bootstrap/with-app-with-config
           app
           default-services
-          (assoc-in (jruby-service-test-config 1) [:jruby :lifecycle :initialize]
+          (assoc-in (jruby-service-test-config 1) [:jruby :lifecycle :initialize-pool-instance]
                     (fn [_] (throw (Exception. "42"))))
           (tk/run-app app))
          (catch Exception e

@@ -326,8 +326,8 @@
 
 (deftest initialization-and-cleanup-hooks-test
   (testing "custom initialization and cleanup callbacks get called appropriately"
-    (let [lifecycle-fns {:initialize (fn [instance] (assoc instance :foo "FOO"))
-                         :shutdown (fn [instance] (log/error "Terminating" (:foo instance)))}
+    (let [lifecycle-fns {:initialize-pool-instance (fn [instance] (assoc instance :foo "FOO"))
+                         :cleanup (fn [instance] (log/error "Terminating" (:foo instance)))}
           config (assoc-in (jruby-testutils/jruby-tk-config
                             (jruby-testutils/jruby-config
                              {:max-active-instances 1
@@ -354,12 +354,12 @@
           (await (get-in context [:pool-context :pool-agent]))
           (is (logged? #"Terminating FOO"))))))))
 
-(deftest initialize-env-variables-hook-test
-  (testing "can set custom environment variables via :initialize-env-variables hook"
-    (let [lifecycle-fns {:initialize-env-variables (fn [scripting-container gem-home]
-                                                     (.setEnvironment scripting-container
-                                                                      {"CUSTOMENV" "foobar"})
-                                                     scripting-container)}
+(deftest initialize-scripting-container-hook-test
+  (testing "can set custom environment variables via :initialize-scripting-container hook"
+    (let [lifecycle-fns {:initialize-scripting-container (fn [scripting-container gem-home]
+                                                           (.setEnvironment scripting-container
+                                                                            {"CUSTOMENV" "foobar"})
+                                                           scripting-container)}
           config (assoc-in (jruby-testutils/jruby-tk-config
                             (jruby-testutils/jruby-config
                              {:max-active-instances 1

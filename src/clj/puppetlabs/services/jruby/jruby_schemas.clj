@@ -41,10 +41,10 @@
   (apply schema/enum supported-jruby-compile-modes))
 
 (def LifecycleFns
-  {:initialize IFn
-   :shutdown IFn
+  {:initialize-pool-instance IFn
+   :cleanup IFn
    :shutdown-on-error IFn
-   :initialize-env-variables IFn})
+   :initialize-scripting-container IFn})
 
 (def JRubyConfig
   "Schema defining the config map for the JRuby pooling functions.

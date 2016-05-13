@@ -65,8 +65,8 @@
    new-pool :- jruby-schemas/pool-queue-type
    new-id :- schema/Int
    config :- jruby-schemas/JRubyConfig]
-  (let [shutdown-fn (get-in pool-context [:config :lifecycle :shutdown])]
-    (jruby-internal/cleanup-pool-instance! instance shutdown-fn)
+  (let [cleanup-fn (get-in pool-context [:config :lifecycle :cleanup])]
+    (jruby-internal/cleanup-pool-instance! instance cleanup-fn)
     (jruby-internal/create-pool-instance! new-pool new-id config
                                           (partial send-flush-instance! pool-context))))
 
@@ -89,7 +89,7 @@
         new-pool (:pool new-pool-state)
         old-pool (:pool old-pool-state)
         old-pool-size (:size old-pool-state)
-        shutdown-fn (get-in config [:lifecycle :shutdown])]
+        cleanup-fn (get-in config [:lifecycle :cleanup])]
     (log/info "Replacing old JRuby pool with new instance.")
     (reset! pool-state new-pool-state)
     (log/info "Swapped JRuby pools, beginning cleanup of old pool.")
@@ -100,7 +100,7 @@
                         jruby-internal/borrow-without-timeout-fn
                         old-pool)]
           (try
-            (jruby-internal/cleanup-pool-instance! instance shutdown-fn)
+            (jruby-internal/cleanup-pool-instance! instance cleanup-fn)
             (when refill?
               (jruby-internal/create-pool-instance! new-pool id config
                                                     (partial send-flush-instance! pool-context))

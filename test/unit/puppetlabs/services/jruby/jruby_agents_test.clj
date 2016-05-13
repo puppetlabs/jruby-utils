@@ -114,12 +114,12 @@
         (is (= (mod id 8) (jruby-agents/next-instance-id id pool-context)))))))
 
 (deftest custom-termination-test
-  (testing "Flushing the pool causes shutdown hook to be called"
+  (testing "Flushing the pool causes cleanup hook to be called"
     (logutils/with-test-logging
      (let [config (assoc-in (jruby-testutils/jruby-tk-config
                              (jruby-testutils/jruby-config {:max-active-instances 1}))
                             [:jruby :lifecycle]
-                            {:shutdown (fn [x] (log/error "Hello from shutdown") x)})]
+                            {:cleanup (fn [x] (log/error "Hello from cleanup") x)})]
         (tk-testutils/with-app-with-config
          app
          [jruby/jruby-pooled-service]
@@ -129,4 +129,4 @@
            (jruby-protocol/flush-jruby-pool! jruby-service)
            ; wait until the flush is complete
            (await (get-in context [:pool-context :pool-agent]))
-           (is (logged? #"Hello from shutdown"))))))))
+           (is (logged? #"Hello from cleanup"))))))))

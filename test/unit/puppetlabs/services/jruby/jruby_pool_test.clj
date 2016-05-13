@@ -104,7 +104,7 @@
         pool-context (jruby-core/create-pool-context config)
         err-msg       (re-pattern "Unable to borrow JRubyInstance from pool")]
    (is (thrown? IllegalStateException (jruby-agents/prime-pool!
-                                       (assoc-in pool-context [:config :lifecycle :initialize]
+                                       (assoc-in pool-context [:config :lifecycle :initialize-pool-instance]
                                                  (fn [_] (throw (IllegalStateException. "BORK!")))))))
     (testing "borrow and borrow-with-timeout both throw an exception if the pool failed to initialize"
       (is (thrown-with-msg? IllegalStateException
