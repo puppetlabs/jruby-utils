@@ -1,11 +1,9 @@
 (ns puppetlabs.services.jruby.jruby-internal
   (:require [schema.core :as schema]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
-            [clojure.tools.logging :as log]
-            [puppetlabs.kitchensink.core :as ks])
+            [clojure.tools.logging :as log])
   (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
            (puppetlabs.services.jruby.jruby_schemas JRubyInstance PoisonPill ShutdownPoisonPill)
-           (java.util HashMap)
            (org.jruby CompatVersion Main RubyInstanceConfig RubyInstanceConfig$CompileMode)
            (org.jruby.embed LocalContextScope)
            (java.util.concurrent TimeUnit)
@@ -139,7 +137,7 @@
 (schema/defn ^:always-validate
   cleanup-pool-instance!
   "Cleans up and cleanly terminates a JRubyInstance and removes it from the pool."
-  [{:keys [scripting-container pool] :as instance} :- jruby-schemas/JRubyInstanceSchema
+  [{:keys [scripting-container pool] :as instance} :- JRubyInstance
    cleanup-fn :- IFn]
   (.unregister pool instance)
   (cleanup-fn instance)
@@ -147,7 +145,7 @@
   (log/infof "Cleaned up old JRubyInstance with id %s." (:id instance)))
 
 (schema/defn ^:always-validate
-  create-pool-instance! :- jruby-schemas/JRubyInstanceSchema
+  create-pool-instance! :- JRubyInstance
   "Creates a new JRubyInstance and adds it to the pool."
   [pool :- jruby-schemas/pool-queue-type
    id :- schema/Int

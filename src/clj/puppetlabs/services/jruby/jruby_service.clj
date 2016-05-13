@@ -6,8 +6,7 @@
             [puppetlabs.trapperkeeper.services :as tk-services]
             [puppetlabs.services.protocols.jruby :as jruby]
             [slingshot.slingshot :as sling]
-            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]))
+            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
