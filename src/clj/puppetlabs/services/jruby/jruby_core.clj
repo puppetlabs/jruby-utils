@@ -53,13 +53,6 @@
       iterator-seq
       vec))
 
-(defn verify-config-found!
-  [config]
-  (if (or (not (map? config))
-          (empty? config))
-    (throw (IllegalArgumentException. (str "No configuration data found.  Perhaps "
-                                           "you did not specify the --config option?")))))
-
 (schema/defn create-requested-event :- jruby-schemas/JRubyRequestedEvent
   [reason :- jruby-schemas/JRubyEventReason]
   {:type :instance-requested
@@ -143,7 +136,10 @@
 
 (schema/defn ^:always-validate
   initialize-lifecycle-fns :- jruby-schemas/LifecycleFns
-  [config :- (schema/maybe {schema/Keyword schema/Any})]
+  [config :- (schema/maybe {(schema/optional-key :initialize-pool-instance) IFn
+                            (schema/optional-key :cleanup) IFn
+                            (schema/optional-key :shutdown-on-error) IFn
+                            (schema/optional-key :initialize-scripting-container) IFn})]
   (-> config
       (update-in [:initialize-pool-instance] #(or % identity))
       (update-in [:cleanup] #(or % identity))
@@ -159,7 +155,7 @@
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
       (update-in [:max-requests-per-instance] #(or % 0))
-      (update-in [:lifecycle] #(initialize-lifecycle-fns %))))
+      (update-in [:lifecycle] initialize-lifecycle-fns)))
 
 (schema/defn ^:always-validate
   create-pool-context :- jruby-schemas/PoolContext

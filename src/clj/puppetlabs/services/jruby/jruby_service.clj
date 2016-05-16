@@ -11,9 +11,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-;; This service uses TK's normal config service instead of the
-;; PuppetServerConfigService.  This is because that service depends on this one.
-
 (trapperkeeper/defservice jruby-pooled-service
                           jruby/JRubyService
                           [[:ConfigService get-config]
@@ -26,7 +23,6 @@
           config (core/initialize-config (assoc-in initial-config
                                                    [:jruby :lifecycle :shutdown-on-error]
                                                    agent-shutdown-fn))]
-      (core/verify-config-found! config)
       (log/info "Initializing the JRuby service")
       (let [pool-context (core/create-pool-context config)]
         (jruby-agents/send-prime-pool! pool-context)
