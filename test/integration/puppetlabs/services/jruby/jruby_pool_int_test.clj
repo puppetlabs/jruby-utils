@@ -326,37 +326,35 @@
 
 (deftest initialization-and-cleanup-hooks-test
   (testing "custom initialization and cleanup callbacks get called appropriately"
-    (let [lifecycle-fns {:initialize-pool-instance (fn [instance] (assoc instance :foo "FOO"))
-                         :cleanup (fn [instance] (log/error "Terminating" (:foo instance)))}
+    (let [foo-atom (atom "FOO")
+          lifecycle-fns {:initialize-pool-instance (fn [instance] (assoc instance :foo foo-atom))
+                         :cleanup (fn [instance] (reset! (:foo instance) "Terminating FOO"))}
           config (assoc-in (jruby-testutils/jruby-tk-config
                             (jruby-testutils/jruby-config
                              {:max-active-instances 1
                               :max-requests-per-instance 10
                               :borrow-timeout default-borrow-timeout}))
                            [:jruby :lifecycle] lifecycle-fns)]
-      (logutils/with-test-logging
-       (tk-testutils/with-app-with-config
-        app
-        [jruby/jruby-pooled-service]
-        config
-        (let [jruby-service (tk-app/get-service app :JRubyService)
-              context (tk-services/service-context jruby-service)
-              pool-context (:pool-context context)]
-          ;; set a ruby constant in each instance so that we can recognize them
-          (is (true? (set-constants-and-verify pool-context 1)))
-          (let [instance (jruby-protocol/borrow-instance jruby-service
-                                                         :initialization-and-cleanup-hooks-test)]
-            (is (= "FOO" (:foo instance)))
-            (jruby-protocol/return-instance jruby-service instance :initialization-and-cleanup-hooks-test))
+      (tk-testutils/with-app-with-config
+       app
+       [jruby/jruby-pooled-service]
+       config
+       (let [jruby-service (tk-app/get-service app :JRubyService)
+             context (tk-services/service-context jruby-service)]
 
-          (jruby-protocol/flush-jruby-pool! jruby-service)
-          ; wait until the flush is complete
-          (await (get-in context [:pool-context :pool-agent]))
-          (is (logged? #"Terminating FOO"))))))))
+         (let [instance (jruby-protocol/borrow-instance jruby-service
+                                                        :initialization-and-cleanup-hooks-test)]
+           (is (= "FOO" (deref (:foo instance))))
+           (jruby-protocol/return-instance jruby-service instance :initialization-and-cleanup-hooks-test))
+
+         (jruby-protocol/flush-jruby-pool! jruby-service)
+         ; wait until the flush is complete
+         (await (get-in context [:pool-context :pool-agent]))
+         (is (= "Terminating FOO" (deref foo-atom))))))))
 
 (deftest initialize-scripting-container-hook-test
   (testing "can set custom environment variables via :initialize-scripting-container hook"
-    (let [lifecycle-fns {:initialize-scripting-container (fn [scripting-container gem-home]
+    (let [lifecycle-fns {:initialize-scripting-container (fn [scripting-container {}]
                                                            (.setEnvironment scripting-container
                                                                             {"CUSTOMENV" "foobar"})
                                                            scripting-container)}
@@ -370,11 +368,7 @@
        app
        [jruby/jruby-pooled-service]
        config
-       (let [jruby-service (tk-app/get-service app :JRubyService)
-             context (tk-services/service-context jruby-service)
-             pool-context (:pool-context context)]
-         ;; set a ruby constant in each instance so that we can recognize them
-         (is (true? (set-constants-and-verify pool-context 1)))
+       (let [jruby-service (tk-app/get-service app :JRubyService)]
 
          (let [instance (jruby-protocol/borrow-instance jruby-service
                                                         :initialize-environment-variables-test)
