@@ -27,7 +27,7 @@
 (deftest ^:integration with-lock-test
   (tk-bootstrap/with-app-with-config
     app
-    [jruby-service/jruby-pooled-service]
+    jruby-testutils/default-services
     (jruby-service-test-config 1)
     (jruby-testutils/wait-for-jrubies app)
     (let [jruby-service (tk-app/get-service app :JRubyService)]
@@ -42,7 +42,7 @@
 (deftest ^:integration with-lock-exception-test
   (tk-bootstrap/with-app-with-config
     app
-    [jruby-service/jruby-pooled-service]
+    jruby-testutils/default-services
     (jruby-service-test-config 1)
     (jruby-testutils/wait-for-jrubies app)
     (let [jruby-service (tk-app/get-service app :JRubyService)]
@@ -69,8 +69,7 @@
                                           context))]
       (tk-bootstrap/with-app-with-config
         app
-        [jruby-service/jruby-pooled-service
-         event-service]
+        (conj jruby-testutils/default-services event-service)
         (jruby-service-test-config 1)
         (jruby-testutils/wait-for-jrubies app)
         (let [jruby-service (tk-app/get-service app :JRubyService)]
@@ -98,7 +97,7 @@
   (testing "contention for instances with borrows and locking handled properly"
     (tk-bootstrap/with-app-with-config
      app
-      [jruby-service/jruby-pooled-service]
+     jruby-testutils/default-services
      (jruby-service-test-config 2)
      (jruby-testutils/wait-for-jrubies app)
      (let [jruby-service (tk-app/get-service app :JRubyService)

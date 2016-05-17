@@ -22,9 +22,6 @@
   (jruby-testutils/jruby-tk-config
    (jruby-testutils/jruby-config {:max-active-instances pool-size})))
 
-(def default-services
-  [jruby-pooled-service])
-
 (deftest test-error-during-init
   (testing
    (str "If there is an exception while putting a JRubyInstance in "
@@ -34,7 +31,7 @@
        (try
          (bootstrap/with-app-with-config
           app
-          default-services
+          jruby-testutils/default-services
           (assoc-in (jruby-service-test-config 1) [:jruby :lifecycle :initialize-pool-instance]
                     (fn [_] (throw (Exception. "42"))))
           (tk/run-app app))
@@ -50,7 +47,7 @@
     (let [pool-size 2]
       (bootstrap/with-app-with-config
         app
-        default-services
+        jruby-testutils/default-services
         (jruby-service-test-config pool-size)
         (let [service (app/get-service app :JRubyService)
               all-the-instances
@@ -77,7 +74,7 @@
       (ks-testutils/with-no-jvm-shutdown-hooks
        ; Bootstrap TK, causing the 'init' function above to be executed.
        (tk/boot-services-with-config
-        (conj default-services test-service)
+        (conj jruby-testutils/default-services test-service)
         (jruby-service-test-config 1))
 
        ; If execution gets here, the test passed.
@@ -87,7 +84,7 @@
   (testing "the `with-jruby-instance macro`"
     (bootstrap/with-app-with-config
       app
-      default-services
+      jruby-testutils/default-services
       (jruby-service-test-config 1)
       (let [service (app/get-service app :JRubyService)]
         (with-jruby-instance
@@ -140,7 +137,7 @@
                             context))]
       (bootstrap/with-app-with-config
         app
-        (conj default-services event-service)
+        (conj jruby-testutils/default-services event-service)
         (jruby-service-test-config 1)
         (let [service (app/get-service app :JRubyService)]
           ;; We're making an empty call to `with-jruby-instance` here, because
@@ -176,7 +173,7 @@
                                                           :borrow-timeout timeout}))]
       (bootstrap/with-app-with-config
         app
-        default-services
+        jruby-testutils/default-services
         config
         (let [service (app/get-service app :JRubyService)
               context (services/service-context service)
@@ -194,7 +191,7 @@
   (testing (str ":borrow-timeout defaults to " jruby-core/default-borrow-timeout " milliseconds")
     (bootstrap/with-app-with-config
       app
-      default-services
+      jruby-testutils/default-services
       (jruby-service-test-config 1)
       ;; This test doesn't technically need to wait for jruby pool
       ;; initialization to be done but if it doesn't, the pool initialization

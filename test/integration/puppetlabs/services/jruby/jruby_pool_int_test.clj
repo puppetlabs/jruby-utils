@@ -4,10 +4,11 @@
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.services :as tk-services]
+            [puppetlabs.services.jruby.jruby-pool-manager-service :as pool-manager]
             [puppetlabs.services.protocols.jruby :as jruby-protocol]
-            [puppetlabs.services.jruby.jruby-service :as jruby]
-            [clojure.tools.logging :as log]
-            [puppetlabs.trapperkeeper.testutils.logging :as logutils]))
+            [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
+            [puppetlabs.services.jruby.jruby-core :as jruby-core]
+            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utilities
@@ -144,31 +145,51 @@
 ;;; Tests
 
 ;; TODO: this test seems redundant to the one in puppetlabs.services.jruby.jruby-agents-test
-(deftest ^:integration flush-jruby-pool-test
+;; Reevaluate when we remove the jruby TK service
+(deftest ^:integration flush-jruby-pool-with-pool-manager-test
   (testing "Flushing the pool results in all new JRubyInstances"
-    (tk-testutils/with-app-with-config
+    (let [config (jruby-testutils/jruby-config {:max-active-instances 4
+                                                :borrow-timeout default-borrow-timeout})]
+      (tk-testutils/with-app-with-config
+       app
+       [pool-manager/jruby-pool-manager-service]
+       (jruby-testutils/jruby-tk-config config)
+       (let [pool-manager-service (tk-app/get-service app :PoolManagerService)
+             pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
+         ;; set a ruby constant in each instance so that we can recognize them
+         (is (true? (set-constants-and-verify pool-context 4)))
+         (pool-manager-protocol/flush-pool! pool-manager-service pool-context)
+         (is (true? (timed-await (:pool-agent pool-context)))
+             (str "timed out waiting for the flush to complete, stack:\n"
+                  (get-all-stack-traces-as-str)))
+         ;; now the pool is flushed, so the constants should be cleared
+         (is (true? (verify-no-constants pool-context 4))))))))
+
+(deftest ^:integration flush-jruby-pool-for-shutdown-with-pool-manager-test
+  (testing "Flushing the pool for shutdown results in no JRubyInstances left"
+    (let [config (jruby-testutils/jruby-config {:max-active-instances 4
+                                                :borrow-timeout default-borrow-timeout})]
+      (tk-testutils/with-app-with-config
       app
-      [jruby/jruby-pooled-service]
-      (jruby-testutils/jruby-tk-config
-       (jruby-testutils/jruby-config {:max-active-instances      4
-                                             :borrow-timeout default-borrow-timeout}))
-      (let [jruby-service (tk-app/get-service app :JRubyService)
-            context (tk-services/service-context jruby-service)
-            pool-context (:pool-context context)]
-        ;; set a ruby constant in each instance so that we can recognize them
-        (is (true? (set-constants-and-verify pool-context 4)))
-        (jruby-protocol/flush-jruby-pool! jruby-service)
-        (is (true? (timed-await (:pool-agent pool-context)))
-            (str "timed out waiting for the flush to complete, stack:\n"
-                 (get-all-stack-traces-as-str)))
-        ;; now the pool is flushed, so the constants should be cleared
-        (is (true? (verify-no-constants pool-context 4)))))))
+      [pool-manager/jruby-pool-manager-service]
+      (jruby-testutils/jruby-tk-config config)
+      (let [pool-manager-service (tk-app/get-service app :PoolManagerService)
+            pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
+        ;; wait for all jrubies to be added to the pool
+        (jruby-testutils/wait-for-jrubies-from-pool-context pool-context)
+        (is (= 4 (.size (jruby-core/get-pool pool-context))))
+        (pool-manager-protocol/flush-pool-for-shutdown! pool-manager-service pool-context)
+        (let [flushed-pool (jruby-core/get-pool pool-context)]
+          ;; flushing the pool removes all JRubyInstances but causes a ShutdownPoisonPill
+          ;; to be added
+          (is (= 1 (.size flushed-pool)))
+          (is (jruby-schemas/shutdown-poison-pill? (.borrowItem flushed-pool)))))))))
 
 (deftest ^:integration hold-instance-while-pool-flush-in-progress-test
   (testing "instance borrowed from old pool before pool flush begins and returned *after* new pool is available"
     (tk-testutils/with-app-with-config
       app
-      [jruby/jruby-pooled-service]
+      jruby-testutils/default-services
       (jruby-testutils/jruby-tk-config
        (jruby-testutils/jruby-config {:max-active-instances      4
                                              :borrow-timeout default-borrow-timeout}))
@@ -198,7 +219,7 @@
   (testing "file handle opened from old pool instance is held open across pool flush"
     (tk-testutils/with-app-with-config
       app
-      [jruby/jruby-pooled-service]
+      jruby-testutils/default-services
       (jruby-testutils/jruby-tk-config
        (jruby-testutils/jruby-config {:max-active-instances      4
                                              :borrow-timeout default-borrow-timeout}))
@@ -239,7 +260,7 @@
   (testing "instance from new pool hits max-requests while flush in progress"
     (tk-testutils/with-app-with-config
      app
-     [jruby/jruby-pooled-service]
+     jruby-testutils/default-services
      (jruby-testutils/jruby-tk-config
       (jruby-testutils/jruby-config {:max-active-instances 4
                                      :max-requests-per-instance 10
@@ -337,7 +358,7 @@
                            [:jruby :lifecycle] lifecycle-fns)]
       (tk-testutils/with-app-with-config
        app
-       [jruby/jruby-pooled-service]
+       jruby-testutils/default-services
        config
        (let [jruby-service (tk-app/get-service app :JRubyService)
              context (tk-services/service-context jruby-service)]
@@ -366,7 +387,7 @@
                            [:jruby :lifecycle] lifecycle-fns)]
       (tk-testutils/with-app-with-config
        app
-       [jruby/jruby-pooled-service]
+       jruby-testutils/default-services
        config
        (let [jruby-service (tk-app/get-service app :JRubyService)]
 
