@@ -53,13 +53,6 @@
       iterator-seq
       vec))
 
-(defn verify-config-found!
-  [config]
-  (if (or (not (map? config))
-          (empty? config))
-    (throw (IllegalArgumentException. (str "No configuration data found.  Perhaps "
-                                           "you did not specify the --config option?")))))
-
 (schema/defn create-requested-event :- jruby-schemas/JRubyRequestedEvent
   [reason :- jruby-schemas/JRubyEventReason]
   {:type :instance-requested
@@ -142,26 +135,40 @@
 ;;; Public
 
 (schema/defn ^:always-validate
+  initialize-lifecycle-fns :- jruby-schemas/LifecycleFns
+  [config :- (schema/maybe {(schema/optional-key :initialize-pool-instance) IFn
+                            (schema/optional-key :cleanup) IFn
+                            (schema/optional-key :shutdown-on-error) IFn
+                            (schema/optional-key :initialize-scripting-container) IFn})]
+  (-> config
+      (update-in [:initialize-pool-instance] #(or % identity))
+      (update-in [:cleanup] #(or % identity))
+      (update-in [:shutdown-on-error] #(or % (fn [f] (f))))
+      (update-in [:initialize-scripting-container]
+                 #(or % jruby-internal/default-initialize-scripting-container))))
+
+(schema/defn ^:always-validate
   initialize-config :- jruby-schemas/JRubyConfig
   [config :- {schema/Keyword schema/Any}]
   (-> (get-in config [:jruby])
       (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
-      (update-in [:max-requests-per-instance] #(or % 0))))
+      (update-in [:max-requests-per-instance] #(or % 0))
+      (update-in [:lifecycle] initialize-lifecycle-fns)))
 
 (schema/defn ^:always-validate
   create-pool-context :- jruby-schemas/PoolContext
   "Creates a new JRuby pool context with an empty pool. Once the JRuby
   pool object has been created, it will need to be filled using `prime-pool!`."
-  [config :- jruby-schemas/JRubyConfig
-   agent-shutdown-fn :- (schema/pred ifn?)]
-  {:config                config
-   :pool-agent            (jruby-agents/pool-agent agent-shutdown-fn)
-   ;; For an explanation of why we need a separate agent for the `flush-instance`,
-   ;; see the comments in puppetlabs.services.jruby.jruby-agents/send-flush-instance
-   :flush-instance-agent  (jruby-agents/pool-agent agent-shutdown-fn)
-   :pool-state            (atom (jruby-internal/create-pool-from-config config))})
+  [config :- jruby-schemas/JRubyConfig]
+  (let [agent-shutdown-fn (get-in config [:lifecycle :shutdown-on-error])]
+    {:config config
+     :pool-agent (jruby-agents/pool-agent agent-shutdown-fn)
+     ;; For an explanation of why we need a separate agent for the `flush-instance`,
+     ;; see the comments in puppetlabs.services.jruby.jruby-agents/send-flush-instance
+     :flush-instance-agent (jruby-agents/pool-agent agent-shutdown-fn)
+     :pool-state (atom (jruby-internal/create-pool-from-config config))}))
 
 (schema/defn ^:always-validate
   free-instance-count

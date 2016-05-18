@@ -11,12 +11,13 @@
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
             [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
-            [puppetlabs.trapperkeeper.testutils.logging :as logutils])
+            [puppetlabs.trapperkeeper.testutils.logging :as logutils]
+            [puppetlabs.services.jruby.jruby-core :as core]
+            [clojure.tools.logging :as log])
   (:import (puppetlabs.services.jruby.jruby_schemas RetryPoisonPill JRubyInstance)
            (com.puppetlabs.jruby_utils.pool JRubyPool)))
 
 (use-fixtures :once schema-test/validate-schemas)
-(use-fixtures :each jruby-testutils/mock-pool-instance-fixture)
 
 (def default-services
   [jruby/jruby-pooled-service])
@@ -104,8 +105,7 @@
 
 (deftest next-instance-id-test
   (let [pool-context (jruby-core/create-pool-context
-                       (jruby-testutils/jruby-config {:max-active-instances 8})
-                       jruby-testutils/default-shutdown-fn)]
+                      (jruby-testutils/jruby-config {:max-active-instances 8}))]
     (testing "next instance id should be based on the pool size"
       (is (= 10 (jruby-agents/next-instance-id 2 pool-context)))
       (is (= 100 (jruby-agents/next-instance-id 92 pool-context))))
@@ -113,20 +113,20 @@
       (let [id (- Integer/MAX_VALUE 1)]
         (is (= (mod id 8) (jruby-agents/next-instance-id id pool-context)))))))
 
-;; TODO: this test is useless as-is; we need to add a cleanup callback and change
-;; this test to validate that it gets called.
-(deftest master-termination-test
-  (testing "Flushing the pool causes masters to be terminated"
-    (logutils/with-test-logging
+(deftest custom-termination-test
+  (testing "Flushing the pool causes cleanup hook to be called"
+    (let [cleanup-atom (atom nil)
+          config (assoc-in (jruby-testutils/jruby-tk-config
+                            (jruby-testutils/jruby-config {:max-active-instances 1}))
+                           [:jruby :lifecycle]
+                           {:cleanup (fn [x] (reset! cleanup-atom "Hello from cleanup"))})]
       (tk-testutils/with-app-with-config
-        app
-        [jruby/jruby-pooled-service]
-        (-> (jruby-testutils/jruby-tk-config
-             (jruby-testutils/jruby-config {:max-active-instances 1})))
-        (let [jruby-service (tk-app/get-service app :JRubyService)
-              context (tk-services/service-context jruby-service)]
-          (jruby-protocol/flush-jruby-pool! jruby-service)
-          ; wait until the flush is complete
-          (await (get-in context [:pool-context :pool-agent]))
-          ;; TODO: add termination callback, test that it is called?
-          #_(is (logged? #"Terminating Master")))))))
+       app
+       [jruby/jruby-pooled-service]
+       config
+       (let [jruby-service (tk-app/get-service app :JRubyService)
+             context (tk-services/service-context jruby-service)]
+         (jruby-protocol/flush-jruby-pool! jruby-service)
+         ; wait until the flush is complete
+         (await (get-in context [:pool-context :pool-agent]))
+         (is (= "Hello from cleanup" (deref cleanup-atom))))))))

@@ -1,8 +1,6 @@
 (ns puppetlabs.services.jruby.jruby-core-test
   (:require [clojure.test :refer :all]
-            [me.raynes.fs :as fs]
             [schema.test :as schema-test]
-            [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.services.jruby.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils])
   (:import (java.io ByteArrayOutputStream PrintStream ByteArrayInputStream)))

@@ -4,11 +4,7 @@
             [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.services :as tk-service]
-            [schema.core :as schema])
-  (:import (org.jruby.embed LocalContextScope)
-           (puppetlabs.services.jruby.jruby_schemas JRubyInstance)
-           (clojure.lang IFn)
-           (com.puppetlabs.jruby_utils.jruby ScriptingContainer)))
+            [schema.core :as schema]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constants
@@ -44,10 +40,6 @@
   ([options]
    (merge (jruby-config) options)))
 
-(defn default-shutdown-fn
-  [f]
-  (f))
-
 (def default-flush-fn
   identity)
 
@@ -57,36 +49,6 @@
   ([config]
    (let [pool (jruby-internal/instantiate-free-pool 1)]
      (jruby-internal/create-pool-instance! pool 1 config default-flush-fn))))
-
-(schema/defn ^:always-validate
-  create-mock-pool-instance :- JRubyInstance
-  [pool :- jruby-schemas/pool-queue-type
-   id :- schema/Int
-   config :- jruby-schemas/JRubyConfig
-   flush-instance-fn :- IFn]
-  (let [instance (jruby-schemas/map->JRubyInstance
-                  {:pool pool
-                   :id id
-                   :max-requests (:max-requests-per-instance config)
-                   :flush-instance-fn flush-instance-fn
-                   :state (atom {:borrow-count 0})
-                   :scripting-container (ScriptingContainer.
-                                         LocalContextScope/SINGLETHREAD)})]
-    (.register pool instance)
-    instance))
-
-(defn mock-pool-instance-fixture
-  "Test fixture which changes the behavior of the JRubyPool to create
-  mock JRubyInstances."
-  [f]
-  (with-redefs
-    [jruby-internal/create-pool-instance! create-mock-pool-instance]
-    (f)))
-
-(defmacro with-mock-pool-instance-fixture
-  [& body]
-  `(let [f# (fn [] (do ~@body))]
-     (mock-pool-instance-fixture f#)))
 
 (defn drain-pool
   "Drains the JRuby pool and returns each instance in a vector."

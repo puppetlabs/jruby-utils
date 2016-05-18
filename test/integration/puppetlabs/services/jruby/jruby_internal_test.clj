@@ -34,7 +34,7 @@
           instance (jruby-internal/create-pool-instance! pool 0 config #())
           container (:scripting-container instance)]
       (try
-        (= RubyInstanceConfig$CompileMode/JIT
-           (.getCompileMode container))
+        (is (= RubyInstanceConfig$CompileMode/JIT
+            (.getCompileMode container)))
         (finally
           (.terminate container))))))

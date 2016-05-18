@@ -38,8 +38,7 @@
   prime-pool!
   "Sequentially fill the pool with new JRubyInstances.  NOTE: this
   function should never be called except by the pool-agent."
-  [{:keys [pool-state] :as pool-context} :- jruby-schemas/PoolContext
-   config :- jruby-schemas/JRubyConfig]
+  [{:keys [pool-state config] :as pool-context} :- jruby-schemas/PoolContext]
   (let [pool (:pool @pool-state)]
     (log/debug (str "Initializing JRubyInstances with the following settings:\n"
                     (ks/pprint-to-string config)))
@@ -66,9 +65,10 @@
    new-pool :- jruby-schemas/pool-queue-type
    new-id :- schema/Int
    config :- jruby-schemas/JRubyConfig]
-  (jruby-internal/cleanup-pool-instance! instance)
-  (jruby-internal/create-pool-instance! new-pool new-id config
-                                        (partial send-flush-instance! pool-context)))
+  (let [cleanup-fn (get-in pool-context [:config :lifecycle :cleanup])]
+    (jruby-internal/cleanup-pool-instance! instance cleanup-fn)
+    (jruby-internal/create-pool-instance! new-pool new-id config
+                                          (partial send-flush-instance! pool-context))))
 
 (schema/defn ^:always-validate
   pool-initialized? :- schema/Bool
@@ -88,7 +88,8 @@
   (let [{:keys [config pool-state]} pool-context
         new-pool (:pool new-pool-state)
         old-pool (:pool old-pool-state)
-        old-pool-size (:size old-pool-state)]
+        old-pool-size (:size old-pool-state)
+        cleanup-fn (get-in config [:lifecycle :cleanup])]
     (log/info "Replacing old JRuby pool with new instance.")
     (reset! pool-state new-pool-state)
     (log/info "Swapped JRuby pools, beginning cleanup of old pool.")
@@ -99,7 +100,7 @@
                         jruby-internal/borrow-without-timeout-fn
                         old-pool)]
           (try
-            (jruby-internal/cleanup-pool-instance! instance)
+            (jruby-internal/cleanup-pool-instance! instance cleanup-fn)
             (when refill?
               (jruby-internal/create-pool-instance! new-pool id config
                                                     (partial send-flush-instance! pool-context))
@@ -171,8 +172,8 @@
   send-prime-pool! :- jruby-schemas/JRubyPoolAgent
   "Sends a request to the agent to prime the pool using the given pool context."
   [pool-context :- jruby-schemas/PoolContext]
-  (let [{:keys [pool-agent config]} pool-context]
-    (send-agent pool-agent #(prime-pool! pool-context config))))
+  (let [{:keys [pool-agent]} pool-context]
+    (send-agent pool-agent #(prime-pool! pool-context))))
 
 (schema/defn ^:always-validate
   send-flush-and-repopulate-pool! :- jruby-schemas/JRubyPoolAgent

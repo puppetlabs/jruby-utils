@@ -6,9 +6,7 @@
 (deftest jruby-env-vars
   (testing "the environment used by the JRuby interpreters"
     (let [jruby-interpreter (jruby-internal/create-scripting-container
-                              jruby-testutils/ruby-load-path
-                              jruby-testutils/gem-home
-                              jruby-testutils/compile-mode)
+                              (jruby-testutils/jruby-config))
           jruby-env (.runScriptlet jruby-interpreter "ENV")]
 
       ; $HOME and $PATH are left in by `jruby-env`
