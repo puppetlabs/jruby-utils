@@ -44,7 +44,9 @@
 
 (deftest test-jruby-service-core-funcs
   (let [pool-size        2
-        config           (jruby-testutils/jruby-config {:max-active-instances pool-size})
+        timeout          250
+        config           (jruby-testutils/jruby-config {:max-active-instances pool-size
+                                                        :borrow-timeout 250})
         pool-context (jruby-core/create-pool-context config)
         pool             (jruby-core/get-pool pool-context)]
 
@@ -65,10 +67,9 @@
 
     (testing "Borrowing from an empty pool with a timeout returns nil within the
              proper amount of time."
-      (let [timeout              250
-            all-the-jrubys       (jruby-testutils/drain-pool pool-context pool-size)
+      (let [all-the-jrubys       (jruby-testutils/drain-pool pool-context pool-size)
             test-start-in-millis (System/currentTimeMillis)]
-        (is (nil? (jruby-core/borrow-from-pool-with-timeout pool-context timeout :test [])))
+        (is (nil? (jruby-core/borrow-from-pool-with-timeout pool-context :test [])))
         (is (>= (- (System/currentTimeMillis) test-start-in-millis) timeout)
             "The timeout value was not honored.")
         (jruby-testutils/fill-drained-pool all-the-jrubys)
@@ -87,7 +88,7 @@
                                      (:borrow-count @(:state jruby))))
             get-counts  (fn [jrubies] (reduce assoc-count {} jrubies))]
         (doseq [drain-fn [#(jruby-core/borrow-from-pool pool-context :test [])
-                          #(jruby-core/borrow-from-pool-with-timeout pool-context 20000 :test [])]]
+                          #(jruby-core/borrow-from-pool-with-timeout pool-context :test [])]]
           (let [jrubies (drain-via drain-fn)
                 counts  (get-counts jrubies)]
             (jruby-testutils/fill-drained-pool jrubies)
@@ -112,14 +113,14 @@
             (jruby-core/borrow-from-pool pool-context :test [])))
       (is (thrown-with-msg? IllegalStateException
             err-msg
-            (jruby-core/borrow-from-pool-with-timeout pool-context 120 :test []))))
+            (jruby-core/borrow-from-pool-with-timeout pool-context :test []))))
     (testing "borrow and borrow-with-timeout both continue to throw exceptions on subsequent calls"
       (is (thrown-with-msg? IllegalStateException
           err-msg
           (jruby-core/borrow-from-pool pool-context :test [])))
       (is (thrown-with-msg? IllegalStateException
           err-msg
-          (jruby-core/borrow-from-pool-with-timeout pool-context 120 :test []))))))
+          (jruby-core/borrow-from-pool-with-timeout pool-context :test []))))))
 
 (deftest test-default-pool-size
   (logutils/with-test-logging
@@ -160,17 +161,17 @@
         (testing "instance is removed from registered elements after flushing"
           (is (= 1 (count (jruby-core/registered-instances pool-context))))))
       (testing "Can lock pool after a flush via max requests"
-        (let [pool (jruby-internal/get-pool pool-context)]
+        (let [timeout 1
+              new-pool-context (assoc-in pool-context [:config :borrow-timeout] timeout)
+              pool (jruby-internal/get-pool new-pool-context)]
           (.lock pool)
           (is (nil? @(future (jruby-core/borrow-from-pool-with-timeout
-                              pool-context
-                              1
+                              new-pool-context
                               :test
                               []))))
           (.unlock pool)
           (is (not (nil? @(future (jruby-core/borrow-from-pool-with-timeout
-                                  pool-context
-                                  1
+                                  new-pool-context
                                   :test
                                   [])))))))))
 

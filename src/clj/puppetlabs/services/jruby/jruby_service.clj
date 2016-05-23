@@ -36,8 +36,8 @@
 
   (borrow-instance
     [this reason]
-    (let [{:keys [pool-context borrow-timeout event-callbacks]} (tk-services/service-context this)]
-      (core/borrow-from-pool-with-timeout pool-context borrow-timeout reason @event-callbacks)))
+    (let [{:keys [pool-context event-callbacks]} (tk-services/service-context this)]
+      (core/borrow-from-pool-with-timeout pool-context reason @event-callbacks)))
 
   (return-instance
     [this jruby-instance reason]

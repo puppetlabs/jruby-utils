@@ -204,11 +204,10 @@
   timeout. If the timeout runs out then nil will be returned, indicating that
   there were no instances available."
   [pool-context :- jruby-schemas/PoolContext
-   timeout :- schema/Int
    reason :- schema/Any
    event-callbacks :- [IFn]]
-  {:pre  [(>= timeout 0)]}
-  (let [requested-event (instance-requested event-callbacks reason)
+  (let [timeout (get-in pool-context [:config :borrow-timeout])
+        requested-event (instance-requested event-callbacks reason)
         instance (jruby-internal/borrow-from-pool-with-timeout
                    pool-context
                    timeout)]
