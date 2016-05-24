@@ -3,7 +3,6 @@
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
             [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby.jruby-pool-manager-service :as pool-manager]
-            [puppetlabs.services.jruby.jruby-service :as jruby]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.services :as tk-service]
             [schema.core :as schema]))
@@ -16,9 +15,9 @@
 (def compile-mode :off)
 
 (def default-services
-  [jruby/jruby-pooled-service
-   pool-manager/jruby-pool-manager-service])
+  [pool-manager/jruby-pool-manager-service])
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;; JRuby Test util functions
 
 (defn jruby-tk-config
@@ -43,7 +42,11 @@
        {:ruby-load-path  ruby-load-path
         :gem-home        gem-home}}))
   ([options]
-   (merge (jruby-config) options)))
+   (jruby-core/initialize-config
+    {:jruby
+     (merge {:ruby-load-path ruby-load-path
+             :gem-home gem-home}
+            options)})))
 
 (def default-flush-fn
   identity)

@@ -46,7 +46,7 @@
   (let [pool-size        2
         timeout          250
         config           (jruby-testutils/jruby-config {:max-active-instances pool-size
-                                                        :borrow-timeout 250})
+                                                        :borrow-timeout timeout})
         pool-context (jruby-core/create-pool-context config)
         pool             (jruby-core/get-pool pool-context)]
 
@@ -98,6 +98,62 @@
               (is (= (ks/keyset counts) (ks/keyset new-counts)))
               (doseq [k (keys counts)]
                 (is (= (inc (counts k)) (new-counts k)))))))))))
+
+(deftest borrow-while-pool-is-being-initialized-test
+  (testing "borrow will block until an instance is available while the pool is coming online"
+    (let [pool-initialized? (promise)
+          init-fn (fn [instance] @pool-initialized? instance)
+          pool-size 1
+          config (jruby-testutils/jruby-config
+                  {:max-active-instances pool-size
+                   :lifecycle {:initialize-pool-instance init-fn}})
+          pool-context (jruby-core/create-pool-context config)]
+
+      ;; start a pool initialization, which will block on the `initialize-pool-instance`
+      ;; function's deref of the promise
+      (jruby-agents/send-prime-pool! pool-context)
+
+      ;; start a borrow, which should block until an instance becomes available
+      (let [borrow-instance (future (jruby-core/borrow-from-pool-with-timeout
+                                     pool-context
+                                     :borrow-during-pool-init-test
+                                     []))]
+
+        (is (not (realized? borrow-instance)))
+
+        ;; deliver the promise, allowing the pool initialization to complete
+        (deliver pool-initialized? true)
+
+        ;; now the borrow can complete
+        (is (some? @borrow-instance))))))
+
+(deftest borrow-while-no-instances-available-test
+  (testing "when all instances are in use, borrow blocks until an instance becomes available"
+    (let [pool-size 2
+          config (jruby-testutils/jruby-config
+                  {:max-active-instances pool-size})
+          pool-context (jruby-core/create-pool-context config)]
+      (jruby-agents/prime-pool! pool-context)
+
+      ;; borrow both instances from the pool
+      (let [drained-instances (jruby-testutils/drain-pool pool-context pool-size)]
+        (is (= 2 (count drained-instances)))
+
+        ;; attempt a borrow, which will block because no instances are free
+        (let [borrow-instance (future (jruby-core/borrow-from-pool-with-timeout
+                                       pool-context
+                                       :borrow-with-no-free-instances-test
+                                       []))]
+          (is (not (realized? borrow-instance)))
+
+          ;; return an instance to the pool
+          (jruby-core/return-to-pool
+           (first drained-instances)
+           :borrow-with-no-free-instances-test
+           [])
+
+          ;; now the borrow can complete
+          (is (some? @borrow-instance)))))))
 
 (deftest prime-pools-failure
   (let [pool-size 2
