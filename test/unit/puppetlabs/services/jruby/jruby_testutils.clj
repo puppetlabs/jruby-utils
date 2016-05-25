@@ -111,4 +111,4 @@
                         :size)]
     (while (< (count (jruby-core/registered-instances pool-context))
               num-jrubies)
-      (Thread/sleep 100))))
+      (Thread/yield))))
