@@ -144,8 +144,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Tests
 
-;; TODO: this test seems redundant to the one in puppetlabs.services.jruby.jruby-agents-test
-;; Reevaluate when we remove the jruby TK service
 (deftest ^:integration flush-pool-test
   (testing "Flushing the pool results in all new JRubyInstances"
     (let [config (jruby-testutils/jruby-config {:max-active-instances 4

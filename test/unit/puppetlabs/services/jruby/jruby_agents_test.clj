@@ -16,31 +16,6 @@
 
 (use-fixtures :once schema-test/validate-schemas)
 
-
-(deftest basic-flush-test
-  (testing "Flushing the pool results in all new JRubyInstances"
-    (tk-testutils/with-app-with-config
-      app
-      jruby-testutils/default-services
-      (-> (jruby-testutils/jruby-tk-config
-           (jruby-testutils/jruby-config {:max-active-instances 4})))
-      (let [jruby-service (tk-app/get-service app :JRubyService)
-            context (tk-services/service-context jruby-service)
-            pool-context (:pool-context context)]
-        (jruby-testutils/reduce-over-jrubies! pool-context 4 #(format "InstanceID = %s" %))
-        (is (= #{0 1 2 3}
-               (-> (jruby-testutils/reduce-over-jrubies! pool-context 4 (constantly "InstanceID"))
-                   set)))
-        (jruby-protocol/flush-jruby-pool! jruby-service)
-        ; wait until the flush is complete
-        (await (:pool-agent pool-context))
-        (is (every? true?
-                    (jruby-testutils/reduce-over-jrubies!
-                      pool-context
-                      4
-                      (constantly
-                        "begin; InstanceID; false; rescue NameError; true; end"))))))))
-
 (deftest retry-poison-pill-test
   (testing "Flush puts a retry poison pill into the old pool"
     (tk-testutils/with-app-with-config
