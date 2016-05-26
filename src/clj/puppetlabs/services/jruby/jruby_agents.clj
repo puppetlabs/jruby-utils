@@ -38,7 +38,8 @@
   prime-pool!
   "Sequentially fill the pool with new JRubyInstances.  NOTE: this
   function should never be called except by the pool-agent."
-  [{:keys [pool-state config] :as pool-context} :- jruby-schemas/PoolContext]
+  [{:keys [pool-state config] :as pool-context} :- jruby-schemas/PoolContext
+   flush-instance-fn :- IFn]
   (let [pool (:pool @pool-state)]
     (log/debug (str "Initializing JRubyInstances with the following settings:\n"
                     (ks/pprint-to-string config)))
@@ -48,7 +49,7 @@
           (let [id (inc i)]
             (log/debugf "Priming JRubyInstance %d of %d" id count)
             (jruby-internal/create-pool-instance! pool id config
-                                                  (partial send-flush-instance! pool-context))
+                                                  (partial flush-instance-fn pool-context))
             (log/infof "Finished creating JRubyInstance %d of %d"
                        id count))))
       (catch Exception e
@@ -171,9 +172,10 @@
 (schema/defn ^:always-validate
   send-prime-pool! :- jruby-schemas/JRubyPoolAgent
   "Sends a request to the agent to prime the pool using the given pool context."
-  [pool-context :- jruby-schemas/PoolContext]
+  [pool-context :- jruby-schemas/PoolContext
+   flush-instance-fn :- IFn]
   (let [{:keys [pool-agent]} pool-context]
-    (send-agent pool-agent #(prime-pool! pool-context))))
+    (send-agent pool-agent #(prime-pool! pool-context flush-instance-fn))))
 
 (schema/defn ^:always-validate
   send-flush-and-repopulate-pool! :- jruby-schemas/JRubyPoolAgent

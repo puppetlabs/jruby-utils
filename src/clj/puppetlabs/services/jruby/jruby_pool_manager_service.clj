@@ -7,13 +7,18 @@
 
 (trapperkeeper/defservice jruby-pool-manager-service
                           pool-manager-protocol/PoolManagerService
-                         []
+                          []
   (create-pool
    [this config]
    (log/info "Initializing the JRuby service")
    (let [pool-context (core/create-pool-context config)]
-     (jruby-agents/send-prime-pool! pool-context)
+     (jruby-agents/send-prime-pool! pool-context
+                                    (partial pool-manager-protocol/flush-instance! this))
      pool-context))
+
+  (flush-instance!
+   [this pool-context pool instance]
+   (jruby-agents/send-flush-instance! pool-context pool instance))
 
   (flush-pool!
    [this pool-context]
