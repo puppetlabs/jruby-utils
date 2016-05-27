@@ -52,7 +52,7 @@
              background."
       (is (= (jruby-core/free-instance-count pool) 0)))
 
-    (jruby-agents/prime-pool! pool-context (partial jruby-agents/send-flush-instance!))
+    (jruby-agents/prime-pool! pool-context)
 
     (testing "Borrowing all instances from a pool while it is being primed and
              returning them."
@@ -105,8 +105,7 @@
         err-msg       (re-pattern "Unable to borrow JRubyInstance from pool")]
    (is (thrown? IllegalStateException (jruby-agents/prime-pool!
                                        (assoc-in pool-context [:config :lifecycle :initialize-pool-instance]
-                                                 (fn [_] (throw (IllegalStateException. "BORK!"))))
-                                       (partial jruby-agents/send-flush-instance!))))
+                                                 (fn [_] (throw (IllegalStateException. "BORK!")))))))
     (testing "borrow and borrow-with-timeout both throw an exception if the pool failed to initialize"
       (is (thrown-with-msg? IllegalStateException
             err-msg
@@ -136,7 +135,7 @@
    (let [config (jruby-testutils/jruby-config {:max-active-instances max-instances
                                                :max-requests-per-instance max-requests})
          pool-context (jruby-core/create-pool-context config)]
-     (jruby-agents/prime-pool! pool-context (partial jruby-agents/send-flush-instance!))
+     (jruby-agents/prime-pool! pool-context)
      pool-context)))
 
 (deftest flush-jruby-after-max-requests

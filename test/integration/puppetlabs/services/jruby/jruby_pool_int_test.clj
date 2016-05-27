@@ -146,7 +146,7 @@
 
 ;; TODO: this test seems redundant to the one in puppetlabs.services.jruby.jruby-agents-test
 ;; Reevaluate when we remove the jruby TK service
-(deftest ^:integration flush-jruby-pool-with-pool-manager-test
+(deftest ^:integration flush-pool-test
   (testing "Flushing the pool results in all new JRubyInstances"
     (let [config (jruby-testutils/jruby-config {:max-active-instances 4
                                                 :borrow-timeout default-borrow-timeout})]
@@ -158,14 +158,14 @@
              pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
          ;; set a ruby constant in each instance so that we can recognize them
          (is (true? (set-constants-and-verify pool-context 4)))
-         (pool-manager-protocol/flush-pool! pool-manager-service pool-context)
+         (jruby-core/flush-pool! pool-context)
          (is (true? (timed-await (:pool-agent pool-context)))
              (str "timed out waiting for the flush to complete, stack:\n"
                   (get-all-stack-traces-as-str)))
          ;; now the pool is flushed, so the constants should be cleared
          (is (true? (verify-no-constants pool-context 4))))))))
 
-(deftest ^:integration flush-jruby-pool-for-shutdown-with-pool-manager-test
+(deftest ^:integration flush-pool-for-shutdown-test
   (testing "Flushing the pool for shutdown results in no JRubyInstances left"
     (let [config (jruby-testutils/jruby-config {:max-active-instances 4
                                                 :borrow-timeout default-borrow-timeout})]
@@ -178,7 +178,7 @@
         ;; wait for all jrubies to be added to the pool
         (jruby-testutils/wait-for-jrubies-from-pool-context pool-context)
         (is (= 4 (.size (jruby-core/get-pool pool-context))))
-        (pool-manager-protocol/flush-pool-for-shutdown! pool-manager-service pool-context)
+        (jruby-core/flush-pool-for-shutdown! pool-context)
         (let [flushed-pool (jruby-core/get-pool pool-context)]
           ;; flushing the pool removes all JRubyInstances but causes a ShutdownPoisonPill
           ;; to be added

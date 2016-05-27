@@ -14,7 +14,7 @@
                           jruby/JRubyService
                           [[:ConfigService get-config]
                            [:ShutdownService shutdown-on-error]
-                           [:PoolManagerService create-pool flush-pool! flush-pool-for-shutdown!]]
+                           [:PoolManagerService create-pool]]
   (init
     [this context]
     (let [initial-config (get-config)
@@ -31,7 +31,7 @@
   (stop
    [this context]
    (let [{:keys [pool-context]} (tk-services/service-context this)]
-     (flush-pool-for-shutdown! pool-context))
+     (core/flush-pool-for-shutdown! pool-context))
    context)
 
   (borrow-instance
@@ -54,7 +54,7 @@
     [this]
     (let [service-context (tk-services/service-context this)
           {:keys [pool-context]} service-context]
-      (flush-pool! pool-context)))
+      (core/flush-pool! pool-context)))
 
   (register-event-handler
     [this callback-fn]

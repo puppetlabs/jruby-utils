@@ -12,22 +12,5 @@
    [this config]
    (log/info "Initializing the JRuby service")
    (let [pool-context (core/create-pool-context config)]
-     (jruby-agents/send-prime-pool! pool-context
-                                    (partial pool-manager-protocol/flush-instance! this))
-     pool-context))
-
-  (flush-instance!
-   [this pool-context pool instance]
-   (jruby-agents/send-flush-instance! pool-context pool instance))
-
-  (flush-pool!
-   [this pool-context]
-   (jruby-agents/send-flush-and-repopulate-pool! pool-context))
-
-  (flush-pool-for-shutdown!
-   [this pool-context]
-   (let [on-complete (promise)]
-     (log/debug "Beginning flush of JRuby pools for shutdown")
-     (jruby-agents/send-flush-pool-for-shutdown! pool-context on-complete)
-     @on-complete
-     (log/debug "Finished flush of JRuby pools for shutdown"))))
+     (jruby-agents/send-prime-pool! pool-context)
+     pool-context)))
