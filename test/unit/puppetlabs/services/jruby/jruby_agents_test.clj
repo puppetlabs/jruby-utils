@@ -10,23 +10,18 @@
             [puppetlabs.services.protocols.jruby :as jruby-protocol]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
             [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
-            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
-            [puppetlabs.trapperkeeper.testutils.logging :as logutils]
-            [puppetlabs.services.jruby.jruby-core :as core]
-            [clojure.tools.logging :as log])
+            [puppetlabs.services.jruby.jruby-agents :as jruby-agents])
   (:import (puppetlabs.services.jruby.jruby_schemas RetryPoisonPill JRubyInstance)
            (com.puppetlabs.jruby_utils.pool JRubyPool)))
 
 (use-fixtures :once schema-test/validate-schemas)
 
-(def default-services
-  [jruby/jruby-pooled-service])
 
 (deftest basic-flush-test
   (testing "Flushing the pool results in all new JRubyInstances"
     (tk-testutils/with-app-with-config
       app
-      default-services
+      jruby-testutils/default-services
       (-> (jruby-testutils/jruby-tk-config
            (jruby-testutils/jruby-config {:max-active-instances 4})))
       (let [jruby-service (tk-app/get-service app :JRubyService)
@@ -50,7 +45,7 @@
   (testing "Flush puts a retry poison pill into the old pool"
     (tk-testutils/with-app-with-config
       app
-      default-services
+      jruby-testutils/default-services
       (-> (jruby-testutils/jruby-tk-config
            (jruby-testutils/jruby-config {:max-active-instances 1})))
       (let [jruby-service (tk-app/get-service app :JRubyService)
@@ -79,7 +74,7 @@
   (testing "with-jruby-instance retries if it encounters a RetryPoisonPill"
     (tk-testutils/with-app-with-config
       app
-      default-services
+      jruby-testutils/default-services
       (-> (jruby-testutils/jruby-tk-config
            (jruby-testutils/jruby-config {:max-active-instances 1})))
       (let [jruby-service (tk-app/get-service app :JRubyService)
@@ -122,7 +117,7 @@
                            {:cleanup (fn [x] (reset! cleanup-atom "Hello from cleanup"))})]
       (tk-testutils/with-app-with-config
        app
-       [jruby/jruby-pooled-service]
+       jruby-testutils/default-services
        config
        (let [jruby-service (tk-app/get-service app :JRubyService)
              context (tk-services/service-context jruby-service)]

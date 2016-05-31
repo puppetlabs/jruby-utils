@@ -1,7 +1,6 @@
 (ns puppetlabs.services.jruby.jruby-service
   (:require [clojure.tools.logging :as log]
             [puppetlabs.services.jruby.jruby-core :as core]
-            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
             [puppetlabs.trapperkeeper.core :as trapperkeeper]
             [puppetlabs.trapperkeeper.services :as tk-services]
             [puppetlabs.services.protocols.jruby :as jruby]
@@ -14,7 +13,8 @@
 (trapperkeeper/defservice jruby-pooled-service
                           jruby/JRubyService
                           [[:ConfigService get-config]
-                           [:ShutdownService shutdown-on-error]]
+                           [:ShutdownService shutdown-on-error]
+                           [:PoolManagerService create-pool]]
   (init
     [this context]
     (let [initial-config (get-config)
@@ -23,21 +23,15 @@
           config (core/initialize-config (assoc-in initial-config
                                                    [:jruby :lifecycle :shutdown-on-error]
                                                    agent-shutdown-fn))]
-      (log/info "Initializing the JRuby service")
-      (let [pool-context (core/create-pool-context config)]
-        (jruby-agents/send-prime-pool! pool-context)
+      (let [pool-context (create-pool config)]
         (-> context
             (assoc :pool-context pool-context)
             (assoc :borrow-timeout (:borrow-timeout config))
             (assoc :event-callbacks (atom []))))))
   (stop
    [this context]
-   (let [{:keys [pool-context]} (tk-services/service-context this)
-         on-complete (promise)]
-     (log/debug "Beginning flush of JRuby pools for shutdown")
-     (jruby-agents/send-flush-pool-for-shutdown! pool-context on-complete)
-     @on-complete
-     (log/debug "Finished flush of JRuby pools for shutdown"))
+   (let [{:keys [pool-context]} (tk-services/service-context this)]
+     (core/flush-pool-for-shutdown! pool-context))
    context)
 
   (borrow-instance
@@ -60,7 +54,7 @@
     [this]
     (let [service-context (tk-services/service-context this)
           {:keys [pool-context]} service-context]
-      (jruby-agents/send-flush-and-repopulate-pool! pool-context)))
+      (core/flush-pool! pool-context)))
 
   (register-event-handler
     [this callback-fn]

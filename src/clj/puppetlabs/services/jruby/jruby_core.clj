@@ -225,6 +225,23 @@
   (jruby-internal/return-to-pool instance))
 
 (schema/defn ^:always-validate
+  flush-pool!
+  "Flush all the current JRubyInstances and repopulate the pool."
+  [pool-context]
+  (jruby-agents/send-flush-and-repopulate-pool! pool-context))
+
+(schema/defn ^:always-validate
+  flush-pool-for-shutdown!
+  "Flush all the current JRubyInstances so that the pool can be shutdown
+  without any instances being active."
+  [pool-context]
+  (let [on-complete (promise)]
+    (log/debug "Beginning flush of JRuby pools for shutdown")
+    (jruby-agents/send-flush-pool-for-shutdown! pool-context on-complete)
+    @on-complete
+    (log/debug "Finished flush of JRuby pools for shutdown")))
+
+(schema/defn ^:always-validate
   lock-pool
   "Locks the JRuby pool for exclusive access."
   [pool :- jruby-schemas/pool-queue-type

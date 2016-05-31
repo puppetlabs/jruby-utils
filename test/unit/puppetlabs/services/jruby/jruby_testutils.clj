@@ -2,6 +2,8 @@
   (:require [puppetlabs.services.jruby.jruby-core :as jruby-core]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
             [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby.jruby-pool-manager-service :as pool-manager]
+            [puppetlabs.services.jruby.jruby-service :as jruby]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.services :as tk-service]
             [schema.core :as schema]))
@@ -13,6 +15,9 @@
 (def gem-home "./target/jruby-gem-home")
 (def compile-mode :off)
 
+(def default-services
+  [jruby/jruby-pooled-service
+   pool-manager/jruby-pool-manager-service])
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; JRuby Test util functions
 
@@ -96,3 +101,14 @@
     (while (< (count (jruby-core/registered-instances pool-context))
               num-jrubies)
       (Thread/sleep 100))))
+
+(defn wait-for-jrubies-from-pool-context
+  "Wait for all jrubies to land in the pool"
+  [pool-context]
+  (let [num-jrubies (-> pool-context
+                        :pool-state
+                        deref
+                        :size)]
+    (while (< (count (jruby-core/registered-instances pool-context))
+              num-jrubies)
+      (Thread/yield))))
