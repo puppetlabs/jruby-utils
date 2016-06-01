@@ -151,7 +151,7 @@
 (schema/defn ^:always-validate
   initialize-config :- jruby-schemas/JRubyConfig
   [config :- {schema/Keyword schema/Any}]
-  (-> (get-in config [:jruby])
+  (-> config
       (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
@@ -271,15 +271,15 @@
 
 (schema/defn ^:always-validate cli-ruby! :- jruby-schemas/JRubyMainStatus
   "Run JRuby as though native `ruby` were invoked with args on the CLI"
-  [config :- {schema/Keyword schema/Any}
+  [config :- jruby-schemas/JRubyConfig
    args :- [schema/Str]]
-  (let [main (jruby-internal/new-main (initialize-config config))
+  (let [main (jruby-internal/new-main config)
         argv (into-array String (concat ["-rjar-dependencies"] args))]
     (.run main argv)))
 
 (schema/defn ^:always-validate cli-run! :- (schema/maybe jruby-schemas/JRubyMainStatus)
   "Run a JRuby CLI command, e.g. gem, irb, etc..."
-  [config :- {schema/Keyword schema/Any}
+  [config :- jruby-schemas/JRubyConfig
    command :- schema/Str
    args :- [schema/Str]]
   (let [bin-dir "META-INF/jruby.home/bin"

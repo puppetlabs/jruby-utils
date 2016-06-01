@@ -20,15 +20,6 @@
 
 ;; JRuby Test util functions
 
-(defn jruby-tk-config
-  "Create a JRuby pool config with the given pool config.  Suitable for use
-  in bootstrapping trapperkeeper (in other words, returns a representation of the
-  config that matches what would be read directly from the config files on disk,
-  as opposed to a version that has been processed and transformed to comply
-  with the JRubyConfig schema)."
-  [pool-config]
-  {:jruby pool-config})
-
 (schema/defn ^:always-validate
   jruby-config :- jruby-schemas/JRubyConfig
   "Create a JRubyConfig for testing. The optional map argument `options` may
@@ -37,16 +28,14 @@
   that complies with the JRubyConfig schema, which differs slightly from the raw
   format that would be read from config files on disk.)"
   ([]
-    (jruby-core/initialize-config
-      {:jruby
-       {:ruby-load-path  ruby-load-path
-        :gem-home        gem-home}}))
+   (jruby-core/initialize-config
+    {:ruby-load-path ruby-load-path
+     :gem-home gem-home}))
   ([options]
    (jruby-core/initialize-config
-    {:jruby
-     (merge {:ruby-load-path ruby-load-path
-             :gem-home gem-home}
-            options)})))
+    (merge {:ruby-load-path ruby-load-path
+            :gem-home gem-home}
+           options))))
 
 (def default-flush-fn
   identity)

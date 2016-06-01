@@ -28,7 +28,7 @@
           service-id (services/service-id this)
           agent-shutdown-fn (partial shutdown-on-error service-id)
           config (jruby-core/initialize-config (assoc-in initial-config
-                                                   [:jruby :lifecycle :shutdown-on-error]
+                                                   [:lifecycle :shutdown-on-error]
                                                    agent-shutdown-fn))]
       (let [pool-context (create-pool config)]
         (-> context
@@ -43,15 +43,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Tests
 
-
 (defn jruby-test-config
   [pool-size]
   (jruby-testutils/jruby-config {:max-active-instances pool-size}))
-
-(defn jruby-service-test-config
-  [pool-size]
-  (jruby-testutils/jruby-tk-config
-   (jruby-test-config pool-size)))
 
 (deftest test-error-during-init
   (testing
@@ -63,8 +57,10 @@
          (bootstrap/with-app-with-config
           app
           (conj jruby-testutils/default-services jruby-pooled-test-service)
-          (assoc-in (jruby-service-test-config 1) [:jruby :lifecycle :initialize-pool-instance]
-                    (fn [_] (throw (Exception. "42"))))
+          (jruby-testutils/jruby-config
+           {:max-active-instances 1
+            :lifecycle {:initialize-pool-instance
+                        (fn [_] (throw (Exception. "42")))}})
           (tk/run-app app))
          (catch Exception e
            (let [cause (stacktrace/root-cause e)]
@@ -216,7 +212,7 @@
              (jruby-core/return-to-pool inst :test [])))))))
 
   (testing (str ":borrow-timeout defaults to " jruby-core/default-borrow-timeout " milliseconds")
-    (let [initial-config {:jruby {:ruby-load-path ["foo"]
-                                  :gem-home "bar"}}
+    (let [initial-config {:ruby-load-path ["foo"]
+                          :gem-home "bar"}
           config (jruby-core/initialize-config initial-config) ]
       (is (= (:borrow-timeout config) jruby-core/default-borrow-timeout)))))

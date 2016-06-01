@@ -17,8 +17,8 @@
       (is (thrown-with-msg? ExceptionInfo
                             #"Input to create-pool-context does not match schema"
                             (jruby-core/create-pool-context malformed-config)))))
-  (let [minimal-config {:jruby {:gem-home        "/dev/null"
-                                :ruby-load-path  ["/dev/null"]}}
+  (let [minimal-config {:gem-home "/dev/null"
+                        :ruby-load-path ["/dev/null"]}
         config        (jruby-core/initialize-config minimal-config)]
     (testing "max-active-instances is set to default if not specified"
       (is (= (jruby-core/default-pool-size (ks/num-cpus)) (:max-active-instances config))))
@@ -26,7 +26,7 @@
       (is (= 0 (:max-requests-per-instance config))))
     (testing "max-requests-per-instance is honored if specified"
       (is (= 5 (-> minimal-config
-                   (assoc-in [:jruby :max-requests-per-instance] 5)
+                   (assoc :max-requests-per-instance 5)
                    (jruby-core/initialize-config)
                    :max-requests-per-instance))))
     (testing "compile-mode is set to default if not specified"
@@ -34,11 +34,11 @@
              (:compile-mode config))))
     (testing "compile-mode is honored if specified"
       (is (= :off (-> minimal-config
-                      (assoc-in [:jruby :compile-mode] "off")
+                      (assoc :compile-mode "off")
                       (jruby-core/initialize-config)
                       :compile-mode)))
       (is (= :jit (-> minimal-config
-                      (assoc-in [:jruby :compile-mode] "jit")
+                      (assoc :compile-mode "jit")
                       (jruby-core/initialize-config)
                       :compile-mode))))))
 
