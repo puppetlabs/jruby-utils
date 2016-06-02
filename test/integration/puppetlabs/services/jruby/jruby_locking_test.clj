@@ -3,7 +3,7 @@
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [schema.test :as schema-test]
-            [puppetlabs.services.jruby.jruby-core :as core]
+            [puppetlabs.services.jruby.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]))
 
@@ -17,9 +17,9 @@
 (defn can-borrow-from-different-thread?
   [pool-context]
   @(future
-    (if-let [instance (core/borrow-from-pool-with-timeout pool-context :test [])]
+    (if-let [instance (jruby-core/borrow-from-pool-with-timeout pool-context :test [])]
       (do
-        (core/return-to-pool instance :test [])
+        (jruby-core/return-to-pool instance :test [])
         true))))
 
 (deftest ^:integration with-lock-test
@@ -34,7 +34,7 @@
      (testing "initial state of write lock is unlocked"
        (is (can-borrow-from-different-thread? pool-context))
        (testing "with-lock macro holds write lock while executing body"
-         (core/with-lock
+         (jruby-core/with-lock
           pool-context
           :with-lock-holds-lock-test
           (atom [])
@@ -56,10 +56,10 @@
 
      (testing "with-lock macro releases lock even if body throws exception"
        (is (thrown? IllegalStateException
-                    (core/with-lock pool-context :with-lock-exception-test (atom [])
-                                    (is (not (can-borrow-from-different-thread?
+                    (jruby-core/with-lock pool-context :with-lock-exception-test (atom [])
+                                          (is (not (can-borrow-from-different-thread?
                                               pool-context)))
-                                    (throw (IllegalStateException. "exception")))))
+                                          (throw (IllegalStateException. "exception")))))
        (is (can-borrow-from-different-thread? pool-context))))))
 
 (deftest ^:integration with-lock-event-notification-test
@@ -79,7 +79,7 @@
           (swap! event-callbacks #(conj % callback))
 
           (testing "locking events trigger event notifications"
-            (core/with-jruby-instance
+            (jruby-core/with-jruby-instance
              jruby-instance
              pool-context
              :with-lock-events-test
@@ -88,7 +88,7 @@
                (is (= [:instance-requested :instance-borrowed] @events))))
             (testing "returning a jruby triggers 'returned' event"
               (is (= [:instance-requested :instance-borrowed :instance-returned] @events)))
-            (core/with-lock
+            (jruby-core/with-lock
              pool-context
              :with-lock-events-test
              event-callbacks
@@ -109,13 +109,13 @@
            pool-manager-service (tk-app/get-service app :PoolManagerService)
            pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
        (jruby-testutils/wait-for-jrubies-from-pool-context pool-context)
-       (let [instance (core/borrow-from-pool-with-timeout
+       (let [instance (jruby-core/borrow-from-pool-with-timeout
                        pool-context
                        :with-lock-and-borrow-contention-test
                        [])
              lock-acquired? (promise)
              unlock-thread? (promise)
-             lock-thread (future (core/with-lock
+             lock-thread (future (jruby-core/with-lock
                                   pool-context
                                   :with-lock-and-borrow-contention-test
                                   (atom [])
@@ -124,7 +124,7 @@
          (testing "lock not granted yet when instance still borrowed"
            (is (not (realized?
                      lock-acquired?))))
-         (core/return-to-pool instance :with-lock-and-borrow-contention-test [])
+         (jruby-core/return-to-pool instance :with-lock-and-borrow-contention-test [])
          @lock-acquired?
          (testing "cannot borrow from non-locking thread when locked"
            (is (not (can-borrow-from-different-thread? pool-context))))

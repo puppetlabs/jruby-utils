@@ -9,8 +9,7 @@
             [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
             [puppetlabs.services.protocols.pool-manager :as pool-manager]
-            [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
-            [puppetlabs.services.jruby.jruby-core :as core])
+            [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol])
   (:import (puppetlabs.services.jruby.jruby_schemas RetryPoisonPill JRubyInstance)
            (com.puppetlabs.jruby_utils.pool JRubyPool)))
 
@@ -94,7 +93,7 @@
        {}
        (let [pool-manager-service (tk-app/get-service app :PoolManagerService)
              pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
-         (core/flush-pool! pool-context)
+         (jruby-core/flush-pool! pool-context)
          ; wait until the flush is complete
          (await (:pool-agent pool-context))
          (is (= "Hello from cleanup" (deref cleanup-atom))))))))
