@@ -202,14 +202,16 @@
     (instance-borrowed event-callbacks requested-event instance)
     instance))
 
+;; TODO: consider adding a second arity that allows for passing in a
+;; borrow-timeout, rather than relying on what is in the config.
 (schema/defn ^:always-validate
   borrow-from-pool-with-timeout :- jruby-schemas/JRubyBorrowResult
   "Borrows a JRuby interpreter from the pool, like borrow-from-pool but a
-  blocking timeout is provided. If an instance is available then it will be
-  immediately returned to the caller, if not then this function will block
-  waiting for an instance to be free for the number of milliseconds given in
-  timeout. If the timeout runs out then nil will be returned, indicating that
-  there were no instances available."
+  blocking timeout is taken from the config in the context. If an instance is
+  available then it will be immediately returned to the caller, if not then
+  this function will block waiting for an instance to be free for the number
+  of milliseconds given in timeout. If the timeout runs out then nil will be
+  returned, indicating that there were no instances available."
   [pool-context :- jruby-schemas/PoolContext
    reason :- schema/Any
    event-callbacks :- [IFn]]
