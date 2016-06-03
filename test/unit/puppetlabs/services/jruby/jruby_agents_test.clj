@@ -1,7 +1,7 @@
 (ns puppetlabs.services.jruby.jruby-agents-test
   (:require [clojure.test :refer :all]
             [schema.test :as schema-test]
-            [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-testutils]
+            [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
             [puppetlabs.services.jruby.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.app :as tk-app]
@@ -17,7 +17,7 @@
 
 (deftest retry-poison-pill-test
   (testing "Flush puts a retry poison pill into the old pool"
-    (tk-testutils/with-app-with-config
+    (tk-bootstrap/with-app-with-config
      app
      jruby-testutils/default-services
      {}
@@ -45,7 +45,7 @@
 
 (deftest with-jruby-retry-test-via-mock-get-pool
   (testing "with-jruby-instance retries if it encounters a RetryPoisonPill"
-    (tk-testutils/with-app-with-config
+    (tk-bootstrap/with-app-with-config
      app
      jruby-testutils/default-services
      {}
@@ -87,7 +87,7 @@
           config (assoc-in (jruby-testutils/jruby-config {:max-active-instances 1})
                            [:lifecycle :cleanup]
                            (fn [x] (reset! cleanup-atom "Hello from cleanup")))]
-      (tk-testutils/with-app-with-config
+      (tk-bootstrap/with-app-with-config
        app
        jruby-testutils/default-services
        {}

@@ -5,7 +5,7 @@
             [puppetlabs.trapperkeeper.core :as tk]
             [puppetlabs.trapperkeeper.services :as services]
             [clojure.stacktrace :as stacktrace]
-            [puppetlabs.trapperkeeper.testutils.bootstrap :as bootstrap]
+            [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
             [puppetlabs.trapperkeeper.testutils.logging :as logging]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
             [puppetlabs.services.jruby.jruby-core :as jruby-core]
@@ -54,7 +54,7 @@
     (logging/with-test-logging
      (let [got-expected-exception (atom false)]
        (try
-         (bootstrap/with-app-with-config
+         (tk-bootstrap/with-app-with-config
           app
           (conj jruby-testutils/default-services jruby-pooled-test-service)
           (jruby-testutils/jruby-config
@@ -73,7 +73,7 @@
   (testing "The pool is created and the size is correctly reported"
     (let [pool-size 2
           config (jruby-test-config pool-size)]
-      (bootstrap/with-app-with-config
+      (tk-bootstrap/with-app-with-config
         app
         jruby-testutils/default-services
         {}
@@ -94,7 +94,7 @@
 
 (deftest test-with-jruby-instance
   (testing "the `with-jruby-instance macro`"
-    (bootstrap/with-app-with-config
+    (tk-bootstrap/with-app-with-config
      app
      jruby-testutils/default-services
      {}
@@ -150,7 +150,7 @@
                                          :reason reason
                                          :instance instance})))
           event-callbacks (atom [])]
-      (bootstrap/with-app-with-config
+      (tk-bootstrap/with-app-with-config
         app
         jruby-testutils/default-services
         {}
@@ -190,7 +190,7 @@
           pool-size 1
           config (jruby-testutils/jruby-config {:max-active-instances pool-size
                                                 :borrow-timeout timeout})]
-      (bootstrap/with-app-with-config
+      (tk-bootstrap/with-app-with-config
        app
        jruby-testutils/default-services
        {}

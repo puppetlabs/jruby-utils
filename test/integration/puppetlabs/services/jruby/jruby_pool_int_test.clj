@@ -1,6 +1,6 @@
 (ns puppetlabs.services.jruby.jruby-pool-int-test
   (:require [clojure.test :refer :all]
-            [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-testutils]
+            [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.services.jruby.jruby-pool-manager-service :as pool-manager]
@@ -149,7 +149,7 @@
 
 (deftest ^:integration flush-pool-test
   (testing "Flushing the pool results in all new JRubyInstances"
-    (tk-testutils/with-app-with-config
+    (tk-bootstrap/with-app-with-config
      app
      [pool-manager/jruby-pool-manager-service]
      {}
@@ -168,7 +168,7 @@
 
 (deftest ^:integration flush-pool-for-shutdown-test
   (testing "Flushing the pool for shutdown results in no JRubyInstances left"
-    (tk-testutils/with-app-with-config
+    (tk-bootstrap/with-app-with-config
      app
      [pool-manager/jruby-pool-manager-service]
      {}
@@ -188,7 +188,7 @@
 
 (deftest ^:integration hold-instance-while-pool-flush-in-progress-test
   (testing "instance borrowed from old pool before pool flush begins and returned *after* new pool is available"
-    (tk-testutils/with-app-with-config
+    (tk-bootstrap/with-app-with-config
      app
      jruby-testutils/default-services
      {}
@@ -218,7 +218,7 @@
 
 (deftest ^:integration hold-file-handle-on-instance-while-pool-flush-in-progress-test
   (testing "file handle opened from old pool instance is held open across pool flush"
-    (tk-testutils/with-app-with-config
+    (tk-bootstrap/with-app-with-config
      app
      jruby-testutils/default-services
      {}
@@ -260,7 +260,7 @@
 
 (deftest ^:integration max-requests-flush-while-pool-flush-in-progress-test
   (testing "instance from new pool hits max-requests while flush in progress"
-    (tk-testutils/with-app-with-config
+    (tk-bootstrap/with-app-with-config
      app
      jruby-testutils/default-services
      {}
@@ -363,7 +363,7 @@
                    :max-requests-per-instance 10
                    :borrow-timeout test-borrow-timeout
                    :lifecycle lifecycle-fns})]
-      (tk-testutils/with-app-with-config
+      (tk-bootstrap/with-app-with-config
        app
        jruby-testutils/default-services
        {}
@@ -392,7 +392,7 @@
                    :max-requests-per-instance 10
                    :borrow-timeout test-borrow-timeout
                    :lifecycle lifecycle-fns})]
-      (tk-testutils/with-app-with-config
+      (tk-bootstrap/with-app-with-config
        app
        jruby-testutils/default-services
        {}
