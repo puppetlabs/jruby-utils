@@ -37,7 +37,6 @@
          (jruby-core/with-lock
           pool-context
           :with-lock-holds-lock-test
-          (atom [])
           (is (not (can-borrow-from-different-thread? pool-context)))))
        (testing "with-lock macro releases write lock after exectuing body"
          (is (can-borrow-from-different-thread? pool-context)))))))
@@ -56,7 +55,7 @@
 
      (testing "with-lock macro releases lock even if body throws exception"
        (is (thrown? IllegalStateException
-                    (jruby-core/with-lock pool-context :with-lock-exception-test (atom [])
+                    (jruby-core/with-lock pool-context :with-lock-exception-test
                                           (is (not (can-borrow-from-different-thread?
                                               pool-context)))
                                           (throw (IllegalStateException. "exception")))))
@@ -66,8 +65,7 @@
   (testing "locking sends event notifications"
     (let [events (atom [])
           callback (fn [{:keys [type]}]
-                     (swap! events conj type))
-          event-callbacks (atom [])]
+                     (swap! events conj type))]
       (tk-bootstrap/with-app-with-config
         app
         jruby-testutils/default-services
@@ -76,14 +74,13 @@
               pool-manager-service (tk-app/get-service app :PoolManagerService)
               pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
           (jruby-testutils/wait-for-jrubies-from-pool-context pool-context)
-          (swap! event-callbacks #(conj % callback))
+          (jruby-core/register-event-handler pool-context callback)
 
           (testing "locking events trigger event notifications"
             (jruby-core/with-jruby-instance
              jruby-instance
              pool-context
              :with-lock-events-test
-             event-callbacks
              (testing "borrowing a jruby triggers 'requested'/'borrow' events"
                (is (= [:instance-requested :instance-borrowed] @events))))
             (testing "returning a jruby triggers 'returned' event"
@@ -91,7 +88,6 @@
             (jruby-core/with-lock
              pool-context
              :with-lock-events-test
-             event-callbacks
              (testing "acquiring a lock triggers 'lock-requested'/'lock-acquired' events"
                (is (= [:instance-requested :instance-borrowed :instance-returned
                        :lock-requested :lock-acquired] @events)))))
@@ -118,7 +114,6 @@
              lock-thread (future (jruby-core/with-lock
                                   pool-context
                                   :with-lock-and-borrow-contention-test
-                                  (atom [])
                                   (deliver lock-acquired? true)
                                   @unlock-thread?))]
          (testing "lock not granted yet when instance still borrowed"

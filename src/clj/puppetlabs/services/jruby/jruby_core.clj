@@ -54,6 +54,11 @@
       iterator-seq
       vec))
 
+(schema/defn get-event-callbacks :- [IFn]
+  "Gets the vector of event callbacks from the pool context."
+  [pool-context :- jruby-schemas/PoolContext]
+  @(:event-callbacks pool-context))
+
 (schema/defn create-requested-event :- jruby-schemas/JRubyRequestedEvent
   [reason :- jruby-schemas/JRubyEventReason]
   {:type :instance-requested
@@ -169,7 +174,8 @@
      ;; For an explanation of why we need a separate agent for the `flush-instance`,
      ;; see the comments in puppetlabs.services.jruby.jruby-agents/send-flush-instance
      :flush-instance-agent (jruby-agents/pool-agent agent-shutdown-fn)
-     :pool-state (atom (jruby-internal/create-pool-from-config config))}))
+     :pool-state (atom (jruby-internal/create-pool-from-config config))
+     :event-callbacks (atom [])}))
 
 (schema/defn ^:always-validate
   free-instance-count
@@ -185,10 +191,10 @@
   @(:state jruby-instance))
 
 (schema/defn register-event-handler
-  "Register the callback function by adding it to the event callbacks atom."
-  [event-callbacks :- Atom
+  "Register the callback function by adding it to the event callbacks atom on the pool context."
+  [pool-context :- jruby-schemas/PoolContext
    callback-fn :- IFn]
-  (swap! event-callbacks conj callback-fn))
+  (swap! (:event-callbacks pool-context) conj callback-fn))
 
 (schema/defn ^:always-validate
   borrow-from-pool :- jruby-schemas/JRubyInstanceOrPill
@@ -307,34 +313,36 @@
       (do-something-with-a-jruby-instance jruby-instance)))
 
   Will throw an IllegalStateException if borrowing a JRubyInstance times out."
-  [jruby-instance pool-context reason event-callbacks & body]
-  `(loop [pool-instance# (borrow-from-pool-with-timeout ~pool-context ~reason (deref ~event-callbacks))]
-     (if (nil? pool-instance#)
-       (sling/throw+
-        {:type ::jruby-timeout
-         :message (str "Attempt to borrow a JRubyInstance from the pool timed out.")}))
-     (when (jruby-schemas/shutdown-poison-pill? pool-instance#)
-       (return-to-pool pool-instance# ~reason (deref ~event-callbacks))
-       (sling/throw+
-        {:type    ::service-unavailable
-         :message (str "Attempted to borrow a JRubyInstance from the pool "
-                       "during a shutdown. Please try again.")}))
-     (if (jruby-schemas/retry-poison-pill? pool-instance#)
-       (do
-         (return-to-pool pool-instance# ~reason (deref ~event-callbacks))
-         (recur (borrow-from-pool-with-timeout ~pool-context ~reason (deref ~event-callbacks))))
-       (let [~jruby-instance pool-instance#]
-         (try
-           ~@body
-           (finally
-             (return-to-pool pool-instance# ~reason (deref ~event-callbacks))))))))
+  [jruby-instance pool-context reason & body]
+  `(let [event-callbacks# (get-event-callbacks ~pool-context)]
+     (loop [pool-instance# (borrow-from-pool-with-timeout ~pool-context ~reason event-callbacks#)]
+       (if (nil? pool-instance#)
+         (sling/throw+
+          {:type ::jruby-timeout
+           :message (str "Attempt to borrow a JRubyInstance from the pool timed out.")}))
+       (when (jruby-schemas/shutdown-poison-pill? pool-instance#)
+         (return-to-pool pool-instance# ~reason event-callbacks#)
+         (sling/throw+
+          {:type ::service-unavailable
+           :message (str "Attempted to borrow a JRubyInstance from the pool "
+                         "during a shutdown. Please try again.")}))
+       (if (jruby-schemas/retry-poison-pill? pool-instance#)
+         (do
+           (return-to-pool pool-instance# ~reason event-callbacks#)
+           (recur (borrow-from-pool-with-timeout ~pool-context ~reason event-callbacks#)))
+         (let [~jruby-instance pool-instance#]
+           (try
+             ~@body
+             (finally
+               (return-to-pool pool-instance# ~reason event-callbacks#))))))))
 
 (defmacro with-lock
   "Acquires a lock on the pool, executes the body, and releases the lock."
-  [pool-context reason event-callbacks & body]
-  `(let [pool# (get-pool ~pool-context)]
-     (lock-pool pool# ~reason (deref ~event-callbacks))
+  [pool-context reason & body]
+  `(let [pool# (get-pool ~pool-context)
+         event-callbacks# (get-event-callbacks ~pool-context)]
+     (lock-pool pool# ~reason event-callbacks#)
      (try
        ~@body
        (finally
-         (unlock-pool pool# ~reason (deref ~event-callbacks))))))
+         (unlock-pool pool# ~reason event-callbacks#)))))

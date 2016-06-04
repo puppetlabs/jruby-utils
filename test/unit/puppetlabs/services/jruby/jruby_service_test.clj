@@ -105,7 +105,6 @@
         jruby-instance
         pool-context
         :test-with-jruby-instance
-        (atom [])
         (is (instance? JRubyInstance jruby-instance))
         (is (= 0 (jruby-core/free-instance-count (jruby-core/get-pool pool-context)))))
 
@@ -116,8 +115,7 @@
        (jruby-core/with-jruby-instance
         jruby-instance
         pool-context
-        :test-with-jruby-instance
-        (atom []))
+        :test-with-jruby-instance)
        (let [jruby (jruby-core/borrow-from-pool-with-timeout
                     pool-context :test-with-jruby-instance [])]
          ;; the counter gets incremented when the instance is returned to the
@@ -148,8 +146,7 @@
                        :instance-returned
                        (reset! returned {:sequence (swap! counter inc)
                                          :reason reason
-                                         :instance instance})))
-          event-callbacks (atom [])]
+                                         :instance instance})))]
       (tk-bootstrap/with-app-with-config
         app
         jruby-testutils/default-services
@@ -157,15 +154,14 @@
         (let [config (jruby-test-config 1)
               pool-manager-service (app/get-service app :PoolManagerService)
               pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
-          (jruby-core/register-event-handler event-callbacks callback)
+          (jruby-core/register-event-handler pool-context callback)
           ;; We're making an empty call to `with-jruby-instance` here, because
           ;; we want to trigger a borrow/return via the same code path that
           ;; would be used in production.
           (jruby-core/with-jruby-instance
             jruby-instance
             pool-context
-            :test-jruby-events
-            event-callbacks)
+            :test-jruby-events)
           (is (= {:sequence 1 :reason :test-jruby-events}
                 (dissoc @requested :event)))
           (is (= {:sequence 2 :reason :test-jruby-events}
@@ -178,8 +174,7 @@
           (jruby-core/with-jruby-instance
             jruby-instance
             pool-context
-            :test-jruby-events
-            event-callbacks)
+            :test-jruby-events)
           (is (= 4 (:sequence @requested)))
           (is (= 5 (:sequence @borrowed)))
           (is (= 6 (:sequence @returned))))))))

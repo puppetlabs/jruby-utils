@@ -31,7 +31,7 @@
                                      (remove-watch pool-state key)
                                      (deliver pool-state-swapped true)))]
          ; borrow an instance so we know that the pool is ready
-         (jruby-core/with-jruby-instance jruby-instance pool-context :retry-poison-pill-test (atom []))
+         (jruby-core/with-jruby-instance jruby-instance pool-context :retry-poison-pill-test)
          (add-watch (:pool-state pool-context) :pool-state-watch pool-state-watch-fn)
          (jruby-core/flush-pool! pool-context)
          ; wait until we know the new pool has been swapped in
@@ -67,7 +67,6 @@
             jruby-instance
             pool-context
             :with-jruby-retry-test
-            (atom [])
             (is (instance? JRubyInstance jruby-instance))))
          (is (= 4 @num-borrows)))))))
 
