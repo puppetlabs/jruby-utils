@@ -94,7 +94,8 @@
   {:config                JRubyConfig
    :pool-agent            JRubyPoolAgent
    :flush-instance-agent  JRubyPoolAgent
-   :pool-state            PoolStateContainer})
+   :pool-state            PoolStateContainer
+   :event-callbacks       Atom})
 
 (def JRubyInstanceState
   "State metadata for an individual JRubyInstance"

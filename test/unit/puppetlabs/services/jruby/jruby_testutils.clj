@@ -3,7 +3,6 @@
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
             [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby.jruby-pool-manager-service :as pool-manager]
-            [puppetlabs.services.jruby.jruby-service :as jruby]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.services :as tk-service]
             [schema.core :as schema]))
@@ -16,19 +15,10 @@
 (def compile-mode :off)
 
 (def default-services
-  [jruby/jruby-pooled-service
-   pool-manager/jruby-pool-manager-service])
+  [pool-manager/jruby-pool-manager-service])
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; JRuby Test util functions
 
-(defn jruby-tk-config
-  "Create a JRuby pool config with the given pool config.  Suitable for use
-  in bootstrapping trapperkeeper (in other words, returns a representation of the
-  config that matches what would be read directly from the config files on disk,
-  as opposed to a version that has been processed and transformed to comply
-  with the JRubyConfig schema)."
-  [pool-config]
-  {:jruby pool-config})
+;; JRuby Test util functions
 
 (schema/defn ^:always-validate
   jruby-config :- jruby-schemas/JRubyConfig
@@ -38,22 +28,17 @@
   that complies with the JRubyConfig schema, which differs slightly from the raw
   format that would be read from config files on disk.)"
   ([]
-    (jruby-core/initialize-config
-      {:jruby
-       {:ruby-load-path  ruby-load-path
-        :gem-home        gem-home}}))
+   (jruby-core/initialize-config
+    {:ruby-load-path ruby-load-path
+     :gem-home gem-home}))
   ([options]
-   (merge (jruby-config) options)))
+   (jruby-core/initialize-config
+    (merge {:ruby-load-path ruby-load-path
+            :gem-home gem-home}
+           options))))
 
 (def default-flush-fn
   identity)
-
-(defn create-pool-instance
-  ([]
-   (create-pool-instance (jruby-config {:max-active-instances 1})))
-  ([config]
-   (let [pool (jruby-internal/instantiate-free-pool 1)]
-     (jruby-internal/create-pool-instance! pool 1 config default-flush-fn))))
 
 (defn drain-pool
   "Drains the JRuby pool and returns each instance in a vector."

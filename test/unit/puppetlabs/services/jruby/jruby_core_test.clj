@@ -8,11 +8,9 @@
 (use-fixtures :once schema-test/validate-schemas)
 
 (def min-config
-  {:product
-   {:name "puppet-server", :update-server-url "http://localhost:11111"},
-   :jruby
+  (jruby-core/initialize-config
    {:gem-home "./target/jruby-gem-home",
-    :ruby-load-path ["./ruby/puppet/lib" "./ruby/facter/lib" "./ruby/hiera/lib"]}})
+    :ruby-load-path ["./dev-resources/puppetlabs/services/jruby/jruby_core_test"]}))
 
 (defmacro with-stdin-str
   "Evaluates body in a context in which System/in is bound to a fresh
@@ -99,28 +97,26 @@
             {:keys [return _]} m
             exit-code (.getStatus return)]
         (is (= 42 exit-code))))
-    ;; TODO: put some other lib on the load path so that we can test a require
-    #_(testing "irb with -r puppet"
+    (testing "irb with -r foo"
       (let [m (capture-out
-                (with-stdin-str "puts %{VERSION: #{Puppet.version}}"
-                  (jruby-core/cli-run! min-config "irb" ["-r" "puppet" "-f"])))
+                (with-stdin-str "puts %{#{foo}}"
+                  (jruby-core/cli-run! min-config "irb" ["-r" "foo" "-f"])))
             {:keys [return out]} m
             exit-code (.getStatus return)]
         (is (= 0 exit-code))
-        (is (re-find #"VERSION: \d+\.\d+\.\d+" out))))
+        (is (re-find #"bar" out))))
     (testing "non existing subcommand returns nil"
       (logutils/with-test-logging
         (is (nil? (jruby-core/cli-run! min-config "doesnotexist" [])))))))
 
 (deftest ^:integration cli-ruby!-test
   (testing "jruby cli command output"
-    ;; TODO: put some other lib on the load path so that we can test a require
-    ;; TODO: consider bringing the CLI clj files back into the repo?
-    #_(testing "ruby -r puppet"
+    ;; TODO: consider bringing the CLI clj files back into the repo? (TK-378)
+    (testing "ruby -r puppet"
       (let [m (capture-out
-                (with-stdin-str "puts %{VERSION: #{Puppet.version}}"
-                  (jruby-core/cli-ruby! min-config ["-r" "puppet"])))
+                (with-stdin-str "puts %{#{foo}}"
+                  (jruby-core/cli-ruby! min-config ["-r" "foo"])))
             {:keys [return out]} m
             exit-code (.getStatus return)]
         (is (= 0 exit-code))
-        (is (re-find #"VERSION: \d+\.\d+\.\d+" out))))))
+        (is (re-find #"bar" out))))))

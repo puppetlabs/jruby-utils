@@ -6,9 +6,10 @@
             [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
             [clojure.java.io :as io]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [slingshot.slingshot :as sling])
   (:import (puppetlabs.services.jruby.jruby_schemas JRubyInstance)
-           (clojure.lang IFn)))
+           (clojure.lang IFn Atom)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Constants
@@ -52,6 +53,11 @@
       .iterator
       iterator-seq
       vec))
+
+(schema/defn get-event-callbacks :- [IFn]
+  "Gets the vector of event callbacks from the pool context."
+  [pool-context :- jruby-schemas/PoolContext]
+  @(:event-callbacks pool-context))
 
 (schema/defn create-requested-event :- jruby-schemas/JRubyRequestedEvent
   [reason :- jruby-schemas/JRubyEventReason]
@@ -150,7 +156,7 @@
 (schema/defn ^:always-validate
   initialize-config :- jruby-schemas/JRubyConfig
   [config :- {schema/Keyword schema/Any}]
-  (-> (get-in config [:jruby])
+  (-> config
       (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
@@ -168,7 +174,8 @@
      ;; For an explanation of why we need a separate agent for the `flush-instance`,
      ;; see the comments in puppetlabs.services.jruby.jruby-agents/send-flush-instance
      :flush-instance-agent (jruby-agents/pool-agent agent-shutdown-fn)
-     :pool-state (atom (jruby-internal/create-pool-from-config config))}))
+     :pool-state (atom (jruby-internal/create-pool-from-config config))
+     :event-callbacks (atom [])}))
 
 (schema/defn ^:always-validate
   free-instance-count
@@ -183,6 +190,12 @@
   [jruby-instance :- (schema/pred jruby-schemas/jruby-instance?)]
   @(:state jruby-instance))
 
+(schema/defn register-event-handler
+  "Register the callback function by adding it to the event callbacks atom on the pool context."
+  [pool-context :- jruby-schemas/PoolContext
+   callback-fn :- IFn]
+  (swap! (:event-callbacks pool-context) conj callback-fn))
+
 (schema/defn ^:always-validate
   borrow-from-pool :- jruby-schemas/JRubyInstanceOrPill
   "Borrows a JRuby interpreter from the pool. If there are no instances
@@ -195,20 +208,21 @@
     (instance-borrowed event-callbacks requested-event instance)
     instance))
 
+;; TODO: consider adding a second arity that allows for passing in a
+;; borrow-timeout, rather than relying on what is in the config.
 (schema/defn ^:always-validate
   borrow-from-pool-with-timeout :- jruby-schemas/JRubyBorrowResult
   "Borrows a JRuby interpreter from the pool, like borrow-from-pool but a
-  blocking timeout is provided. If an instance is available then it will be
-  immediately returned to the caller, if not then this function will block
-  waiting for an instance to be free for the number of milliseconds given in
-  timeout. If the timeout runs out then nil will be returned, indicating that
-  there were no instances available."
+  blocking timeout is taken from the config in the context. If an instance is
+  available then it will be immediately returned to the caller, if not then
+  this function will block waiting for an instance to be free for the number
+  of milliseconds given in timeout. If the timeout runs out then nil will be
+  returned, indicating that there were no instances available."
   [pool-context :- jruby-schemas/PoolContext
-   timeout :- schema/Int
    reason :- schema/Any
    event-callbacks :- [IFn]]
-  {:pre  [(>= timeout 0)]}
-  (let [requested-event (instance-requested event-callbacks reason)
+  (let [timeout (get-in pool-context [:config :borrow-timeout])
+        requested-event (instance-requested event-callbacks reason)
         instance (jruby-internal/borrow-from-pool-with-timeout
                    pool-context
                    timeout)]
@@ -265,15 +279,15 @@
 
 (schema/defn ^:always-validate cli-ruby! :- jruby-schemas/JRubyMainStatus
   "Run JRuby as though native `ruby` were invoked with args on the CLI"
-  [config :- {schema/Keyword schema/Any}
+  [config :- jruby-schemas/JRubyConfig
    args :- [schema/Str]]
-  (let [main (jruby-internal/new-main (initialize-config config))
+  (let [main (jruby-internal/new-main config)
         argv (into-array String (concat ["-rjar-dependencies"] args))]
     (.run main argv)))
 
 (schema/defn ^:always-validate cli-run! :- (schema/maybe jruby-schemas/JRubyMainStatus)
   "Run a JRuby CLI command, e.g. gem, irb, etc..."
-  [config :- {schema/Keyword schema/Any}
+  [config :- jruby-schemas/JRubyConfig
    command :- schema/Str
    args :- [schema/Str]]
   (let [bin-dir "META-INF/jruby.home/bin"
@@ -283,3 +297,52 @@
       (cli-ruby! config
         (concat ["-e" (format "load '%s'" url) "--"] args))
       (log/errorf "command %s could not be found in %s" command bin-dir))))
+
+(defmacro with-jruby-instance
+  "Encapsulates the behavior of borrowing and returning a JRubyInstance.
+  Example usage:
+
+  (let [pool-manager-service (tk-app/get-service app :PoolManagerService)
+        pool-context (pool-manager/create-pool pool-manager-service config)]
+    (with-jruby-instance
+      jruby-instance
+      pool-context
+      event-callbacks
+      reason
+
+      (do-something-with-a-jruby-instance jruby-instance)))
+
+  Will throw an IllegalStateException if borrowing a JRubyInstance times out."
+  [jruby-instance pool-context reason & body]
+  `(let [event-callbacks# (get-event-callbacks ~pool-context)]
+     (loop [pool-instance# (borrow-from-pool-with-timeout ~pool-context ~reason event-callbacks#)]
+       (if (nil? pool-instance#)
+         (sling/throw+
+          {:type ::jruby-timeout
+           :message (str "Attempt to borrow a JRubyInstance from the pool timed out.")}))
+       (when (jruby-schemas/shutdown-poison-pill? pool-instance#)
+         (return-to-pool pool-instance# ~reason event-callbacks#)
+         (sling/throw+
+          {:type ::service-unavailable
+           :message (str "Attempted to borrow a JRubyInstance from the pool "
+                         "during a shutdown. Please try again.")}))
+       (if (jruby-schemas/retry-poison-pill? pool-instance#)
+         (do
+           (return-to-pool pool-instance# ~reason event-callbacks#)
+           (recur (borrow-from-pool-with-timeout ~pool-context ~reason event-callbacks#)))
+         (let [~jruby-instance pool-instance#]
+           (try
+             ~@body
+             (finally
+               (return-to-pool pool-instance# ~reason event-callbacks#))))))))
+
+(defmacro with-lock
+  "Acquires a lock on the pool, executes the body, and releases the lock."
+  [pool-context reason & body]
+  `(let [pool# (get-pool ~pool-context)
+         event-callbacks# (get-event-callbacks ~pool-context)]
+     (lock-pool pool# ~reason event-callbacks#)
+     (try
+       ~@body
+       (finally
+         (unlock-pool pool# ~reason event-callbacks#)))))

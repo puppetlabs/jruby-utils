@@ -1,11 +1,9 @@
 (ns puppetlabs.services.jruby.jruby-pool-int-test
   (:require [clojure.test :refer :all]
-            [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-testutils]
+            [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
             [puppetlabs.trapperkeeper.app :as tk-app]
-            [puppetlabs.trapperkeeper.services :as tk-services]
             [puppetlabs.services.jruby.jruby-pool-manager-service :as pool-manager]
-            [puppetlabs.services.protocols.jruby :as jruby-protocol]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
             [puppetlabs.services.jruby.jruby-core :as jruby-core]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]))
@@ -13,7 +11,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utilities
 
-(def default-borrow-timeout 180000)
+(def test-borrow-timeout 180000)
 
 (defn timed-await
   [agent]
@@ -101,11 +99,11 @@
   (every? false? (check-all-jrubies-for-constants pool-context num-instances)))
 
 (defn wait-for-new-pool
-  [jruby-service]
+  [pool-context]
   (let [max-new-pool-wait-count 100000]
     ;; borrow until we get an instance that doesn't have a constant,
     ;; so we'll know that the new pool is online
-    (loop [instance (jruby-protocol/borrow-instance jruby-service :wait-for-new-pool)
+    (loop [instance (jruby-core/borrow-from-pool-with-timeout pool-context :wait-for-new-pool [])
            loop-count 0]
       (let [has-constant? (constant-defined? instance)]
          ;; Where a max-requests-per-instance may have been imposed for the
@@ -117,159 +115,161 @@
          ;; borrow count here to compensate for the increase that the jruby
          ;; pool would normally do when returning an instance.
         (swap! (:state instance) update-in [:borrow-count] dec)
-        (jruby-protocol/return-instance jruby-service instance :wait-for-new-pool)
+        (jruby-core/return-to-pool instance :wait-for-new-pool [])
         (cond
           (not has-constant?) true
           (= loop-count max-new-pool-wait-count) false
-          :else (recur (jruby-protocol/borrow-instance
-                        jruby-service
-                        :wait-for-new-pool)
+          :else (recur (jruby-core/borrow-from-pool-with-timeout
+                        pool-context
+                        :wait-for-new-pool
+                        [])
                        (inc loop-count)))))))
 
 (defn borrow-until-desired-borrow-count
-  [jruby-service desired-borrow-count]
+  [pool-context desired-borrow-count]
   (let [max-borrow-wait-count 100000]
-    (loop [instance (jruby-protocol/borrow-instance jruby-service :borrow-until-desired-borrow-count)
+    (loop [instance (jruby-core/borrow-from-pool-with-timeout
+                     pool-context
+                     :borrow-until-desired-borrow-count
+                     [])
            loop-count 0]
       (let [borrow-count (:borrow-count @(:state instance))]
-        (jruby-protocol/return-instance jruby-service instance :borrow-until-desired-borrow-count)
+        (jruby-core/return-to-pool instance :borrow-until-desired-borrow-count [])
         (cond
           (= (inc borrow-count) desired-borrow-count) true
           (= loop-count max-borrow-wait-count) false
-          :else (recur (jruby-protocol/borrow-instance
-                        jruby-service
-                        :borrow-until-desired-borrow-count)
+          :else (recur (jruby-core/borrow-from-pool-with-timeout
+                        pool-context
+                        :borrow-until-desired-borrow-count
+                        [])
                        (inc loop-count)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Tests
 
-;; TODO: this test seems redundant to the one in puppetlabs.services.jruby.jruby-agents-test
-;; Reevaluate when we remove the jruby TK service
 (deftest ^:integration flush-pool-test
   (testing "Flushing the pool results in all new JRubyInstances"
-    (let [config (jruby-testutils/jruby-config {:max-active-instances 4
-                                                :borrow-timeout default-borrow-timeout})]
-      (tk-testutils/with-app-with-config
-       app
-       [pool-manager/jruby-pool-manager-service]
-       (jruby-testutils/jruby-tk-config config)
-       (let [pool-manager-service (tk-app/get-service app :PoolManagerService)
-             pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
-         ;; set a ruby constant in each instance so that we can recognize them
-         (is (true? (set-constants-and-verify pool-context 4)))
-         (jruby-core/flush-pool! pool-context)
-         (is (true? (timed-await (:pool-agent pool-context)))
-             (str "timed out waiting for the flush to complete, stack:\n"
-                  (get-all-stack-traces-as-str)))
-         ;; now the pool is flushed, so the constants should be cleared
-         (is (true? (verify-no-constants pool-context 4))))))))
+    (tk-bootstrap/with-app-with-config
+     app
+     [pool-manager/jruby-pool-manager-service]
+     {}
+     (let [config (jruby-testutils/jruby-config {:max-active-instances 4
+                                                 :borrow-timeout test-borrow-timeout})
+           pool-manager-service (tk-app/get-service app :PoolManagerService)
+           pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
+       ;; set a ruby constant in each instance so that we can recognize them
+       (is (true? (set-constants-and-verify pool-context 4)))
+       (jruby-core/flush-pool! pool-context)
+       (is (true? (timed-await (:pool-agent pool-context)))
+           (str "timed out waiting for the flush to complete, stack:\n"
+                (get-all-stack-traces-as-str)))
+       ;; now the pool is flushed, so the constants should be cleared
+       (is (true? (verify-no-constants pool-context 4)))))))
 
 (deftest ^:integration flush-pool-for-shutdown-test
   (testing "Flushing the pool for shutdown results in no JRubyInstances left"
-    (let [config (jruby-testutils/jruby-config {:max-active-instances 4
-                                                :borrow-timeout default-borrow-timeout})]
-      (tk-testutils/with-app-with-config
-      app
-      [pool-manager/jruby-pool-manager-service]
-      (jruby-testutils/jruby-tk-config config)
-      (let [pool-manager-service (tk-app/get-service app :PoolManagerService)
-            pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
-        ;; wait for all jrubies to be added to the pool
-        (jruby-testutils/wait-for-jrubies-from-pool-context pool-context)
-        (is (= 4 (.size (jruby-core/get-pool pool-context))))
-        (jruby-core/flush-pool-for-shutdown! pool-context)
-        (let [flushed-pool (jruby-core/get-pool pool-context)]
-          ;; flushing the pool removes all JRubyInstances but causes a ShutdownPoisonPill
-          ;; to be added
-          (is (= 1 (.size flushed-pool)))
-          (is (jruby-schemas/shutdown-poison-pill? (.borrowItem flushed-pool)))))))))
+    (tk-bootstrap/with-app-with-config
+     app
+     [pool-manager/jruby-pool-manager-service]
+     {}
+     (let [config (jruby-testutils/jruby-config {:max-active-instances 4
+                                                 :borrow-timeout test-borrow-timeout})
+           pool-manager-service (tk-app/get-service app :PoolManagerService)
+           pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
+       ;; wait for all jrubies to be added to the pool
+       (jruby-testutils/wait-for-jrubies-from-pool-context pool-context)
+       (is (= 4 (.size (jruby-core/get-pool pool-context))))
+       (jruby-core/flush-pool-for-shutdown! pool-context)
+       (let [flushed-pool (jruby-core/get-pool pool-context)]
+         ;; flushing the pool removes all JRubyInstances but causes a ShutdownPoisonPill
+         ;; to be added
+         (is (= 1 (.size flushed-pool)))
+         (is (jruby-schemas/shutdown-poison-pill? (.borrowItem flushed-pool))))))))
 
 (deftest ^:integration hold-instance-while-pool-flush-in-progress-test
   (testing "instance borrowed from old pool before pool flush begins and returned *after* new pool is available"
-    (tk-testutils/with-app-with-config
-      app
-      jruby-testutils/default-services
-      (jruby-testutils/jruby-tk-config
-       (jruby-testutils/jruby-config {:max-active-instances      4
-                                             :borrow-timeout default-borrow-timeout}))
-      (let [jruby-service (tk-app/get-service app :JRubyService)
-            context (tk-services/service-context jruby-service)
-            pool-context (:pool-context context)]
-        ;; set a ruby constant in each instance so that we can recognize them
-        (is (true? (set-constants-and-verify pool-context 4)))
-        ;; borrow an instance and hold the reference to it.
-        (let [instance (jruby-protocol/borrow-instance
-                        jruby-service
-                        :hold-instance-while-pool-flush-in-progress-test)]
-          ;; trigger a flush
-          (jruby-protocol/flush-jruby-pool! jruby-service)
-          ;; wait for the new pool to become available
-          (is (true? (wait-for-new-pool jruby-service)))
-          ;; return the instance
-          (jruby-protocol/return-instance jruby-service instance :hold-instance-while-pool-flush-in-progress-test)
-          ;; wait until the flush is complete
-          (is (true? (timed-await (:pool-agent pool-context)))
-              (str "timed out waiting for the flush to complete, stack:\n"
-                   (get-all-stack-traces-as-str))))
-        ;; now the pool is flushed, and the constants should be cleared
-        (is (true? (verify-no-constants pool-context 4)))))))
+    (tk-bootstrap/with-app-with-config
+     app
+     jruby-testutils/default-services
+     {}
+     (let [config (jruby-testutils/jruby-config {:max-active-instances 4
+                                                 :borrow-timeout test-borrow-timeout})
+           pool-manager-service (tk-app/get-service app :PoolManagerService)
+           pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
+       ;; set a ruby constant in each instance so that we can recognize them
+       (is (true? (set-constants-and-verify pool-context 4)))
+       ;; borrow an instance and hold the reference to it.
+       (let [instance (jruby-core/borrow-from-pool-with-timeout
+                       pool-context
+                       :hold-instance-while-pool-flush-in-progress-test
+                       [])]
+         ;; trigger a flush
+         (jruby-core/flush-pool! pool-context)
+         ;; wait for the new pool to become available
+         (is (true? (wait-for-new-pool pool-context)))
+         ;; return the instance
+         (jruby-core/return-to-pool instance :hold-instance-while-pool-flush-in-progress-test [])
+         ;; wait until the flush is complete
+         (is (true? (timed-await (:pool-agent pool-context)))
+             (str "timed out waiting for the flush to complete, stack:\n"
+                  (get-all-stack-traces-as-str))))
+       ;; now the pool is flushed, and the constants should be cleared
+       (is (true? (verify-no-constants pool-context 4)))))))
 
 (deftest ^:integration hold-file-handle-on-instance-while-pool-flush-in-progress-test
   (testing "file handle opened from old pool instance is held open across pool flush"
-    (tk-testutils/with-app-with-config
-      app
-      jruby-testutils/default-services
-      (jruby-testutils/jruby-tk-config
-       (jruby-testutils/jruby-config {:max-active-instances      4
-                                             :borrow-timeout default-borrow-timeout}))
-      (let [jruby-service (tk-app/get-service app :JRubyService)
-            context (tk-services/service-context jruby-service)
-            pool-context (:pool-context context)]
-        ;; set a ruby constant in each instance so that we can recognize them
-        (is (true? (set-constants-and-verify pool-context 2)))
-        ;; borrow an instance and hold the reference to it.
-        (let [instance (jruby-protocol/borrow-instance jruby-service
-                         :hold-instance-while-pool-flush-in-progress-test)
-              sc (:scripting-container instance)]
-          (.runScriptlet sc
-                         (str "require 'tempfile'\n\n"
-                              "$unique_file = "
-                              "Tempfile.new"
-                              "('hold-instance-test-', './target')"))
-          (try
-            ;; trigger a flush
-            (jruby-protocol/flush-jruby-pool! jruby-service)
-            ;; wait for the new pool to become available
-            (is (true? (wait-for-new-pool jruby-service)))
+    (tk-bootstrap/with-app-with-config
+     app
+     jruby-testutils/default-services
+     {}
+     (let [config (jruby-testutils/jruby-config {:max-active-instances 4
+                                                 :borrow-timeout test-borrow-timeout})
+           pool-manager-service (tk-app/get-service app :PoolManagerService)
+           pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
+       ;; set a ruby constant in each instance so that we can recognize them
+       (is (true? (set-constants-and-verify pool-context 2)))
+       ;; borrow an instance and hold the reference to it.
+       (let [instance (jruby-core/borrow-from-pool-with-timeout
+                       pool-context
+                       :hold-instance-while-pool-flush-in-progress-test
+                       [])
+             sc (:scripting-container instance)]
+         (.runScriptlet sc
+                        (str "require 'tempfile'\n\n"
+                             "$unique_file = "
+                             "Tempfile.new"
+                             "('hold-instance-test-', './target')"))
+         (try
+           ;; trigger a flush
+           (jruby-core/flush-pool! pool-context)
+           ;; wait for the new pool to become available
+           (is (true? (wait-for-new-pool pool-context)))
 
-            (is (nil? (.runScriptlet sc "$unique_file.close"))
-                "Unexpected response on attempt to close unique file")
-            (finally
-              (.runScriptlet sc "$unique_file.unlink")))
-          ;; return the instance
-          (jruby-protocol/return-instance jruby-service instance :hold-instance-while-pool-flush-in-progress-test)
-          ;; wait until the flush is complete
-          (is (true? (timed-await (:pool-agent pool-context)))
-              (str "timed out waiting for the flush to complete, stack:\n"
-                   (get-all-stack-traces-as-str))))
-        ;; now the pool is flushed, and the constants should be cleared
-        (is (true? (verify-no-constants pool-context 2)))))))
+           (is (nil? (.runScriptlet sc "$unique_file.close"))
+               "Unexpected response on attempt to close unique file")
+           (finally
+             (.runScriptlet sc "$unique_file.unlink")))
+         ;; return the instance
+         (jruby-core/return-to-pool instance :hold-instance-while-pool-flush-in-progress-test [])
+         ;; wait until the flush is complete
+         (is (true? (timed-await (:pool-agent pool-context)))
+             (str "timed out waiting for the flush to complete, stack:\n"
+                  (get-all-stack-traces-as-str))))
+       ;; now the pool is flushed, and the constants should be cleared
+       (is (true? (verify-no-constants pool-context 2)))))))
 
 (deftest ^:integration max-requests-flush-while-pool-flush-in-progress-test
   (testing "instance from new pool hits max-requests while flush in progress"
-    (tk-testutils/with-app-with-config
+    (tk-bootstrap/with-app-with-config
      app
      jruby-testutils/default-services
-     (jruby-testutils/jruby-tk-config
-      (jruby-testutils/jruby-config {:max-active-instances 4
-                                     :max-requests-per-instance 10
-                                     :borrow-timeout
-                                     default-borrow-timeout}))
-
-     (let [jruby-service (tk-app/get-service app :JRubyService)
-           context (tk-services/service-context jruby-service)
-           pool-context (:pool-context context)
+     {}
+     (let [config (jruby-testutils/jruby-config {:max-active-instances 4
+                                                 :max-requests-per-instance 10
+                                                 :borrow-timeout
+                                                 test-borrow-timeout})
+           pool-manager-service (tk-app/get-service app :PoolManagerService)
+           pool-context (pool-manager-protocol/create-pool pool-manager-service config)
            pool-agent (:pool-agent pool-context)]
        ;; set a ruby constant in each instance so that we can recognize them.
        ;; this counts as one request for each instance.
@@ -277,27 +277,31 @@
 
        ;; borrow one instance and hold the reference to it, to prevent
        ;; the flush operation from completing
-       (let [instance1 (jruby-protocol/borrow-instance jruby-service
-                                                       :max-requests-flush-while-pool-flush-in-progress-test)]
+       (let [instance1 (jruby-core/borrow-from-pool-with-timeout
+                        pool-context
+                        :max-requests-flush-while-pool-flush-in-progress-test
+                        [])]
          ;; we are going to borrow and return a second instance until we get its
          ;; request count up to max-requests - 1, so that we can use it to test
          ;; flushing behavior the next time we return it.
-         (is (true? (borrow-until-desired-borrow-count jruby-service 9)))
+         (is (true? (borrow-until-desired-borrow-count pool-context 9)))
          ;; now we grab a reference to that instance and hold onto it for later.
-         (let [instance2 (jruby-protocol/borrow-instance jruby-service
-                                                         :max-requests-flush-while-pool-flush-in-progress-test)]
+         (let [instance2 (jruby-core/borrow-from-pool-with-timeout
+                          pool-context
+                          :max-requests-flush-while-pool-flush-in-progress-test
+                          [])]
            (is (= 9 (:borrow-count @(:state instance2))))
 
            ;; trigger a flush
-           (jruby-protocol/flush-jruby-pool! jruby-service)
+           (jruby-core/flush-pool! pool-context)
            ;; wait for the new pool to become available
-           (is (true? (wait-for-new-pool jruby-service)))
+           (is (true? (wait-for-new-pool pool-context)))
            ;; there will only be two instances in the new pool, because we are holding
            ;; references to two from the old pool.
            (is (true? (set-constants-and-verify pool-context 2)))
            ;; borrow and return instance from the new pool until an instance flush is triggered
            (is (true? (borrow-until-desired-borrow-count
-                       jruby-service
+                       pool-context
                        10)))
 
            ;; at this point, we still have the main flush in progress, waiting for us
@@ -314,7 +318,9 @@
            ;; pull it out of the old pool and create a new instance in the new pool
            ;; to replace it.  So we should end up with 3 instances in the new pool,
            ;; two of which should have the ruby constants and one of which should not.
-           (jruby-protocol/return-instance jruby-service instance2 :max-requests-flush-while-pool-flush-in-progress-test)
+           (jruby-core/return-to-pool instance2
+                                      :max-requests-flush-while-pool-flush-in-progress-test
+                                      [])
            (is (true? (check-jrubies-for-constant-counts pool-context 2 1))))
 
          ;; now we'll set the ruby constant on the 3 instances in the new pool
@@ -327,7 +333,9 @@
          (is (false? (await-for 50 pool-agent)))
 
          ;; and finally, we return the last instance from the old pool
-         (jruby-protocol/return-instance jruby-service instance1 :max-requests-flush-while-pool-flush-in-progress-test)
+         (jruby-core/return-to-pool instance1
+                                    :max-requests-flush-while-pool-flush-in-progress-test
+                                    [])
 
          ;; wait until the flush is complete
          (is (true? (timed-await pool-agent))
@@ -350,27 +358,27 @@
     (let [foo-atom (atom "FOO")
           lifecycle-fns {:initialize-pool-instance (fn [instance] (assoc instance :foo foo-atom))
                          :cleanup (fn [instance] (reset! (:foo instance) "Terminating FOO"))}
-          config (assoc-in (jruby-testutils/jruby-tk-config
-                            (jruby-testutils/jruby-config
-                             {:max-active-instances 1
-                              :max-requests-per-instance 10
-                              :borrow-timeout default-borrow-timeout}))
-                           [:jruby :lifecycle] lifecycle-fns)]
-      (tk-testutils/with-app-with-config
+          config (jruby-testutils/jruby-config
+                  {:max-active-instances 1
+                   :max-requests-per-instance 10
+                   :borrow-timeout test-borrow-timeout
+                   :lifecycle lifecycle-fns})]
+      (tk-bootstrap/with-app-with-config
        app
        jruby-testutils/default-services
-       config
-       (let [jruby-service (tk-app/get-service app :JRubyService)
-             context (tk-services/service-context jruby-service)]
+       {}
+       (let [pool-manager-service (tk-app/get-service app :PoolManagerService)
+             pool-context (pool-manager-protocol/create-pool pool-manager-service config)
+             instance (jruby-core/borrow-from-pool-with-timeout
+                       pool-context
+                       :initialization-and-cleanup-hooks-test
+                       [])]
+         (is (= "FOO" (deref (:foo instance))))
+         (jruby-core/return-to-pool instance :initialization-and-cleanup-hooks-test [])
 
-         (let [instance (jruby-protocol/borrow-instance jruby-service
-                                                        :initialization-and-cleanup-hooks-test)]
-           (is (= "FOO" (deref (:foo instance))))
-           (jruby-protocol/return-instance jruby-service instance :initialization-and-cleanup-hooks-test))
-
-         (jruby-protocol/flush-jruby-pool! jruby-service)
+         (jruby-core/flush-pool! pool-context)
          ; wait until the flush is complete
-         (await (get-in context [:pool-context :pool-agent]))
+         (await (:pool-agent pool-context))
          (is (= "Terminating FOO" (deref foo-atom))))))))
 
 (deftest initialize-scripting-container-hook-test
@@ -379,22 +387,26 @@
                                                            (.setEnvironment scripting-container
                                                                             {"CUSTOMENV" "foobar"})
                                                            scripting-container)}
-          config (assoc-in (jruby-testutils/jruby-tk-config
-                            (jruby-testutils/jruby-config
-                             {:max-active-instances 1
-                              :max-requests-per-instance 10
-                              :borrow-timeout default-borrow-timeout}))
-                           [:jruby :lifecycle] lifecycle-fns)]
-      (tk-testutils/with-app-with-config
+          config (jruby-testutils/jruby-config
+                  {:max-active-instances 1
+                   :max-requests-per-instance 10
+                   :borrow-timeout test-borrow-timeout
+                   :lifecycle lifecycle-fns})]
+      (tk-bootstrap/with-app-with-config
        app
        jruby-testutils/default-services
-       config
-       (let [jruby-service (tk-app/get-service app :JRubyService)]
+       {}
+       (let [pool-manager-service (tk-app/get-service app :PoolManagerService)
+             pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
 
-         (let [instance (jruby-protocol/borrow-instance jruby-service
-                                                        :initialize-environment-variables-test)
+         (let [instance (jruby-core/borrow-from-pool-with-timeout
+                         pool-context
+                         :initialize-environment-variables-test
+                         [])
                scripting-container (:scripting-container instance)
                jruby-env (.runScriptlet scripting-container "ENV")]
            (is (= {"CUSTOMENV" "foobar"} jruby-env))
-           (jruby-protocol/return-instance jruby-service instance
-                                           :initialize-environment-variables-test)))))))
+           (jruby-core/return-to-pool
+            instance
+            :initialize-environment-variables-test
+            [])))))))
