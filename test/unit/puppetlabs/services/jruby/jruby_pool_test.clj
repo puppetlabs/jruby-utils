@@ -89,7 +89,7 @@
       (let [drain-via   (fn [borrow-fn] (doall (repeatedly pool-size borrow-fn)))
             assoc-count (fn [acc jruby]
                           (assoc acc (:id jruby)
-                                     (:borrow-count @(:state jruby))))
+                                     (:borrow-count (jruby-core/instance-state jruby))))
             get-counts  (fn [jrubies] (reduce assoc-count {} jrubies))]
         (doseq [drain-fn [#(jruby-core/borrow-from-pool pool-context :test [])
                           #(jruby-core/borrow-from-pool-with-timeout pool-context :test [])]]
@@ -192,7 +192,7 @@
   (logutils/with-test-logging
     (let [config (jruby-testutils/jruby-config)
           pool (jruby-core/create-pool-context config)
-          pool-state @(:pool-state pool)]
+          pool-state (jruby-core/get-pool-state pool)]
       (is (= (jruby-core/default-pool-size (ks/num-cpus)) (:size pool-state))))))
 
 (defn jruby-test-config

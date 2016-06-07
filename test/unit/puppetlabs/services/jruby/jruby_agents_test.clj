@@ -32,12 +32,13 @@
                                      (deliver pool-state-swapped true)))]
          ; borrow an instance so we know that the pool is ready
          (jruby-core/with-jruby-instance jruby-instance pool-context :retry-poison-pill-test)
-         (add-watch (:pool-state pool-context) :pool-state-watch pool-state-watch-fn)
+         (add-watch (jruby-internal/get-pool-state-container pool-context)
+                    :pool-state-watch pool-state-watch-fn)
          (jruby-core/flush-pool! pool-context)
          ; wait until we know the new pool has been swapped in
          @pool-state-swapped
          ; wait until the flush is complete
-         (await (:pool-agent pool-context))
+         (await (jruby-agents/get-pool-agent pool-context))
          (let [old-pool-instance (jruby-internal/borrow-from-pool!*
                                   jruby-internal/borrow-without-timeout-fn
                                   old-pool)]
@@ -94,5 +95,5 @@
              pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
          (jruby-core/flush-pool! pool-context)
          ; wait until the flush is complete
-         (await (:pool-agent pool-context))
+         (await (jruby-agents/get-pool-agent pool-context))
          (is (= "Hello from cleanup" (deref cleanup-atom))))))))

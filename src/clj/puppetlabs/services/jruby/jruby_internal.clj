@@ -137,12 +137,13 @@
 (schema/defn ^:always-validate
   cleanup-pool-instance!
   "Cleans up and cleanly terminates a JRubyInstance and removes it from the pool."
-  [{:keys [scripting-container pool] :as instance} :- JRubyInstance
+  [{:keys [scripting-container] :as instance} :- JRubyInstance
    cleanup-fn :- IFn]
-  (.unregister pool instance)
-  (cleanup-fn instance)
-  (.terminate scripting-container)
-  (log/infof "Cleaned up old JRubyInstance with id %s." (:id instance)))
+  (let [pool (get-in instance [:internal :pool])]
+    (.unregister pool instance)
+    (cleanup-fn instance)
+    (.terminate scripting-container)
+    (log/infof "Cleaned up old JRubyInstance with id %s." (:id instance))))
 
 (schema/defn ^:always-validate
   create-pool-instance! :- JRubyInstance
@@ -160,21 +161,27 @@
     (let [scripting-container (create-scripting-container
                                config)]
       (let [instance (jruby-schemas/map->JRubyInstance
-                      {:pool pool
+                      {:scripting-container scripting-container
                        :id id
-                       :max-borrows (:max-borrows-per-instance config)
-                       :flush-instance-fn flush-instance-fn
-                       :state (atom {:borrow-count 0})
-                       :scripting-container scripting-container})
+                       :internal {:pool pool
+                                  :max-borrows (:max-borrows-per-instance config)
+                                  :flush-instance-fn flush-instance-fn
+                                  :state (atom {:borrow-count 0})}})
             modified-instance (initialize-pool-instance-fn instance)]
         (.register pool modified-instance)
         modified-instance))))
 
 (schema/defn ^:always-validate
+  get-pool-state-container :- jruby-schemas/PoolStateContainer
+  "Gets the PoolStateContainer from the pool context."
+  [context :- jruby-schemas/PoolContext]
+  (get-in context [:internal :pool-state]))
+
+(schema/defn ^:always-validate
   get-pool-state :- jruby-schemas/PoolState
   "Gets the PoolState from the pool context."
   [context :- jruby-schemas/PoolContext]
-  @(:pool-state context))
+  @(get-pool-state-container context))
 
 (schema/defn ^:always-validate
   get-pool :- jruby-schemas/pool-queue-type
@@ -187,6 +194,12 @@
   "Gets the size of the JRuby pool from the pool context."
   [context :- jruby-schemas/PoolContext]
   (get-in context [:config :max-active-instances]))
+
+(schema/defn ^:always-validate
+  get-instance-state-container :- jruby-schemas/JRubyInstanceStateContainer
+  "Gets the InstanceStateContainer (atom) from the instance."
+  [instance :- JRubyInstance]
+  (get-in instance [:internal :state]))
 
 (schema/defn borrow-without-timeout-fn :- JRubyInternalBorrowResult
   [pool :- jruby-schemas/pool-queue-type]
@@ -247,9 +260,9 @@
   "Return a borrowed pool instance to its free pool."
   [instance :- jruby-schemas/JRubyInstanceOrPill]
   (if (jruby-schemas/jruby-instance? instance)
-    (let [new-state (swap! (:state instance)
+    (let [new-state (swap! (get-instance-state-container instance)
                            update-in [:borrow-count] inc)
-          {:keys [max-borrows flush-instance-fn pool]} instance]
+          {:keys [max-borrows flush-instance-fn pool]} (:internal instance)]
       (if (and (pos? max-borrows)
                (>= (:borrow-count new-state) max-borrows))
         (do

@@ -80,8 +80,7 @@
                          tk-service/service-context
                          :pool-context)
         num-jrubies (-> pool-context
-                        :pool-state
-                        deref
+                        jruby-core/get-pool-state
                         :size)]
     (while (< (count (jruby-core/registered-instances pool-context))
               num-jrubies)
@@ -91,8 +90,7 @@
   "Wait for all jrubies to land in the pool"
   [pool-context]
   (let [num-jrubies (-> pool-context
-                        :pool-state
-                        deref
+                        jruby-core/get-pool-state
                         :size)]
     (while (< (count (jruby-core/registered-instances pool-context))
               num-jrubies)
