@@ -65,7 +65,7 @@
    :compile-mode SupportedJRubyCompileModes
    :borrow-timeout schema/Int
    :max-active-instances schema/Int
-   :max-requests-per-instance schema/Int
+   :max-borrows-per-instance schema/Int
    :lifecycle LifecycleFns})
 
 (def JRubyPoolAgent
@@ -110,7 +110,7 @@
 (schema/defrecord JRubyInstance
   [pool :- pool-queue-type
    id :- schema/Int
-   max-requests :- schema/Int
+   max-borrows :- schema/Int
    flush-instance-fn :- IFn
    state :- JRubyInstanceStateContainer
    scripting-container :- ScriptingContainer]
