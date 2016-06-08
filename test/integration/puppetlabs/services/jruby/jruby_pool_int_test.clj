@@ -106,7 +106,7 @@
     (loop [instance (jruby-core/borrow-from-pool-with-timeout pool-context :wait-for-new-pool [])
            loop-count 0]
       (let [has-constant? (constant-defined? instance)]
-         ;; Where a max-requests-per-instance may have been imposed for the
+         ;; Where a max-borrows-per-instance may have been imposed for the
          ;; pool, we need to avoid having borrow counts increase on each of
          ;; the pool instances while waiting for the new pool to show up.
          ;; Otherwise, an individual instance might be flushed and
@@ -258,14 +258,14 @@
        ;; now the pool is flushed, and the constants should be cleared
        (is (true? (verify-no-constants pool-context 2)))))))
 
-(deftest ^:integration max-requests-flush-while-pool-flush-in-progress-test
-  (testing "instance from new pool hits max-requests while flush in progress"
+(deftest ^:integration max-borrows-flush-while-pool-flush-in-progress-test
+  (testing "instance from new pool hits max-borrows while flush in progress"
     (tk-bootstrap/with-app-with-config
      app
      jruby-testutils/default-services
      {}
      (let [config (jruby-testutils/jruby-config {:max-active-instances 4
-                                                 :max-requests-per-instance 10
+                                                 :max-borrows-per-instance 10
                                                  :borrow-timeout
                                                  test-borrow-timeout})
            pool-manager-service (tk-app/get-service app :PoolManagerService)
@@ -279,16 +279,16 @@
        ;; the flush operation from completing
        (let [instance1 (jruby-core/borrow-from-pool-with-timeout
                         pool-context
-                        :max-requests-flush-while-pool-flush-in-progress-test
+                        :max-borrows-flush-while-pool-flush-in-progress-test
                         [])]
          ;; we are going to borrow and return a second instance until we get its
-         ;; request count up to max-requests - 1, so that we can use it to test
+         ;; request count up to max-borrows - 1, so that we can use it to test
          ;; flushing behavior the next time we return it.
          (is (true? (borrow-until-desired-borrow-count pool-context 9)))
          ;; now we grab a reference to that instance and hold onto it for later.
          (let [instance2 (jruby-core/borrow-from-pool-with-timeout
                           pool-context
-                          :max-requests-flush-while-pool-flush-in-progress-test
+                          :max-borrows-flush-while-pool-flush-in-progress-test
                           [])]
            (is (= 9 (:borrow-count @(:state instance2))))
 
@@ -319,7 +319,7 @@
            ;; to replace it.  So we should end up with 3 instances in the new pool,
            ;; two of which should have the ruby constants and one of which should not.
            (jruby-core/return-to-pool instance2
-                                      :max-requests-flush-while-pool-flush-in-progress-test
+                                      :max-borrows-flush-while-pool-flush-in-progress-test
                                       [])
            (is (true? (check-jrubies-for-constant-counts pool-context 2 1))))
 
@@ -334,7 +334,7 @@
 
          ;; and finally, we return the last instance from the old pool
          (jruby-core/return-to-pool instance1
-                                    :max-requests-flush-while-pool-flush-in-progress-test
+                                    :max-borrows-flush-while-pool-flush-in-progress-test
                                     [])
 
          ;; wait until the flush is complete
@@ -360,7 +360,7 @@
                          :cleanup (fn [instance] (reset! (:foo instance) "Terminating FOO"))}
           config (jruby-testutils/jruby-config
                   {:max-active-instances 1
-                   :max-requests-per-instance 10
+                   :max-borrows-per-instance 10
                    :borrow-timeout test-borrow-timeout
                    :lifecycle lifecycle-fns})]
       (tk-bootstrap/with-app-with-config
@@ -389,7 +389,7 @@
                                                            scripting-container)}
           config (jruby-testutils/jruby-config
                   {:max-active-instances 1
-                   :max-requests-per-instance 10
+                   :max-borrows-per-instance 10
                    :borrow-timeout test-borrow-timeout
                    :lifecycle lifecycle-fns})]
       (tk-bootstrap/with-app-with-config

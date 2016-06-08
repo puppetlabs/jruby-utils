@@ -26,13 +26,13 @@
         config        (jruby-core/initialize-config minimal-config)]
     (testing "max-active-instances is set to default if not specified"
       (is (= (jruby-core/default-pool-size (ks/num-cpus)) (:max-active-instances config))))
-    (testing "max-requests-per-instance is set to 0 if not specified"
-      (is (= 0 (:max-requests-per-instance config))))
-    (testing "max-requests-per-instance is honored if specified"
+    (testing "max-borrows-per-instance is set to 0 if not specified"
+      (is (= 0 (:max-borrows-per-instance config))))
+    (testing "max-borrows-per-instance is honored if specified"
       (is (= 5 (-> minimal-config
-                   (assoc :max-requests-per-instance 5)
+                   (assoc :max-borrows-per-instance 5)
                    (jruby-core/initialize-config)
-                   :max-requests-per-instance))))
+                   :max-borrows-per-instance))))
     (testing "compile-mode is set to default if not specified"
       (is (= jruby-core/default-jruby-compile-mode
              (:compile-mode config))))
@@ -196,14 +196,14 @@
       (is (= (jruby-core/default-pool-size (ks/num-cpus)) (:size pool-state))))))
 
 (defn jruby-test-config
-  ([max-requests]
-   (jruby-test-config max-requests 1))
-  ([max-requests max-instances]
+  ([max-borrows]
+   (jruby-test-config max-borrows 1))
+  ([max-borrows max-instances]
    (jruby-testutils/jruby-config {:max-active-instances max-instances
-                                  :max-requests-per-instance max-requests})))
+                                  :max-borrows-per-instance max-borrows})))
 
-(deftest flush-jruby-after-max-requests
-  (testing "JRubyInstance is not flushed if it has not exceeded max requests"
+(deftest flush-jruby-after-max-borrows
+  (testing "JRubyInstance is not flushed if it has not exceeded max borrows"
     (tk-bootstrap/with-app-with-config
      app
      jruby-testutils/default-services
@@ -216,7 +216,7 @@
        (jruby-core/return-to-pool instance :test [])
        (let [instance (jruby-core/borrow-from-pool pool-context :test [])]
          (is (= id (:id instance)))))))
-  (testing "JRubyInstance is flushed after exceeding max requests"
+  (testing "JRubyInstance is flushed after exceeding max borrows"
     (tk-bootstrap/with-app-with-config
      app
      jruby-testutils/default-services
@@ -236,7 +236,7 @@
            (jruby-core/return-to-pool instance :test []))
          (testing "instance is removed from registered elements after flushing"
            (is (= 1 (count (jruby-core/registered-instances pool-context))))))
-       (testing "Can lock pool after a flush via max requests"
+       (testing "Can lock pool after a flush via max borrows"
          (let [timeout 1
                new-pool-context (assoc-in pool-context [:config :borrow-timeout] timeout)
                pool (jruby-internal/get-pool new-pool-context)]
@@ -250,7 +250,7 @@
                                     new-pool-context
                                     :test
                                     []))))))))))
-  (testing "JRubyInstance is not flushed if max requests setting is set to 0"
+  (testing "JRubyInstance is not flushed if max borrows setting is set to 0"
     (tk-bootstrap/with-app-with-config
      app
      jruby-testutils/default-services

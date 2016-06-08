@@ -162,7 +162,7 @@
       (let [instance (jruby-schemas/map->JRubyInstance
                       {:pool pool
                        :id id
-                       :max-requests (:max-requests-per-instance config)
+                       :max-borrows (:max-borrows-per-instance config)
                        :flush-instance-fn flush-instance-fn
                        :state (atom {:borrow-count 0})
                        :scripting-container scripting-container})
@@ -249,14 +249,14 @@
   (if (jruby-schemas/jruby-instance? instance)
     (let [new-state (swap! (:state instance)
                            update-in [:borrow-count] inc)
-          {:keys [max-requests flush-instance-fn pool]} instance]
-      (if (and (pos? max-requests)
-               (>= (:borrow-count new-state) max-requests))
+          {:keys [max-borrows flush-instance-fn pool]} instance]
+      (if (and (pos? max-borrows)
+               (>= (:borrow-count new-state) max-borrows))
         (do
           (log/infof (str "Flushing JRubyInstance %s because it has exceeded the "
-                          "maximum number of requests (%s)")
+                          "maximum number of borrows (%s)")
                      (:id instance)
-                     max-requests)
+                     max-borrows)
           (try
             (flush-instance-fn pool instance)
             (finally

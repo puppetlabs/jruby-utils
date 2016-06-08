@@ -160,7 +160,7 @@
       (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
-      (update-in [:max-requests-per-instance] #(or % 0))
+      (update-in [:max-borrows-per-instance] #(or % 0))
       (update-in [:lifecycle] initialize-lifecycle-fns)))
 
 (schema/defn ^:always-validate
