@@ -94,7 +94,7 @@
    new-pool-state :- jruby-schemas/PoolState
    refill? :- schema/Bool]
   (let [{:keys [config]} pool-context
-        pool-state-atom (get-in pool-context [:internal :pool-state])
+        pool-state-atom (jruby-internal/get-pool-state-container pool-context)
         new-pool (:pool new-pool-state)
         old-pool (:pool old-pool-state)
         old-pool-size (:size old-pool-state)
