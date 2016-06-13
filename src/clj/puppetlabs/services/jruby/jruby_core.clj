@@ -308,7 +308,6 @@
     (with-jruby-instance
       jruby-instance
       pool-context
-      event-callbacks
       reason
 
       (do-something-with-a-jruby-instance jruby-instance)))

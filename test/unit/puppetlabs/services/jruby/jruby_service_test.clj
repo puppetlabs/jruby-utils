@@ -180,7 +180,7 @@
           (is (= 6 (:sequence @returned))))))))
 
 (deftest test-borrow-timeout-configuration
-  (testing "configured :borrow-timeout is honored by the borrow-instance service function"
+  (testing "configured :borrow-timeout is honored by the borrow-instance-with-timeout function"
     (let [timeout   250
           pool-size 1
           config (jruby-testutils/jruby-config {:max-active-instances pool-size
