@@ -15,10 +15,6 @@
 
 (def test-borrow-timeout 180000)
 
-(defn timed-await
-  [agent]
-  (await-for 240000 agent))
-
 (defn get-stack-trace-for-thread-as-str
   [stack-trace-elements]
   (reduce
@@ -162,7 +158,7 @@
        ;; set a ruby constant in each instance so that we can recognize them
        (is (true? (set-constants-and-verify pool-context 4)))
        (jruby-core/flush-pool! pool-context)
-       (is (true? (timed-await (jruby-agents/get-pool-agent pool-context)))
+       (is (true? (jruby-testutils/timed-await (jruby-agents/get-pool-agent pool-context)))
            (str "timed out waiting for the flush to complete, stack:\n"
                 (get-all-stack-traces-as-str)))
        ;; now the pool is flushed, so the constants should be cleared
@@ -212,7 +208,7 @@
          ;; return the instance
          (jruby-core/return-to-pool instance :hold-instance-while-pool-flush-in-progress-test [])
          ;; wait until the flush is complete
-         (is (true? (timed-await (jruby-agents/get-pool-agent pool-context)))
+         (is (true? (jruby-testutils/timed-await (jruby-agents/get-pool-agent pool-context)))
              (str "timed out waiting for the flush to complete, stack:\n"
                   (get-all-stack-traces-as-str))))
        ;; now the pool is flushed, and the constants should be cleared
@@ -254,7 +250,7 @@
          ;; return the instance
          (jruby-core/return-to-pool instance :hold-instance-while-pool-flush-in-progress-test [])
          ;; wait until the flush is complete
-         (is (true? (timed-await (jruby-agents/get-pool-agent pool-context)))
+         (is (true? (jruby-testutils/timed-await (jruby-agents/get-pool-agent pool-context)))
              (str "timed out waiting for the flush to complete, stack:\n"
                   (get-all-stack-traces-as-str))))
        ;; now the pool is flushed, and the constants should be cleared
@@ -340,7 +336,7 @@
                                     [])
 
          ;; wait until the flush is complete
-         (is (true? (timed-await (jruby-agents/get-pool-agent pool-context)))
+         (is (true? (jruby-testutils/timed-await (jruby-agents/get-pool-agent pool-context)))
              (str "timed out waiting for the flush to complete, stack:\n"
                   (get-all-stack-traces-as-str))))
 
@@ -353,7 +349,7 @@
        ;; the flushing is all done before the server is shut down - since
        ;; that could otherwise cause an annoying error message about the
        ;; pool not being full at shut down to be displayed.
-       (timed-await (jruby-agents/get-flush-instance-agent pool-context))))))
+       (jruby-testutils/timed-await (jruby-agents/get-flush-instance-agent pool-context))))))
 
 (deftest initialization-and-cleanup-hooks-test
   (testing "custom initialization and cleanup callbacks get called appropriately"

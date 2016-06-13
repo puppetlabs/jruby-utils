@@ -72,20 +72,6 @@
     (fill-drained-pool jrubies)
     result))
 
-(defn wait-for-jrubies
-  "Wait for all jrubies to land in the JRubyService's pool"
-  [app]
-  (let [pool-context (-> app
-                         (tk-app/get-service :JRubyService)
-                         tk-service/service-context
-                         :pool-context)
-        num-jrubies (-> pool-context
-                        jruby-core/get-pool-state
-                        :size)]
-    (while (< (count (jruby-core/registered-instances pool-context))
-              num-jrubies)
-      (Thread/sleep 100))))
-
 (defn wait-for-jrubies-from-pool-context
   "Wait for all jrubies to land in the pool"
   [pool-context]
@@ -95,3 +81,7 @@
     (while (< (count (jruby-core/registered-instances pool-context))
               num-jrubies)
       (Thread/yield))))
+
+(defn timed-await
+  [agent]
+  (await-for 240000 agent))
