@@ -9,7 +9,7 @@
             [clojure.tools.logging :as log]
             [slingshot.slingshot :as sling])
   (:import (puppetlabs.services.jruby.jruby_schemas JRubyInstance)
-           (clojure.lang IFn Atom)))
+           (clojure.lang IFn)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Constants
@@ -57,7 +57,7 @@
 (schema/defn get-event-callbacks :- [IFn]
   "Gets the vector of event callbacks from the pool context."
   [pool-context :- jruby-schemas/PoolContext]
-  @(:event-callbacks pool-context))
+  @(get-in pool-context [:internal :event-callbacks]))
 
 (schema/defn create-requested-event :- jruby-schemas/JRubyRequestedEvent
   [reason :- jruby-schemas/JRubyEventReason]
@@ -170,12 +170,12 @@
   [config :- jruby-schemas/JRubyConfig]
   (let [agent-shutdown-fn (get-in config [:lifecycle :shutdown-on-error])]
     {:config config
-     :pool-agent (jruby-agents/pool-agent agent-shutdown-fn)
-     ;; For an explanation of why we need a separate agent for the `flush-instance`,
-     ;; see the comments in puppetlabs.services.jruby.jruby-agents/send-flush-instance
-     :flush-instance-agent (jruby-agents/pool-agent agent-shutdown-fn)
-     :pool-state (atom (jruby-internal/create-pool-from-config config))
-     :event-callbacks (atom [])}))
+     :internal {:pool-agent (jruby-agents/pool-agent agent-shutdown-fn)
+                ;; For an explanation of why we need a separate agent for the `flush-instance`,
+                ;; see the comments in puppetlabs.services.jruby.jruby-agents/send-flush-instance
+                :flush-instance-agent (jruby-agents/pool-agent agent-shutdown-fn)
+                :pool-state (atom (jruby-internal/create-pool-from-config config))
+                :event-callbacks (atom [])}}))
 
 (schema/defn ^:always-validate
   free-instance-count
@@ -187,14 +187,14 @@
 (schema/defn ^:always-validate
   instance-state :- jruby-schemas/JRubyInstanceState
   "Get the state metadata for a JRubyInstance."
-  [jruby-instance :- (schema/pred jruby-schemas/jruby-instance?)]
-  @(:state jruby-instance))
+  [jruby-instance :- JRubyInstance]
+  @(jruby-internal/get-instance-state-container jruby-instance))
 
 (schema/defn register-event-handler
   "Register the callback function by adding it to the event callbacks atom on the pool context."
   [pool-context :- jruby-schemas/PoolContext
    callback-fn :- IFn]
-  (swap! (:event-callbacks pool-context) conj callback-fn))
+  (swap! (get-in pool-context [:internal :event-callbacks]) conj callback-fn))
 
 (schema/defn ^:always-validate
   borrow-from-pool :- jruby-schemas/JRubyInstanceOrPill

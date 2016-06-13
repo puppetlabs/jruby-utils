@@ -91,11 +91,11 @@
 
 (def PoolContext
   "The data structure that stores all JRuby pools and the original configuration."
-  {:config                JRubyConfig
-   :pool-agent            JRubyPoolAgent
-   :flush-instance-agent  JRubyPoolAgent
-   :pool-state            PoolStateContainer
-   :event-callbacks       Atom})
+  {:config JRubyConfig
+   :internal {:pool-agent JRubyPoolAgent
+              :flush-instance-agent JRubyPoolAgent
+              :pool-state PoolStateContainer
+              :event-callbacks Atom}})
 
 (def JRubyInstanceState
   "State metadata for an individual JRubyInstance"
@@ -107,12 +107,15 @@
                      (nil? (schema/check JRubyInstanceState @%)))
                'JRubyInstanceState))
 
+(def JRubyPuppetInstanceInternal
+  {:flush-instance-fn IFn
+   :pool pool-queue-type
+   :max-borrows schema/Int
+   :state JRubyInstanceStateContainer})
+
 (schema/defrecord JRubyInstance
-  [pool :- pool-queue-type
+  [internal :- JRubyPuppetInstanceInternal
    id :- schema/Int
-   max-borrows :- schema/Int
-   flush-instance-fn :- IFn
-   state :- JRubyInstanceStateContainer
    scripting-container :- ScriptingContainer]
   {schema/Keyword schema/Any})
 

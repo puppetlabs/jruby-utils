@@ -6,7 +6,9 @@
             [puppetlabs.services.jruby.jruby-pool-manager-service :as pool-manager]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
             [puppetlabs.services.jruby.jruby-core :as jruby-core]
-            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]))
+            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
+            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utilities
@@ -114,7 +116,7 @@
          ;; 'old' one is actually still in use.  Artificially decrement the
          ;; borrow count here to compensate for the increase that the jruby
          ;; pool would normally do when returning an instance.
-        (swap! (:state instance) update-in [:borrow-count] dec)
+        (swap! (jruby-internal/get-instance-state-container instance) update-in [:borrow-count] dec)
         (jruby-core/return-to-pool instance :wait-for-new-pool [])
         (cond
           (not has-constant?) true
@@ -133,7 +135,7 @@
                      :borrow-until-desired-borrow-count
                      [])
            loop-count 0]
-      (let [borrow-count (:borrow-count @(:state instance))]
+      (let [borrow-count (:borrow-count (jruby-core/instance-state instance))]
         (jruby-core/return-to-pool instance :borrow-until-desired-borrow-count [])
         (cond
           (= (inc borrow-count) desired-borrow-count) true
@@ -160,7 +162,7 @@
        ;; set a ruby constant in each instance so that we can recognize them
        (is (true? (set-constants-and-verify pool-context 4)))
        (jruby-core/flush-pool! pool-context)
-       (is (true? (timed-await (:pool-agent pool-context)))
+       (is (true? (timed-await (jruby-agents/get-pool-agent pool-context)))
            (str "timed out waiting for the flush to complete, stack:\n"
                 (get-all-stack-traces-as-str)))
        ;; now the pool is flushed, so the constants should be cleared
@@ -210,7 +212,7 @@
          ;; return the instance
          (jruby-core/return-to-pool instance :hold-instance-while-pool-flush-in-progress-test [])
          ;; wait until the flush is complete
-         (is (true? (timed-await (:pool-agent pool-context)))
+         (is (true? (timed-await (jruby-agents/get-pool-agent pool-context)))
              (str "timed out waiting for the flush to complete, stack:\n"
                   (get-all-stack-traces-as-str))))
        ;; now the pool is flushed, and the constants should be cleared
@@ -252,7 +254,7 @@
          ;; return the instance
          (jruby-core/return-to-pool instance :hold-instance-while-pool-flush-in-progress-test [])
          ;; wait until the flush is complete
-         (is (true? (timed-await (:pool-agent pool-context)))
+         (is (true? (timed-await (jruby-agents/get-pool-agent pool-context)))
              (str "timed out waiting for the flush to complete, stack:\n"
                   (get-all-stack-traces-as-str))))
        ;; now the pool is flushed, and the constants should be cleared
@@ -270,7 +272,7 @@
                                                  test-borrow-timeout})
            pool-manager-service (tk-app/get-service app :PoolManagerService)
            pool-context (pool-manager-protocol/create-pool pool-manager-service config)
-           pool-agent (:pool-agent pool-context)]
+           pool-agent (jruby-agents/get-pool-agent pool-context)]
        ;; set a ruby constant in each instance so that we can recognize them.
        ;; this counts as one request for each instance.
        (is (true? (set-constants-and-verify pool-context 4)))
@@ -290,7 +292,7 @@
                           pool-context
                           :max-borrows-flush-while-pool-flush-in-progress-test
                           [])]
-           (is (= 9 (:borrow-count @(:state instance2))))
+           (is (= 9 (:borrow-count (jruby-core/instance-state instance2))))
 
            ;; trigger a flush
            (jruby-core/flush-pool! pool-context)
@@ -338,7 +340,7 @@
                                     [])
 
          ;; wait until the flush is complete
-         (is (true? (timed-await pool-agent))
+         (is (true? (timed-await (jruby-agents/get-pool-agent pool-context)))
              (str "timed out waiting for the flush to complete, stack:\n"
                   (get-all-stack-traces-as-str))))
 
@@ -351,7 +353,7 @@
        ;; the flushing is all done before the server is shut down - since
        ;; that could otherwise cause an annoying error message about the
        ;; pool not being full at shut down to be displayed.
-       (timed-await (:flush-instance-agent pool-context))))))
+       (timed-await (jruby-agents/get-flush-instance-agent pool-context))))))
 
 (deftest initialization-and-cleanup-hooks-test
   (testing "custom initialization and cleanup callbacks get called appropriately"
@@ -378,7 +380,7 @@
 
          (jruby-core/flush-pool! pool-context)
          ; wait until the flush is complete
-         (await (:pool-agent pool-context))
+         (await (jruby-agents/get-pool-agent pool-context))
          (is (= "Terminating FOO" (deref foo-atom))))))))
 
 (deftest initialize-scripting-container-hook-test

@@ -20,6 +20,14 @@
       (mod next-id pool-size)
       next-id)))
 
+(schema/defn get-pool-agent :- jruby-schemas/JRubyPoolAgent
+  [pool-context :- jruby-schemas/PoolContext]
+  (get-in pool-context [:internal :pool-agent]))
+
+(schema/defn get-flush-instance-agent :- jruby-schemas/JRubyPoolAgent
+  [pool-context :- jruby-schemas/PoolContext]
+  (get-in pool-context [:internal :flush-instance-agent]))
+
 (schema/defn ^:always-validate
   send-agent :- jruby-schemas/JRubyPoolAgent
   "Utility function; given a JRubyPoolAgent, send the specified function.
@@ -38,8 +46,8 @@
   prime-pool!
   "Sequentially fill the pool with new JRubyInstances.  NOTE: this
   function should never be called except by the pool-agent."
-  [{:keys [pool-state config] :as pool-context} :- jruby-schemas/PoolContext]
-  (let [pool (:pool @pool-state)]
+  [{:keys [config] :as pool-context} :- jruby-schemas/PoolContext]
+  (let [pool (jruby-internal/get-pool pool-context)]
     (log/debug (str "Initializing JRubyInstances with the following settings:\n"
                     (ks/pprint-to-string config)))
     (try
@@ -85,13 +93,14 @@
    old-pool-state :- jruby-schemas/PoolState
    new-pool-state :- jruby-schemas/PoolState
    refill? :- schema/Bool]
-  (let [{:keys [config pool-state]} pool-context
+  (let [{:keys [config]} pool-context
+        pool-state-atom (jruby-internal/get-pool-state-container pool-context)
         new-pool (:pool new-pool-state)
         old-pool (:pool old-pool-state)
         old-pool-size (:size old-pool-state)
         cleanup-fn (get-in config [:lifecycle :cleanup])]
     (log/info "Replacing old JRuby pool with new instance.")
-    (reset! pool-state new-pool-state)
+    (reset! pool-state-atom new-pool-state)
     (log/info "Swapped JRuby pools, beginning cleanup of old pool.")
     (doseq [i (range old-pool-size)]
       (try
@@ -130,10 +139,10 @@
    on-complete :- IDeref]
   (try
     (log/info "Flush request received; creating new JRuby pool.")
-    (let [{:keys [config pool-state]} pool-context
+    (let [{:keys [config]} pool-context
           new-pool-state (jruby-internal/create-pool-from-config config)
           new-pool (:pool new-pool-state)
-          old-pool-state @pool-state
+          old-pool-state (jruby-internal/get-pool-state pool-context)
           old-pool (:pool old-pool-state)
           old-pool-size (:size old-pool-state)]
       (when-not (pool-initialized? old-pool-size old-pool)
@@ -153,9 +162,9 @@
   ;; be queued up and we don't need to worry about race conditions between the
   ;; steps we perform here in the body.
   (log/info "Flush request received; creating new JRuby pool.")
-  (let [{:keys [config pool-state]} pool-context
+  (let [{:keys [config]} pool-context
         new-pool-state (jruby-internal/create-pool-from-config config)
-        old-pool @pool-state]
+        old-pool (jruby-internal/get-pool-state pool-context)]
     (swap-and-drain-pool! pool-context old-pool new-pool-state true)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -172,21 +181,21 @@
   send-prime-pool! :- jruby-schemas/JRubyPoolAgent
   "Sends a request to the agent to prime the pool using the given pool context."
   [pool-context :- jruby-schemas/PoolContext]
-  (let [{:keys [pool-agent]} pool-context]
+  (let [pool-agent (get-pool-agent pool-context)]
     (send-agent pool-agent #(prime-pool! pool-context))))
 
 (schema/defn ^:always-validate
   send-flush-and-repopulate-pool! :- jruby-schemas/JRubyPoolAgent
   "Sends requests to the agent to flush the existing pool and create a new one."
   [pool-context :- jruby-schemas/PoolContext]
-  (send-agent (:pool-agent pool-context) #(flush-and-repopulate-pool! pool-context)))
+  (send-agent (get-pool-agent pool-context) #(flush-and-repopulate-pool! pool-context)))
 
 (schema/defn ^:always-validate
   send-flush-pool-for-shutdown! :- jruby-schemas/JRubyPoolAgent
   "Sends requests to the agent to flush the existing pool to prepare for shutdown."
   [pool-context :- jruby-schemas/PoolContext
    on-complete :- IDeref]
-  (send-agent (:pool-agent pool-context) #(flush-pool-for-shutdown! pool-context on-complete)) )
+  (send-agent (get-pool-agent pool-context) #(flush-pool-for-shutdown! pool-context on-complete)))
 
 (schema/defn ^:always-validate
   send-flush-instance! :- jruby-schemas/JRubyPoolAgent
@@ -207,6 +216,7 @@
   ;; step 1 will never complete because the `max-borrows` instance will never be returned to the pool.
   ;;
   ;; Using a separate agent for the 'max-borrows' instance flush alleviates this issue.
-  (let [{:keys [flush-instance-agent config]} pool-context
+  (let [{:keys [config]} pool-context
+        flush-instance-agent (get-flush-instance-agent pool-context)
         id (next-instance-id (:id instance) pool-context)]
     (send-agent flush-instance-agent #(flush-instance! pool-context instance pool id config))))
