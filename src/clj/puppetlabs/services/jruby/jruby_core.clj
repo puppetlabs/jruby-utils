@@ -4,9 +4,9 @@
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.ring-middleware.utils :as ringutils]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
-            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
-            [puppetlabs.services.jruby.jruby-events :as jruby-events]
+            [puppetlabs.services.jruby.impl.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby.impl.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby.impl.jruby-events :as jruby-events]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [slingshot.slingshot :as sling])

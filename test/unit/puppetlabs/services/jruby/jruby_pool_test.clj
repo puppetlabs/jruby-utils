@@ -3,14 +3,14 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
-            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby.impl.jruby-agents :as jruby-agents]
             [puppetlabs.services.jruby.jruby-core :as jruby-core]
-            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby.impl.jruby-internal :as jruby-internal]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
-            [puppetlabs.services.jruby.jruby-pool-manager-core :as jruby-pool-manager-core]
+            [puppetlabs.services.jruby.impl.jruby-pool-manager-core :as jruby-pool-manager-core]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

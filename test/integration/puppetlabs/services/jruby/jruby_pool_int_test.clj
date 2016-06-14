@@ -7,8 +7,8 @@
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
             [puppetlabs.services.jruby.jruby-core :as jruby-core]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
-            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]))
+            [puppetlabs.services.jruby.impl.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby.impl.jruby-internal :as jruby-internal]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utilities

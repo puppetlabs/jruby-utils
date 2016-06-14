@@ -1,4 +1,4 @@
-(ns puppetlabs.services.jruby.jruby-internal
+(ns puppetlabs.services.jruby.impl.jruby-internal
   (:require [schema.core :as schema]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
             [clojure.tools.logging :as log])

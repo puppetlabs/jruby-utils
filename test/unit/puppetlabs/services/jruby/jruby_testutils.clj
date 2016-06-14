@@ -1,7 +1,7 @@
 (ns puppetlabs.services.jruby.jruby-testutils
   (:require [puppetlabs.services.jruby.jruby-core :as jruby-core]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby.impl.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby.jruby-pool-manager-service :as pool-manager]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.services :as tk-service]

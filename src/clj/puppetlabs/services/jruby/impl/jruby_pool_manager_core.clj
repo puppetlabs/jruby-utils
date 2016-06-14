@@ -1,8 +1,8 @@
-(ns puppetlabs.services.jruby.jruby-pool-manager-core
+(ns puppetlabs.services.jruby.impl.jruby-pool-manager-core
   (:require [schema.core :as schema]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
-            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]))
+            [puppetlabs.services.jruby.impl.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby.impl.jruby-internal :as jruby-internal]))
 
 (schema/defn ^:always-validate
   create-pool-context :- jruby-schemas/PoolContext

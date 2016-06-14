@@ -1,4 +1,4 @@
-(ns puppetlabs.services.jruby.jruby-events
+(ns puppetlabs.services.jruby.impl.jruby-events
   (:require [schema.core :as schema]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas])
   (:import (clojure.lang IFn)))

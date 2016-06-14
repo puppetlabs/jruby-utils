@@ -1,6 +1,6 @@
-(ns puppetlabs.services.jruby.jruby-agents
+(ns puppetlabs.services.jruby.impl.jruby-agents
   (:require [schema.core :as schema]
-            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby.impl.jruby-internal :as jruby-internal]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas])

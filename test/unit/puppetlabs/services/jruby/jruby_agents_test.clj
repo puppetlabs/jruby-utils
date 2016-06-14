@@ -6,9 +6,9 @@
             [puppetlabs.services.jruby.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
-            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
-            [puppetlabs.services.jruby.jruby-pool-manager-core :as jruby-pool-manager-core])
+            [puppetlabs.services.jruby.impl.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby.impl.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby.impl.jruby-pool-manager-core :as jruby-pool-manager-core]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol])
   (:import (puppetlabs.services.jruby.jruby_schemas RetryPoisonPill JRubyInstance)
            (com.puppetlabs.jruby_utils.pool JRubyPool)))
