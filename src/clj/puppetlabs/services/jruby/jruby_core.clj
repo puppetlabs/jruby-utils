@@ -2,6 +2,7 @@
   (:require [clojure.tools.logging :as log]
             [schema.core :as schema]
             [puppetlabs.kitchensink.core :as ks]
+            [puppetlabs.ring-middleware.utils :as ringutils]
             [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
             [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
@@ -318,14 +319,13 @@
      (loop [pool-instance# (borrow-from-pool-with-timeout ~pool-context ~reason event-callbacks#)]
        (if (nil? pool-instance#)
          (sling/throw+
-          {:type ::jruby-timeout
-           :message (str "Attempt to borrow a JRubyInstance from the pool timed out.")}))
+          {:kind ::jruby-timeout
+           :msg (str "Attempt to borrow a JRubyInstance from the pool timed out.")}))
        (when (jruby-schemas/shutdown-poison-pill? pool-instance#)
          (return-to-pool pool-instance# ~reason event-callbacks#)
-         (sling/throw+
-          {:type ::service-unavailable
-           :message (str "Attempted to borrow a JRubyInstance from the pool "
-                         "during a shutdown. Please try again.")}))
+         (ringutils/throw-service-unavailable!
+          (str "Attempted to borrow a JRubyInstance from the pool "
+               "during a shutdown. Please try again.")))
        (if (jruby-schemas/retry-poison-pill? pool-instance#)
          (do
            (return-to-pool pool-instance# ~reason event-callbacks#)

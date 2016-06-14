@@ -38,7 +38,7 @@
          ; wait until we know the new pool has been swapped in
          @pool-state-swapped
          ; wait until the flush is complete
-         (await (jruby-agents/get-pool-agent pool-context))
+         (jruby-testutils/timed-await (jruby-agents/get-pool-agent pool-context))
          (let [old-pool-instance (jruby-internal/borrow-from-pool!*
                                   jruby-internal/borrow-without-timeout-fn
                                   old-pool)]
@@ -95,5 +95,5 @@
              pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
          (jruby-core/flush-pool! pool-context)
          ; wait until the flush is complete
-         (await (jruby-agents/get-pool-agent pool-context))
+         (jruby-testutils/timed-await (jruby-agents/get-pool-agent pool-context))
          (is (= "Hello from cleanup" (deref cleanup-atom))))))))
