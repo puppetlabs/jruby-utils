@@ -131,7 +131,7 @@
                      :borrow-until-desired-borrow-count
                      [])
            loop-count 0]
-      (let [borrow-count (:borrow-count (jruby-core/instance-state instance))]
+      (let [borrow-count (:borrow-count (jruby-core/get-instance-state instance))]
         (jruby-core/return-to-pool instance :borrow-until-desired-borrow-count [])
         (cond
           (= (inc borrow-count) desired-borrow-count) true
@@ -288,7 +288,7 @@
                           pool-context
                           :max-borrows-flush-while-pool-flush-in-progress-test
                           [])]
-           (is (= 9 (:borrow-count (jruby-core/instance-state instance2))))
+           (is (= 9 (:borrow-count (jruby-core/get-instance-state instance2))))
 
            ;; trigger a flush
            (jruby-core/flush-pool! pool-context)

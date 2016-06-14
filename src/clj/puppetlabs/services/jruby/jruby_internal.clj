@@ -19,62 +19,13 @@
   (CompatVersion/RUBY1_9))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Schemas
-
-(def JRubyInternalBorrowResult
-  (schema/pred (some-fn nil?
-                        jruby-schemas/poison-pill?
-                        jruby-schemas/retry-poison-pill?
-                        jruby-schemas/shutdown-poison-pill?
-                        jruby-schemas/jruby-instance?)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private
-
-(schema/defn get-system-env :- jruby-schemas/EnvPersistentMap
-  "Same as System/getenv, but returns a clojure persistent map instead of a
-  Java unmodifiable map."
-  []
-  (into {} (System/getenv)))
 
 (defn instantiate-free-pool
   "Instantiate a new queue object to use as the pool of free JRuby's."
   [size]
   {:post [(instance? jruby-schemas/pool-queue-type %)]}
   (JRubyPool. size))
-
-(schema/defn ^:always-validate managed-environment :- jruby-schemas/EnvMap
-  "The environment variables that should be passed to the JRuby interpreters.
-
-  We don't want them to read any ruby environment variables, like $RUBY_LIB or
-  anything like that, so pass it an empty environment map - except - most things
-  needs HOME and PATH to work, so leave those, along with GEM_HOME
-  which is necessary for third party extensions that depend on gems.
-
-  We need to set the JARS..REQUIRE variables in order to instruct JRuby's
-  'jar-dependencies' to not try to load any dependent jars.  This is being
-  done specifically to avoid JRuby trying to load its own version of Bouncy
-  Castle, which may not the same as the one that 'puppetlabs/ssl-utils'
-  uses. JARS_NO_REQUIRE was the legacy way to turn off jar loading but is
-  being phased out in favor of JARS_REQUIRE.  As of JRuby 1.7.20, only
-  JARS_NO_REQUIRE is honored.  Setting both of those here for forward
-  compatibility."
-  [env :- jruby-schemas/EnvMap
-   gem-home :- schema/Str]
-  (let [whitelist ["HOME" "PATH"]
-        clean-env (select-keys env whitelist)]
-    (assoc clean-env
-      "GEM_HOME" gem-home
-      "JARS_NO_REQUIRE" "true"
-      "JARS_REQUIRE" "false")))
-
-(schema/defn ^:always-validate default-initialize-scripting-container :- jruby-schemas/ConfigurableJRuby
-  "Default lifecycle fn for initializing the settings on the scripting
-  container. Currently it just sets the environment variables."
-  [scripting-container :- jruby-schemas/ConfigurableJRuby
-   config :- jruby-schemas/JRubyConfig]
-  (.setEnvironment scripting-container (managed-environment (get-system-env) (:gem-home config)))
-  scripting-container)
 
 (schema/defn ^:always-validate get-compile-mode :- RubyInstanceConfig$CompileMode
   [config-compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
@@ -119,7 +70,7 @@
     ;; information.
     (.runScriptlet "require 'jar-dependencies'")))
 
-(schema/defn borrow-with-timeout-fn :- JRubyInternalBorrowResult
+(schema/defn borrow-with-timeout-fn :- jruby-schemas/JRubyInternalBorrowResult
   [timeout :- schema/Int
    pool :- jruby-schemas/pool-queue-type]
   (.borrowItemWithTimeout pool timeout TimeUnit/MILLISECONDS))
@@ -201,7 +152,7 @@
   [instance :- JRubyInstance]
   (get-in instance [:internal :state]))
 
-(schema/defn borrow-without-timeout-fn :- JRubyInternalBorrowResult
+(schema/defn borrow-without-timeout-fn :- jruby-schemas/JRubyInternalBorrowResult
   [pool :- jruby-schemas/pool-queue-type]
   (.borrowItem pool))
 

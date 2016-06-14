@@ -121,7 +121,7 @@
          ;; the counter gets incremented when the instance is returned to the
          ;; pool, so right now it should be at 2 since we've called
          ;; `with-jruby-instance` twice.
-         (is (= 2 (:borrow-count (jruby-core/instance-state jruby))))
+         (is (= 2 (:borrow-count (jruby-core/get-instance-state jruby))))
          (jruby-core/return-to-pool jruby :test-with-jruby-instance []))))))
 
 (deftest test-jruby-events
