@@ -1,14 +1,14 @@
-(ns puppetlabs.services.jruby.jruby-pool-int-test
+(ns puppetlabs.services.jruby-pool-manager.jruby-pool-int-test
   (:require [clojure.test :refer :all]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
-            [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
+            [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
             [puppetlabs.trapperkeeper.app :as tk-app]
-            [puppetlabs.services.jruby.jruby-pool-manager-service :as pool-manager]
+            [puppetlabs.services.jruby-pool-manager.jruby-pool-manager-service :as pool-manager]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
-            [puppetlabs.services.jruby.jruby-core :as jruby-core]
-            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.impl.jruby-agents :as jruby-agents]
-            [puppetlabs.services.jruby.impl.jruby-internal :as jruby-internal]))
+            [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utilities

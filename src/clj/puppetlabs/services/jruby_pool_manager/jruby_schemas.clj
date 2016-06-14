@@ -1,4 +1,4 @@
-(ns puppetlabs.services.jruby.jruby-schemas
+(ns puppetlabs.services.jruby-pool-manager.jruby-schemas
   (:require [schema.core :as schema])
   (:import (clojure.lang Atom Agent IFn PersistentArrayMap PersistentHashMap)
            (com.puppetlabs.jruby_utils.pool LockablePool)

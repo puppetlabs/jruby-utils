@@ -1,16 +1,16 @@
-(ns puppetlabs.services.jruby.jruby-core
+(ns puppetlabs.services.jruby-pool-manager.jruby-core
   (:require [clojure.tools.logging :as log]
             [schema.core :as schema]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.ring-middleware.utils :as ringutils]
-            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.impl.jruby-internal :as jruby-internal]
-            [puppetlabs.services.jruby.impl.jruby-agents :as jruby-agents]
-            [puppetlabs.services.jruby.impl.jruby-events :as jruby-events]
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-events :as jruby-events]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [slingshot.slingshot :as sling])
-  (:import (puppetlabs.services.jruby.jruby_schemas JRubyInstance)
+  (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance)
            (clojure.lang IFn)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

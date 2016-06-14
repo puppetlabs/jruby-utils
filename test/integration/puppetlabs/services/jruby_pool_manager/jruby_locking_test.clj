@@ -1,9 +1,9 @@
-(ns puppetlabs.services.jruby.jruby-locking-test
+(ns puppetlabs.services.jruby-pool-manager.jruby-locking-test
   (:require [clojure.test :refer :all]
-            [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
+            [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [schema.test :as schema-test]
-            [puppetlabs.services.jruby.jruby-core :as jruby-core]
+            [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]))
 

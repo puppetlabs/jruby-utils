@@ -1,8 +1,8 @@
-(ns puppetlabs.services.jruby.impl.jruby-pool-manager-core
+(ns puppetlabs.services.jruby-pool-manager.impl.jruby-pool-manager-core
   (:require [schema.core :as schema]
-            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.impl.jruby-agents :as jruby-agents]
-            [puppetlabs.services.jruby.impl.jruby-internal :as jruby-internal]))
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]))
 
 (schema/defn ^:always-validate
   create-pool-context :- jruby-schemas/PoolContext
@@ -13,7 +13,7 @@
     {:config config
      :internal {:pool-agent (jruby-agents/pool-agent agent-shutdown-fn)
                 ;; For an explanation of why we need a separate agent for the `flush-instance`,
-                ;; see the comments in puppetlabs.services.jruby.jruby-agents/send-flush-instance
+                ;; see the comments in puppetlabs.services.jruby-pool-manager.jruby-agents/send-flush-instance
                 :flush-instance-agent (jruby-agents/pool-agent agent-shutdown-fn)
                 :pool-state (atom (jruby-internal/create-pool-from-config config))
                 :event-callbacks (atom [])}}))

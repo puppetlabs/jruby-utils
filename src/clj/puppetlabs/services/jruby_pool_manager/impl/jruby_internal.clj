@@ -1,9 +1,10 @@
-(ns puppetlabs.services.jruby.impl.jruby-internal
+(ns puppetlabs.services.jruby-pool-manager.impl.jruby-internal
   (:require [schema.core :as schema]
-            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
             [clojure.tools.logging :as log])
   (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
-           (puppetlabs.services.jruby.jruby_schemas JRubyInstance PoisonPill ShutdownPoisonPill)
+           (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance PoisonPill
+                                                                 ShutdownPoisonPill)
            (org.jruby CompatVersion Main RubyInstanceConfig RubyInstanceConfig$CompileMode)
            (org.jruby.embed LocalContextScope)
            (java.util.concurrent TimeUnit)

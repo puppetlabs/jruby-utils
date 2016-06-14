@@ -1,11 +1,12 @@
-(ns puppetlabs.services.jruby.impl.jruby-agents
+(ns puppetlabs.services.jruby-pool-manager.impl.jruby-agents
   (:require [schema.core :as schema]
-            [puppetlabs.services.jruby.impl.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas])
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas])
   (:import (clojure.lang IFn IDeref)
-           (puppetlabs.services.jruby.jruby_schemas PoisonPill RetryPoisonPill JRubyInstance ShutdownPoisonPill)))
+           (puppetlabs.services.jruby_pool_manager.jruby_schemas PoisonPill RetryPoisonPill
+                                                                 JRubyInstance ShutdownPoisonPill)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private

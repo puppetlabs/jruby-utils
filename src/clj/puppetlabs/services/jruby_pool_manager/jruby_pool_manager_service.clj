@@ -1,7 +1,7 @@
-(ns puppetlabs.services.jruby.jruby-pool-manager-service
+(ns puppetlabs.services.jruby-pool-manager.jruby-pool-manager-service
   (:require [puppetlabs.trapperkeeper.core :as trapperkeeper]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
-            [puppetlabs.services.jruby.impl.jruby-pool-manager-core :as jruby-pool-manager-core]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-pool-manager-core :as jruby-pool-manager-core]
             [clojure.tools.logging :as log]))
 
 (trapperkeeper/defservice jruby-pool-manager-service

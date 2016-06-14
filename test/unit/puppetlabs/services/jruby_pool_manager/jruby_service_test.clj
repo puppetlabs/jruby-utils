@@ -1,6 +1,6 @@
-(ns puppetlabs.services.jruby.jruby-service-test
+(ns puppetlabs.services.jruby-pool-manager.jruby-service-test
   (:require [clojure.test :refer :all]
-            [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
+            [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
             [puppetlabs.trapperkeeper.app :as app]
             [puppetlabs.trapperkeeper.core :as tk]
             [puppetlabs.trapperkeeper.services :as services]
@@ -8,10 +8,10 @@
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
             [puppetlabs.trapperkeeper.testutils.logging :as logging]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
-            [puppetlabs.services.jruby.jruby-core :as jruby-core]
-            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
+            [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
             [schema.test :as schema-test])
-  (:import (puppetlabs.services.jruby.jruby_schemas JRubyInstance)))
+  (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance)))
 
 (use-fixtures :once schema-test/validate-schemas)
 

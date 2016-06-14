@@ -1,7 +1,7 @@
-(ns puppetlabs.services.jruby.jruby-core-test
+(ns puppetlabs.services.jruby-pool-manager.jruby-core-test
   (:require [clojure.test :refer :all]
             [schema.test :as schema-test]
-            [puppetlabs.services.jruby.jruby-core :as jruby-core]
+            [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils])
   (:import (java.io ByteArrayOutputStream PrintStream ByteArrayInputStream)))
 
