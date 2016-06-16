@@ -10,7 +10,7 @@
 (def min-config
   (jruby-core/initialize-config
    {:gem-home "./target/jruby-gem-home",
-    :ruby-load-path ["./dev-resources/puppetlabs/services/jruby/jruby_core_test"]}))
+    :ruby-load-path ["./dev-resources/puppetlabs/services/jruby_pool_manager/jruby_core_test"]}))
 
 (defmacro with-stdin-str
   "Evaluates body in a context in which System/in is bound to a fresh
