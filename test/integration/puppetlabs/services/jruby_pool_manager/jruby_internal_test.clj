@@ -1,8 +1,8 @@
-(ns puppetlabs.services.jruby.jruby-internal-test
+(ns puppetlabs.services.jruby-pool-manager.jruby-internal-test
   (:require [clojure.test :refer :all]
-            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
-            [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
-            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas])
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas])
   (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
            (org.jruby RubyInstanceConfig$CompileMode)
            (clojure.lang ExceptionInfo)))

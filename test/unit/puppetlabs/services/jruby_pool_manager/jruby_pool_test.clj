@@ -1,16 +1,17 @@
-(ns puppetlabs.services.jruby.jruby-pool-test
+(ns puppetlabs.services.jruby-pool-manager.jruby-pool-test
   (:import (clojure.lang ExceptionInfo))
   (:require [clojure.test :refer :all]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
-            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
-            [puppetlabs.services.jruby.jruby-core :as jruby-core]
-            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
-            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]))
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-pool-manager-core :as jruby-pool-manager-core]
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
@@ -20,7 +21,7 @@
     (let [malformed-config {:illegal-key [1 2 3]}]
       (is (thrown-with-msg? ExceptionInfo
                             #"Input to create-pool-context does not match schema"
-                            (jruby-core/create-pool-context malformed-config)))))
+                            (jruby-pool-manager-core/create-pool-context malformed-config)))))
   (let [minimal-config {:gem-home "/dev/null"
                         :ruby-load-path ["/dev/null"]}
         config        (jruby-core/initialize-config minimal-config)]
@@ -51,7 +52,7 @@
         timeout          250
         config           (jruby-testutils/jruby-config {:max-active-instances pool-size
                                                         :borrow-timeout timeout})
-        pool-context (jruby-core/create-pool-context config)
+        pool-context (jruby-pool-manager-core/create-pool-context config)
         pool             (jruby-core/get-pool pool-context)]
 
     (testing "The pool should not yet be full as it is being primed in the
@@ -89,7 +90,7 @@
       (let [drain-via   (fn [borrow-fn] (doall (repeatedly pool-size borrow-fn)))
             assoc-count (fn [acc jruby]
                           (assoc acc (:id jruby)
-                                     (:borrow-count (jruby-core/instance-state jruby))))
+                                     (:borrow-count (jruby-core/get-instance-state jruby))))
             get-counts  (fn [jrubies] (reduce assoc-count {} jrubies))]
         (doseq [drain-fn [#(jruby-core/borrow-from-pool pool-context :test [])
                           #(jruby-core/borrow-from-pool-with-timeout pool-context :test [])]]
@@ -168,7 +169,7 @@
 (deftest prime-pools-failure
   (let [pool-size 2
         config        (jruby-testutils/jruby-config {:max-active-instances pool-size})
-        pool-context (jruby-core/create-pool-context config)
+        pool-context (jruby-pool-manager-core/create-pool-context config)
         err-msg       (re-pattern "Unable to borrow JRubyInstance from pool")]
    (is (thrown? IllegalStateException (jruby-agents/prime-pool!
                                        (assoc-in pool-context [:config :lifecycle :initialize-pool-instance]
@@ -191,7 +192,7 @@
 (deftest test-default-pool-size
   (logutils/with-test-logging
     (let [config (jruby-testutils/jruby-config)
-          pool (jruby-core/create-pool-context config)
+          pool (jruby-pool-manager-core/create-pool-context config)
           pool-state (jruby-core/get-pool-state pool)]
       (is (= (jruby-core/default-pool-size (ks/num-cpus)) (:size pool-state))))))
 

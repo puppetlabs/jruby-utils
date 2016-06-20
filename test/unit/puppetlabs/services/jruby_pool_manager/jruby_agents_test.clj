@@ -1,16 +1,16 @@
-(ns puppetlabs.services.jruby.jruby-agents-test
+(ns puppetlabs.services.jruby-pool-manager.jruby-agents-test
   (:require [clojure.test :refer :all]
             [schema.test :as schema-test]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
-            [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
-            [puppetlabs.services.jruby.jruby-core :as jruby-core]
+            [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
+            [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.app :as tk-app]
-            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
-            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
-            [puppetlabs.services.protocols.pool-manager :as pool-manager]
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-pool-manager-core :as jruby-pool-manager-core]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol])
-  (:import (puppetlabs.services.jruby.jruby_schemas RetryPoisonPill JRubyInstance)
+  (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas RetryPoisonPill JRubyInstance)
            (com.puppetlabs.jruby_utils.pool JRubyPool)))
 
 (use-fixtures :once schema-test/validate-schemas)
@@ -23,7 +23,7 @@
      {}
      (let [config (jruby-testutils/jruby-config {:max-active-instances 1})
            pool-manager-service (tk-app/get-service app :PoolManagerService)
-           pool-context (pool-manager/create-pool pool-manager-service config)]
+           pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
        (let [old-pool (jruby-core/get-pool pool-context)
              pool-state-swapped (promise)
              pool-state-watch-fn (fn [key pool-state old-val new-val]
@@ -52,7 +52,7 @@
      {}
      (let [config (jruby-testutils/jruby-config {:max-active-instances 1})
            pool-manager-service (tk-app/get-service app :PoolManagerService)
-           pool-context (pool-manager/create-pool pool-manager-service config)]
+           pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
        (let [real-pool (jruby-core/get-pool pool-context)
              retry-pool (JRubyPool. 1)
              _ (->> retry-pool
@@ -72,7 +72,7 @@
          (is (= 4 @num-borrows)))))))
 
 (deftest next-instance-id-test
-  (let [pool-context (jruby-core/create-pool-context
+  (let [pool-context (jruby-pool-manager-core/create-pool-context
                       (jruby-testutils/jruby-config {:max-active-instances 8}))]
     (testing "next instance id should be based on the pool size"
       (is (= 10 (jruby-agents/next-instance-id 2 pool-context)))

@@ -1,14 +1,14 @@
-(ns puppetlabs.services.jruby.jruby-pool-int-test
+(ns puppetlabs.services.jruby-pool-manager.jruby-pool-int-test
   (:require [clojure.test :refer :all]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
-            [puppetlabs.services.jruby.jruby-testutils :as jruby-testutils]
+            [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
             [puppetlabs.trapperkeeper.app :as tk-app]
-            [puppetlabs.services.jruby.jruby-pool-manager-service :as pool-manager]
+            [puppetlabs.services.jruby-pool-manager.jruby-pool-manager-service :as pool-manager]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
-            [puppetlabs.services.jruby.jruby-core :as jruby-core]
-            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
-            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]))
+            [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utilities
@@ -131,7 +131,7 @@
                      :borrow-until-desired-borrow-count
                      [])
            loop-count 0]
-      (let [borrow-count (:borrow-count (jruby-core/instance-state instance))]
+      (let [borrow-count (:borrow-count (jruby-core/get-instance-state instance))]
         (jruby-core/return-to-pool instance :borrow-until-desired-borrow-count [])
         (cond
           (= (inc borrow-count) desired-borrow-count) true
@@ -288,7 +288,7 @@
                           pool-context
                           :max-borrows-flush-while-pool-flush-in-progress-test
                           [])]
-           (is (= 9 (:borrow-count (jruby-core/instance-state instance2))))
+           (is (= 9 (:borrow-count (jruby-core/get-instance-state instance2))))
 
            ;; trigger a flush
            (jruby-core/flush-pool! pool-context)

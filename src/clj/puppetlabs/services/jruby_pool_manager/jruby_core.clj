@@ -1,15 +1,16 @@
-(ns puppetlabs.services.jruby.jruby-core
+(ns puppetlabs.services.jruby-pool-manager.jruby-core
   (:require [clojure.tools.logging :as log]
             [schema.core :as schema]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.ring-middleware.utils :as ringutils]
-            [puppetlabs.services.jruby.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby.jruby-internal :as jruby-internal]
-            [puppetlabs.services.jruby.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-events :as jruby-events]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [slingshot.slingshot :as sling])
-  (:import (puppetlabs.services.jruby.jruby_schemas JRubyInstance)
+  (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance)
            (clojure.lang IFn)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -25,7 +26,7 @@
   1200000)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Private
+;;; Functions
 
 (defn default-pool-size
   "Calculate the default size of the JRuby pool, based on the number of cpus."
@@ -55,91 +56,61 @@
       iterator-seq
       vec))
 
+(schema/defn ^:always-validate free-instance-count
+  "Returns the number of JRubyInstances available in the pool."
+  [pool :- jruby-schemas/pool-queue-type]
+  {:post [(>= % 0)]}
+  (.size pool))
+
+(schema/defn ^:always-validate
+  get-instance-state :- jruby-schemas/JRubyInstanceState
+  "Get the state metadata for a JRubyInstance."
+  [jruby-instance :- JRubyInstance]
+  @(jruby-internal/get-instance-state-container jruby-instance))
+
 (schema/defn get-event-callbacks :- [IFn]
   "Gets the vector of event callbacks from the pool context."
   [pool-context :- jruby-schemas/PoolContext]
   @(get-in pool-context [:internal :event-callbacks]))
 
-(schema/defn create-requested-event :- jruby-schemas/JRubyRequestedEvent
-  [reason :- jruby-schemas/JRubyEventReason]
-  {:type :instance-requested
-   :reason reason})
+(schema/defn get-system-env :- jruby-schemas/EnvPersistentMap
+  "Same as System/getenv, but returns a clojure persistent map instead of a
+  Java unmodifiable map."
+  []
+  (into {} (System/getenv)))
 
-(schema/defn create-borrowed-event :- jruby-schemas/JRubyBorrowedEvent
-  [requested-event :- jruby-schemas/JRubyRequestedEvent
-   instance :- jruby-schemas/JRubyBorrowResult]
-  {:type :instance-borrowed
-   :reason (:reason requested-event)
-   :requested-event requested-event
-   :instance instance})
+(schema/defn ^:always-validate managed-environment :- jruby-schemas/EnvMap
+  "The environment variables that should be passed to the JRuby interpreters.
 
-(schema/defn create-returned-event :- jruby-schemas/JRubyReturnedEvent
-  [instance :- jruby-schemas/JRubyInstanceOrPill
-   reason :- jruby-schemas/JRubyEventReason]
-  {:type :instance-returned
-   :reason reason
-   :instance instance})
+  We don't want them to read any ruby environment variables, like $RUBY_LIB or
+  anything like that, so pass it an empty environment map - except - most things
+  needs HOME and PATH to work, so leave those, along with GEM_HOME
+  which is necessary for third party extensions that depend on gems.
 
-(schema/defn create-lock-requested-event :- jruby-schemas/JRubyLockRequestedEvent
-  [reason :- jruby-schemas/JRubyEventReason]
-  {:type :lock-requested
-   :reason reason})
+  We need to set the JARS..REQUIRE variables in order to instruct JRuby's
+  'jar-dependencies' to not try to load any dependent jars.  This is being
+  done specifically to avoid JRuby trying to load its own version of Bouncy
+  Castle, which may not the same as the one that 'puppetlabs/ssl-utils'
+  uses. JARS_NO_REQUIRE was the legacy way to turn off jar loading but is
+  being phased out in favor of JARS_REQUIRE.  As of JRuby 1.7.20, only
+  JARS_NO_REQUIRE is honored.  Setting both of those here for forward
+  compatibility."
+  [env :- jruby-schemas/EnvMap
+   gem-home :- schema/Str]
+  (let [whitelist ["HOME" "PATH"]
+        clean-env (select-keys env whitelist)]
+    (assoc clean-env
+      "GEM_HOME" gem-home
+      "JARS_NO_REQUIRE" "true"
+      "JARS_REQUIRE" "false")))
 
-(schema/defn create-lock-acquired-event :- jruby-schemas/JRubyLockAcquiredEvent
-  [reason :- jruby-schemas/JRubyEventReason]
-  {:type :lock-acquired
-   :reason reason})
-
-(schema/defn create-lock-released-event :- jruby-schemas/JRubyLockReleasedEvent
-  [reason :- jruby-schemas/JRubyEventReason]
-  {:type :lock-released
-   :reason reason})
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Support functions for event notification
-
-(schema/defn notify-event-listeners :- jruby-schemas/JRubyEvent
-  [event-callbacks :- [IFn]
-   event :- jruby-schemas/JRubyEvent]
-  (doseq [f event-callbacks]
-    (f event))
-  event)
-
-(schema/defn instance-requested :- jruby-schemas/JRubyRequestedEvent
-  [event-callbacks :- [IFn]
-   reason :- jruby-schemas/JRubyEventReason]
-  (notify-event-listeners event-callbacks (create-requested-event reason)))
-
-(schema/defn instance-borrowed :- jruby-schemas/JRubyBorrowedEvent
-  [event-callbacks :- [IFn]
-   requested-event :- jruby-schemas/JRubyRequestedEvent
-   instance :- jruby-schemas/JRubyBorrowResult]
-  (notify-event-listeners event-callbacks (create-borrowed-event requested-event instance)))
-
-(schema/defn instance-returned :- jruby-schemas/JRubyReturnedEvent
-  [event-callbacks :- [IFn]
-   instance :- jruby-schemas/JRubyInstanceOrPill
-   reason :- jruby-schemas/JRubyEventReason]
-  (notify-event-listeners event-callbacks (create-returned-event instance reason)))
-
-(schema/defn lock-requested :- jruby-schemas/JRubyLockRequestedEvent
-  [event-callbacks :- [IFn]
-   reason :- jruby-schemas/JRubyEventReason]
-  (notify-event-listeners event-callbacks (create-lock-requested-event reason)))
-
-(schema/defn lock-acquired :- jruby-schemas/JRubyLockAcquiredEvent
-  [event-callbacks :- [IFn]
-   reason :- jruby-schemas/JRubyEventReason]
-  (notify-event-listeners event-callbacks (create-lock-acquired-event reason)))
-
-(schema/defn lock-released :- jruby-schemas/JRubyLockReleasedEvent
-  [event-callbacks :- [IFn]
-   reason :- jruby-schemas/JRubyEventReason]
-  (notify-event-listeners event-callbacks (create-lock-released-event reason)))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Public
+(schema/defn ^:always-validate default-initialize-scripting-container :- jruby-schemas/ConfigurableJRuby
+  "Default lifecycle fn for initializing the settings on the scripting
+  container. Currently it just sets the environment variables."
+  [scripting-container :- jruby-schemas/ConfigurableJRuby
+   config :- jruby-schemas/JRubyConfig]
+  (.setEnvironment scripting-container (managed-environment (get-system-env) (:gem-home config)))
+  scripting-container)
 
 (schema/defn ^:always-validate
   initialize-lifecycle-fns :- jruby-schemas/LifecycleFns
@@ -152,7 +123,7 @@
       (update-in [:cleanup] #(or % identity))
       (update-in [:shutdown-on-error] #(or % (fn [f] (f))))
       (update-in [:initialize-scripting-container]
-                 #(or % jruby-internal/default-initialize-scripting-container))))
+                 #(or % default-initialize-scripting-container))))
 
 (schema/defn ^:always-validate
   initialize-config :- jruby-schemas/JRubyConfig
@@ -163,33 +134,6 @@
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
       (update-in [:max-borrows-per-instance] #(or % 0))
       (update-in [:lifecycle] initialize-lifecycle-fns)))
-
-(schema/defn ^:always-validate
-  create-pool-context :- jruby-schemas/PoolContext
-  "Creates a new JRuby pool context with an empty pool. Once the JRuby
-  pool object has been created, it will need to be filled using `prime-pool!`."
-  [config :- jruby-schemas/JRubyConfig]
-  (let [agent-shutdown-fn (get-in config [:lifecycle :shutdown-on-error])]
-    {:config config
-     :internal {:pool-agent (jruby-agents/pool-agent agent-shutdown-fn)
-                ;; For an explanation of why we need a separate agent for the `flush-instance`,
-                ;; see the comments in puppetlabs.services.jruby.jruby-agents/send-flush-instance
-                :flush-instance-agent (jruby-agents/pool-agent agent-shutdown-fn)
-                :pool-state (atom (jruby-internal/create-pool-from-config config))
-                :event-callbacks (atom [])}}))
-
-(schema/defn ^:always-validate
-  free-instance-count
-  "Returns the number of JRubyInstances available in the pool."
-  [pool :- jruby-schemas/pool-queue-type]
-  {:post [(>= % 0)]}
-  (.size pool))
-
-(schema/defn ^:always-validate
-  instance-state :- jruby-schemas/JRubyInstanceState
-  "Get the state metadata for a JRubyInstance."
-  [jruby-instance :- JRubyInstance]
-  @(jruby-internal/get-instance-state-container jruby-instance))
 
 (schema/defn register-event-handler
   "Register the callback function by adding it to the event callbacks atom on the pool context."
@@ -204,9 +148,9 @@
   [pool-context :- jruby-schemas/PoolContext
    reason :- schema/Any
    event-callbacks :- [IFn]]
-  (let [requested-event (instance-requested event-callbacks reason)
+  (let [requested-event (jruby-events/instance-requested event-callbacks reason)
         instance (jruby-internal/borrow-from-pool pool-context)]
-    (instance-borrowed event-callbacks requested-event instance)
+    (jruby-events/instance-borrowed event-callbacks requested-event instance)
     instance))
 
 ;; TODO: consider adding a second arity that allows for passing in a
@@ -223,11 +167,11 @@
    reason :- schema/Any
    event-callbacks :- [IFn]]
   (let [timeout (get-in pool-context [:config :borrow-timeout])
-        requested-event (instance-requested event-callbacks reason)
+        requested-event (jruby-events/instance-requested event-callbacks reason)
         instance (jruby-internal/borrow-from-pool-with-timeout
                    pool-context
                    timeout)]
-    (instance-borrowed event-callbacks requested-event instance)
+    (jruby-events/instance-borrowed event-callbacks requested-event instance)
     instance))
 
 (schema/defn ^:always-validate
@@ -236,7 +180,7 @@
   [instance :- jruby-schemas/JRubyInstanceOrPill
    reason :- schema/Any
    event-callbacks :- [IFn]]
-  (instance-returned event-callbacks instance reason)
+  (jruby-events/instance-returned event-callbacks instance reason)
   (jruby-internal/return-to-pool instance))
 
 (schema/defn ^:always-validate
@@ -263,9 +207,9 @@
    reason :- schema/Any
    event-callbacks :- [IFn]]
   (log/debug "Acquiring lock on JRubyPool...")
-  (lock-requested event-callbacks reason)
+  (jruby-events/lock-requested event-callbacks reason)
   (.lock pool)
-  (lock-acquired event-callbacks reason)
+  (jruby-events/lock-acquired event-callbacks reason)
   (log/debug "Lock acquired"))
 
 (schema/defn ^:always-validate
@@ -275,7 +219,7 @@
    reason :- schema/Any
    event-callbacks :- [IFn]]
   (.unlock pool)
-  (lock-released event-callbacks reason)
+  (jruby-events/lock-released event-callbacks reason)
   (log/debug "Lock on JRubyPool released"))
 
 (schema/defn ^:always-validate cli-ruby! :- jruby-schemas/JRubyMainStatus
@@ -308,7 +252,6 @@
     (with-jruby-instance
       jruby-instance
       pool-context
-      event-callbacks
       reason
 
       (do-something-with-a-jruby-instance jruby-instance)))

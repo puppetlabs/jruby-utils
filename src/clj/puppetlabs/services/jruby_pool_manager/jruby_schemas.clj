@@ -1,4 +1,4 @@
-(ns puppetlabs.services.jruby.jruby-schemas
+(ns puppetlabs.services.jruby-pool-manager.jruby-schemas
   (:require [schema.core :as schema])
   (:import (clojure.lang Atom Agent IFn PersistentArrayMap PersistentHashMap)
            (com.puppetlabs.jruby_utils.pool LockablePool)
@@ -157,7 +157,18 @@
    retry-poison-pill? (schema/pred retry-poison-pill?)
    shutdown-poison-pill? (schema/pred shutdown-poison-pill?)))
 
+(def JRubyInternalBorrowResult
+  ;; Result of calling `.borrowItem` on the pool
+  (schema/pred (some-fn nil?
+                        poison-pill?
+                        retry-poison-pill?
+                        shutdown-poison-pill?
+                        jruby-instance?)))
+
 (def JRubyBorrowResult
+  ;; Result of doing some error handling after calling `.borrowItem` on the
+  ;; pool. Specifically, if the item borrow was a poison pill, an error is
+  ;; thrown, so `poison-pill?` is not part of this schema.
   (schema/pred (some-fn nil?
                         retry-poison-pill?
                         shutdown-poison-pill?

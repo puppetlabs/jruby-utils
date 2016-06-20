@@ -1,7 +1,7 @@
-(ns puppetlabs.services.jruby.jruby-core-test
+(ns puppetlabs.services.jruby-pool-manager.jruby-core-test
   (:require [clojure.test :refer :all]
             [schema.test :as schema-test]
-            [puppetlabs.services.jruby.jruby-core :as jruby-core]
+            [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils])
   (:import (java.io ByteArrayOutputStream PrintStream ByteArrayInputStream)))
 
@@ -10,7 +10,7 @@
 (def min-config
   (jruby-core/initialize-config
    {:gem-home "./target/jruby-gem-home",
-    :ruby-load-path ["./dev-resources/puppetlabs/services/jruby/jruby_core_test"]}))
+    :ruby-load-path ["./dev-resources/puppetlabs/services/jruby_pool_manager/jruby_core_test"]}))
 
 (defmacro with-stdin-str
   "Evaluates body in a context in which System/in is bound to a fresh
