@@ -59,14 +59,17 @@
         values are `:jit`, `:force`, and `:off`.  Defaults to `:off`.
 
     * :max-active-instances - The maximum number of JRubyInstances that
-        will be pooled."
+        will be pooled.
+
+    * :environment-vars - The whitelisted environment variables to be passed"
   {:ruby-load-path [schema/Str]
    :gem-home schema/Str
    :compile-mode SupportedJRubyCompileModes
    :borrow-timeout schema/Int
    :max-active-instances schema/Int
    :max-borrows-per-instance schema/Int
-   :lifecycle LifecycleFns})
+   :lifecycle LifecycleFns
+   (schema/optional-key :environment-vars) {schema/Str schema/Str}})
 
 (def JRubyPoolAgent
   "An agent configured for use in managing JRuby pools"

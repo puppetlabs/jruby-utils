@@ -96,20 +96,22 @@
   JARS_NO_REQUIRE is honored.  Setting both of those here for forward
   compatibility."
   [env :- jruby-schemas/EnvMap
-   gem-home :- schema/Str]
+   gem-home :- schema/Str
+   config :- (schema/pred map?)]
   (let [whitelist ["HOME" "PATH"]
         clean-env (select-keys env whitelist)]
-    (assoc clean-env
-      "GEM_HOME" gem-home
-      "JARS_NO_REQUIRE" "true"
-      "JARS_REQUIRE" "false")))
+    (merge (assoc clean-env
+                  "GEM_HOME" gem-home
+                  "JARS_NO_REQUIRE" "true"
+                  "JARS_REQUIRE" "false")
+           (:environment-vars config))))
 
 (schema/defn ^:always-validate default-initialize-scripting-container :- jruby-schemas/ConfigurableJRuby
   "Default lifecycle fn for initializing the settings on the scripting
   container. Currently it just sets the environment variables."
   [scripting-container :- jruby-schemas/ConfigurableJRuby
    config :- jruby-schemas/JRubyConfig]
-  (.setEnvironment scripting-container (managed-environment (get-system-env) (:gem-home config)))
+  (.setEnvironment scripting-container (managed-environment (get-system-env) (:gem-home config) config))
   scripting-container)
 
 (schema/defn ^:always-validate
