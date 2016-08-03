@@ -61,7 +61,8 @@
     * :max-active-instances - The maximum number of JRubyInstances that
         will be pooled.
 
-    * :environment-vars - The whitelisted environment variables to be passed"
+    * :environment-vars - A map of whitelisted environment variables and their values to be
+        whitelisted and visible to any Ruby code."
   {:ruby-load-path [schema/Str]
    :gem-home schema/Str
    :compile-mode SupportedJRubyCompileModes
@@ -69,7 +70,7 @@
    :max-active-instances schema/Int
    :max-borrows-per-instance schema/Int
    :lifecycle LifecycleFns
-   (schema/optional-key :environment-vars) {schema/Str schema/Str}})
+   :environment-vars {schema/Str schema/Str}})
 
 (def JRubyPoolAgent
   "An agent configured for use in managing JRuby pools"
