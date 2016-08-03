@@ -15,7 +15,7 @@
 (deftest jruby-whitelist-env-vars
   (testing "the environment used by the JRuby interpreters"
     (let [jruby-interpreter (jruby-internal/create-scripting-container
-                             (jruby-testutils/jruby-config {:environment-vars {"FOO" "for_jruby"}}))
+                             (jruby-testutils/jruby-config {:environment-vars {:FOO "for_jruby"}}))
           jruby-env (.runScriptlet jruby-interpreter "ENV")]
       (is (= #{"HOME" "PATH" "GEM_HOME" "JARS_NO_REQUIRE" "JARS_REQUIRE" "FOO"}
              (set (keys jruby-env))))

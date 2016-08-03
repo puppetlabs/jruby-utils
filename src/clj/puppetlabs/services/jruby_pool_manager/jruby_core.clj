@@ -107,7 +107,7 @@
                   "GEM_HOME" (:gem-home config)
                   "JARS_NO_REQUIRE" "true"
                   "JARS_REQUIRE" "false")
-           (:environment-vars config))))
+           (clojure.walk/stringify-keys (:environment-vars config)))))
 
 (schema/defn ^:always-validate default-initialize-scripting-container :- jruby-schemas/ConfigurableJRuby
   "Default lifecycle fn for initializing the settings on the scripting
