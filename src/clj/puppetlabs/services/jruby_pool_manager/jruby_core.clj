@@ -100,12 +100,11 @@
   environment variables to be visible to the Ruby code. This map is by default
   set to {} if the user does not specify it in the configuration file."
   [env :- jruby-schemas/EnvMap
-   gem-home :- schema/Str
    config :- (schema/pred map?)]
   (let [whitelist ["HOME" "PATH"]
         clean-env (select-keys env whitelist)]
     (merge (assoc clean-env
-                  "GEM_HOME" gem-home
+                  "GEM_HOME" (:gem-home config)
                   "JARS_NO_REQUIRE" "true"
                   "JARS_REQUIRE" "false")
            (:environment-vars config))))
@@ -115,7 +114,7 @@
   container. Currently it just sets the environment variables."
   [scripting-container :- jruby-schemas/ConfigurableJRuby
    config :- jruby-schemas/JRubyConfig]
-  (.setEnvironment scripting-container (managed-environment (get-system-env) (:gem-home config) config))
+  (.setEnvironment scripting-container (managed-environment (get-system-env) config))
   scripting-container)
 
 (schema/defn ^:always-validate
