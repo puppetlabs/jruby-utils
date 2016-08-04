@@ -94,22 +94,27 @@
   uses. JARS_NO_REQUIRE was the legacy way to turn off jar loading but is
   being phased out in favor of JARS_REQUIRE.  As of JRuby 1.7.20, only
   JARS_NO_REQUIRE is honored.  Setting both of those here for forward
-  compatibility."
+  compatibility.
+
+  We also merge an environment-vars map with the config to allow for whitelisted
+  environment variables to be visible to the Ruby code. This map is by default
+  set to {} if the user does not specify it in the configuration file."
   [env :- jruby-schemas/EnvMap
-   gem-home :- schema/Str]
+   config :- (schema/pred map?)]
   (let [whitelist ["HOME" "PATH"]
         clean-env (select-keys env whitelist)]
-    (assoc clean-env
-      "GEM_HOME" gem-home
-      "JARS_NO_REQUIRE" "true"
-      "JARS_REQUIRE" "false")))
+    (merge (assoc clean-env
+                  "GEM_HOME" (:gem-home config)
+                  "JARS_NO_REQUIRE" "true"
+                  "JARS_REQUIRE" "false")
+           (clojure.walk/stringify-keys (:environment-vars config)))))
 
 (schema/defn ^:always-validate default-initialize-scripting-container :- jruby-schemas/ConfigurableJRuby
   "Default lifecycle fn for initializing the settings on the scripting
   container. Currently it just sets the environment variables."
   [scripting-container :- jruby-schemas/ConfigurableJRuby
    config :- jruby-schemas/JRubyConfig]
-  (.setEnvironment scripting-container (managed-environment (get-system-env) (:gem-home config)))
+  (.setEnvironment scripting-container (managed-environment (get-system-env) config))
   scripting-container)
 
 (schema/defn ^:always-validate
@@ -127,12 +132,15 @@
 
 (schema/defn ^:always-validate
   initialize-config :- jruby-schemas/JRubyConfig
+  "Initialize keys with default settings if they are not given a value.
+  The config is validated after these defaults are set."
   [config :- {schema/Keyword schema/Any}]
   (-> config
       (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
       (update-in [:max-borrows-per-instance] #(or % 0))
+      (update-in [:environment-vars] #(or % {}))
       (update-in [:lifecycle] initialize-lifecycle-fns)))
 
 (schema/defn register-event-handler
