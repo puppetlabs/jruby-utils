@@ -1,7 +1,7 @@
 (def ks-version "1.3.0")
 (def tk-version "1.3.1")
 
-(defproject puppetlabs/jruby-utils "0.2.0-SNAPSHOT"
+(defproject puppetlabs/jruby-utils "0.2.0"
   :description "A library for working with JRuby"
   :url "https://github.com/puppetlabs/jruby-utils"
   :license {:name "Apache License, Version 2.0"
