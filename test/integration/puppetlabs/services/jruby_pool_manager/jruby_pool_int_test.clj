@@ -403,6 +403,7 @@
                          [])
                scripting-container (:scripting-container instance)
                jruby-env (.runScriptlet scripting-container "ENV")]
+           (.remove jruby-env "RUBY")
            (is (= {"CUSTOMENV" "foobar"} jruby-env))
            (jruby-core/return-to-pool
             instance
