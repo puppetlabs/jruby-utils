@@ -32,7 +32,7 @@
                  ;; NOTE: jruby-stdlib packages some unexpected things inside
                  ;; of its jar; please read the detailed notes above the
                  ;; 'uberjar-exclusions' example toward the end of this file.
-                 [puppetlabs/jruby-stdlib "1.7.26-puppetlabs-1-SNAPSHOT"]
+                 [puppetlabs.org.jruby/jruby-stdlib "1.7.26-puppetlabs-rc1"]
 
 
                  [org.clojure/tools.logging "0.3.1"]
