@@ -1,3 +1,9 @@
+### 0.2.1
+
+This is a maintenance release.
+
+ * Bump dependencies to JRuby 1.7.26.
+
 ### 0.2.0
 
 This is a feature release.
