@@ -21,7 +21,7 @@
                  [org.slf4j/slf4j-api "1.7.13"]
                  ;; end version conflict resolution dependencies
 
-                 [puppetlabs.org.jruby/jruby-core "1.7.26-puppetlabs-rc1"
+                 [org.jruby/jruby-core "1.7.26"
                   :exclusions [com.github.jnr/jffi com.github.jnr/jnr-x86asm]]
                  ;; jffi and jnr-x86asm are explicit dependencies because,
                  ;; in JRuby's poms, they are defined using version ranges,
@@ -32,7 +32,7 @@
                  ;; NOTE: jruby-stdlib packages some unexpected things inside
                  ;; of its jar; please read the detailed notes above the
                  ;; 'uberjar-exclusions' example toward the end of this file.
-                 [puppetlabs.org.jruby/jruby-stdlib "1.7.26-puppetlabs-rc1"]
+                 [org.jruby/jruby-stdlib "1.7.26"]
 
 
                  [org.clojure/tools.logging "0.3.1"]
