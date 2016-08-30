@@ -34,7 +34,8 @@
   ([options]
    (jruby-core/initialize-config
     (merge {:ruby-load-path ruby-load-path
-            :gem-home gem-home}
+            :gem-home gem-home
+            :borrow-timeout 300000}
            options))))
 
 (def default-flush-fn
