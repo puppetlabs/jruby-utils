@@ -53,6 +53,12 @@
      (let [config (jruby-testutils/jruby-config {:max-active-instances 1})
            pool-manager-service (tk-app/get-service app :PoolManagerService)
            pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
+       (jruby-core/with-jruby-instance
+        jruby-instance
+        pool-context
+        :with-jruby-retry-test
+        (is (instance? JRubyInstance jruby-instance)
+            "Unable to borrow instance before using retry pool"))
        (let [real-pool (jruby-core/get-pool pool-context)
              retry-pool (JRubyPool. 1)
              _ (->> retry-pool
@@ -68,7 +74,10 @@
             jruby-instance
             pool-context
             :with-jruby-retry-test
-            (is (instance? JRubyInstance jruby-instance))))
+            (is (instance? JRubyInstance jruby-instance)
+                (format
+                 "Unable to borrow instance after retries.  Num borrows: %d"
+                 @num-borrows))))
          (is (= 4 @num-borrows)))))))
 
 (deftest next-instance-id-test
