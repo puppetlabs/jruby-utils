@@ -53,7 +53,9 @@
 
     * :ruby-load-path - a vector of file paths, containing the locations of ruby source code.
 
-    * :gem-home - The location that JRuby gems are stored
+    * :gem-home - The location that JRuby gems will be installed
+
+    * :gem-path - The full path where JRuby should look for gems
 
     * :compile-mode - The value to use for JRuby's CompileMode setting.  Legal
         values are `:jit`, `:force`, and `:off`.  Defaults to `:off`.
@@ -65,6 +67,7 @@
         whitelisted and visible to any Ruby code."
   {:ruby-load-path [schema/Str]
    :gem-home schema/Str
+   :gem-path (schema/maybe schema/Str)
    :compile-mode SupportedJRubyCompileModes
    :borrow-timeout schema/Int
    :max-active-instances schema/Int

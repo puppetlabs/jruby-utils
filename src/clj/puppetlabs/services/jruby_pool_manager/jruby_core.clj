@@ -79,13 +79,20 @@
   []
   (into {} (System/getenv)))
 
+(schema/defn ^:always-validate add-gem-path
+  [env :- {schema/Str schema/Str}
+   config :- jruby-schemas/JRubyConfig]
+  (if-let [gem-path (:gem-path config)]
+    (assoc env "GEM_PATH" gem-path)
+    env))
+
 (schema/defn ^:always-validate managed-environment :- jruby-schemas/EnvMap
   "The environment variables that should be passed to the JRuby interpreters.
 
   We don't want them to read any ruby environment variables, like $RUBY_LIB or
   anything like that, so pass it an empty environment map - except - most things
-  needs HOME and PATH to work, so leave those, along with GEM_HOME
-  which is necessary for third party extensions that depend on gems.
+  needs HOME and PATH to work, so leave those, along with GEM_HOME and GEM_PATH,
+  which are necessary for extensions that depend on gems.
 
   We need to set the JARS..REQUIRE variables in order to instruct JRuby's
   'jar-dependencies' to not try to load any dependent jars.  This is being
@@ -100,13 +107,14 @@
   environment variables to be visible to the Ruby code. This map is by default
   set to {} if the user does not specify it in the configuration file."
   [env :- jruby-schemas/EnvMap
-   config :- (schema/pred map?)]
+   config :- jruby-schemas/JRubyConfig]
   (let [whitelist ["HOME" "PATH"]
         clean-env (select-keys env whitelist)]
-    (merge (assoc clean-env
-                  "GEM_HOME" (:gem-home config)
-                  "JARS_NO_REQUIRE" "true"
-                  "JARS_REQUIRE" "false")
+    (merge (-> (assoc clean-env
+                 "GEM_HOME" (:gem-home config)
+                 "JARS_NO_REQUIRE" "true"
+                 "JARS_REQUIRE" "false")
+               (add-gem-path config))
            (clojure.walk/stringify-keys (:environment-vars config)))))
 
 (schema/defn ^:always-validate default-initialize-scripting-container :- jruby-schemas/ConfigurableJRuby
@@ -141,7 +149,8 @@
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
       (update-in [:max-borrows-per-instance] #(or % 0))
       (update-in [:environment-vars] #(or % {}))
-      (update-in [:lifecycle] initialize-lifecycle-fns)))
+      (update-in [:lifecycle] initialize-lifecycle-fns)
+      jruby-internal/initialize-gem-path))
 
 (schema/defn register-event-handler
   "Register the callback function by adding it to the event callbacks atom on the pool context."

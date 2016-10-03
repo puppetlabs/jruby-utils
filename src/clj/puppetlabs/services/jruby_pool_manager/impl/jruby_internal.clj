@@ -22,6 +22,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private
 
+(schema/defn ^:always-validate initialize-gem-path :- {schema/Keyword schema/Any}
+  [{:keys [gem-path gem-home] :as jruby-config} :- {schema/Keyword schema/Any}]
+  (if gem-path
+    jruby-config
+    (assoc jruby-config :gem-path nil)))
+
 (defn instantiate-free-pool
   "Instantiate a new queue object to use as the pool of free JRuby's."
   [size]
