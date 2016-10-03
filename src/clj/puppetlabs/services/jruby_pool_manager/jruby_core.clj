@@ -112,7 +112,6 @@
         clean-env (select-keys env whitelist)]
     (merge (-> (assoc clean-env
                  "GEM_HOME" (:gem-home config)
-
                  "JARS_NO_REQUIRE" "true"
                  "JARS_REQUIRE" "false")
                (add-gem-path config))
