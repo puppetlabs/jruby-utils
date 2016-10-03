@@ -79,6 +79,13 @@
   []
   (into {} (System/getenv)))
 
+(schema/defn ^:always-validate add-gem-path
+  [env :- {schema/Str schema/Str}
+   config :- jruby-schemas/JRubyConfig]
+  (if-let [gem-path (:gem-path config)]
+    (assoc env "GEM_PATH" gem-path)
+    env))
+
 (schema/defn ^:always-validate managed-environment :- jruby-schemas/EnvMap
   "The environment variables that should be passed to the JRuby interpreters.
 
@@ -103,11 +110,12 @@
    config :- jruby-schemas/JRubyConfig]
   (let [whitelist ["HOME" "PATH"]
         clean-env (select-keys env whitelist)]
-    (merge (assoc clean-env
-                  "GEM_HOME" (:gem-home config)
-                  "GEM_PATH"  (:gem-path config)
-                  "JARS_NO_REQUIRE" "true"
-                  "JARS_REQUIRE" "false")
+    (merge (-> (assoc clean-env
+                 "GEM_HOME" (:gem-home config)
+
+                 "JARS_NO_REQUIRE" "true"
+                 "JARS_REQUIRE" "false")
+               (add-gem-path config))
            (clojure.walk/stringify-keys (:environment-vars config)))))
 
 (schema/defn ^:always-validate default-initialize-scripting-container :- jruby-schemas/ConfigurableJRuby

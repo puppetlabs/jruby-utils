@@ -9,7 +9,7 @@
                               (jruby-testutils/jruby-config))
           jruby-env (.runScriptlet jruby-interpreter "ENV")]
       ; $HOME and $PATH are left in by `jruby-env`
-      (is (= #{"HOME" "PATH" "GEM_HOME" "GEM_PATH" "JARS_NO_REQUIRE" "JARS_REQUIRE" "RUBY"}
+      (is (= #{"HOME" "PATH" "GEM_HOME" "JARS_NO_REQUIRE" "JARS_REQUIRE" "RUBY"}
              (set (keys jruby-env)))))))
 
 (deftest jruby-whitelist-env-vars
@@ -17,6 +17,6 @@
     (let [jruby-interpreter (jruby-internal/create-scripting-container
                              (jruby-testutils/jruby-config {:environment-vars {:FOO "for_jruby"}}))
           jruby-env (.runScriptlet jruby-interpreter "ENV")]
-      (is (= #{"HOME" "PATH" "GEM_HOME" "GEM_PATH" "JARS_NO_REQUIRE" "JARS_REQUIRE" "FOO" "RUBY"}
+      (is (= #{"HOME" "PATH" "GEM_HOME" "JARS_NO_REQUIRE" "JARS_REQUIRE" "FOO" "RUBY"}
              (set (keys jruby-env))))
       (is (= (.get jruby-env "FOO") "for_jruby")))))

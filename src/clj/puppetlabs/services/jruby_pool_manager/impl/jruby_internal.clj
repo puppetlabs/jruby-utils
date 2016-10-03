@@ -26,7 +26,7 @@
   [{:keys [gem-path gem-home] :as jruby-config} :- {schema/Keyword schema/Any}]
   (if gem-path
     jruby-config
-    (assoc jruby-config :gem-path gem-home)))
+    (assoc jruby-config :gem-path nil)))
 
 (defn instantiate-free-pool
   "Instantiate a new queue object to use as the pool of free JRuby's."

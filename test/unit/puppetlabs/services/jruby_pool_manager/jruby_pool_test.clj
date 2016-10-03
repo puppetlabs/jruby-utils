@@ -46,11 +46,10 @@
                       (assoc :compile-mode "jit")
                       (jruby-core/initialize-config)
                       :compile-mode))))
-    (testing "gem-path is set to gem-home if not specified"
-      (is (= (:gem-home minimal-config)
-             (-> minimal-config
-                 jruby-core/initialize-config
-                 :gem-path))))
+    (testing "gem-path is set to nil if not specified"
+      (is (nil? (-> minimal-config
+                    jruby-core/initialize-config
+                    :gem-path))))
     (testing "gem-path is respected if specified"
       (is (= "/tmp/foo:/dev/null"
              (-> minimal-config
