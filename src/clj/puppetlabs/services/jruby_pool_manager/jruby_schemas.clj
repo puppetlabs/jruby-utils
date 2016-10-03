@@ -65,6 +65,7 @@
         whitelisted and visible to any Ruby code."
   {:ruby-load-path [schema/Str]
    :gem-home schema/Str
+   :gem-path schema/Str
    :compile-mode SupportedJRubyCompileModes
    :borrow-timeout schema/Int
    :max-active-instances schema/Int

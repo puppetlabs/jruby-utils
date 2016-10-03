@@ -84,8 +84,8 @@
 
   We don't want them to read any ruby environment variables, like $RUBY_LIB or
   anything like that, so pass it an empty environment map - except - most things
-  needs HOME and PATH to work, so leave those, along with GEM_HOME
-  which is necessary for third party extensions that depend on gems.
+  needs HOME and PATH to work, so leave those, along with GEM_HOME and GEM_PATH,
+  which are necessary for extensions that depend on gems.
 
   We need to set the JARS..REQUIRE variables in order to instruct JRuby's
   'jar-dependencies' to not try to load any dependent jars.  This is being
@@ -100,11 +100,12 @@
   environment variables to be visible to the Ruby code. This map is by default
   set to {} if the user does not specify it in the configuration file."
   [env :- jruby-schemas/EnvMap
-   config :- (schema/pred map?)]
+   config :- jruby-schemas/JRubyConfig]
   (let [whitelist ["HOME" "PATH"]
         clean-env (select-keys env whitelist)]
     (merge (assoc clean-env
                   "GEM_HOME" (:gem-home config)
+                  "GEM_PATH"  (:gem-path config)
                   "JARS_NO_REQUIRE" "true"
                   "JARS_REQUIRE" "false")
            (clojure.walk/stringify-keys (:environment-vars config)))))
@@ -141,7 +142,8 @@
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
       (update-in [:max-borrows-per-instance] #(or % 0))
       (update-in [:environment-vars] #(or % {}))
-      (update-in [:lifecycle] initialize-lifecycle-fns)))
+      (update-in [:lifecycle] initialize-lifecycle-fns)
+      jruby-internal/initialize-gem-path))
 
 (schema/defn register-event-handler
   "Register the callback function by adding it to the event callbacks atom on the pool context."
