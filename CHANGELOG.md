@@ -1,3 +1,17 @@
+### 0.3.0 - 2016-10-05
+
+This is a minor feature release and maintenance release.
+
+Features:
+
+* Introduce support for `gem-path` config option, which will result in having the
+  GEM_PATH set for the jruby intepreters.
+
+Maintenance:
+
+* Introduce lein-parent for managing dependency versions
+* Fixes to race conditions and timeouts in tests
+
 ### 0.2.1
 
 This is a maintenance release.
