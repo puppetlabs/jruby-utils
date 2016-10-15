@@ -40,6 +40,13 @@
   "Schema defining the supported values for the JRuby CompileMode setting."
   (apply schema/enum supported-jruby-compile-modes))
 
+(def supported-jruby-compat-versions
+  #{"1.9" "2.0"})
+
+(def SupportedJRubyCompatVersions
+  "Schema defining the supported compatability versions for the JRuby CompatVersions setting"
+  (apply schema/enum supported-jruby-compat-versions))
+
 (def LifecycleFns
   {:initialize-pool-instance IFn
    :cleanup IFn
@@ -69,6 +76,7 @@
    :gem-home schema/Str
    :gem-path (schema/maybe schema/Str)
    :compile-mode SupportedJRubyCompileModes
+   :compat-version SupportedJRubyCompatVersions
    :borrow-timeout schema/Int
    :max-active-instances schema/Int
    :max-borrows-per-instance schema/Int
