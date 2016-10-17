@@ -43,9 +43,10 @@
 
 (deftest get-compat-version-test
   (testing "returns correct compat version for SupportedJrubyCompatVersions enum"
+    (is (.is1_9 (jruby-internal/get-compat-version "1.9")))
     (is (not (.is2_0 (jruby-internal/get-compat-version "1.9"))))
     (is (.is2_0 (jruby-internal/get-compat-version "2.0"))))
-  (testing "returns a valid CompileMode for all values of enum"
+  (testing "returns a valid CompatVersion for all values of enum"
     (doseq [version jruby-schemas/supported-jruby-compat-versions]
       (is (instance? CompatVersion
                      (jruby-internal/get-compat-version version)))))
@@ -54,4 +55,4 @@
                  (jruby-internal/get-compat-version nil))))
   (testing "throws an exception for values not in enum"
     (is (thrown? ExceptionInfo
-                 (jruby-internal/get-compat-version :foo)))))
+                 (jruby-internal/get-compat-version "foo")))))

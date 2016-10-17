@@ -39,7 +39,10 @@
   [compat-version :- jruby-schemas/SupportedJRubyCompatVersions]
   (case compat-version
     "1.9" (CompatVersion/RUBY1_9)
-    "2.0" (CompatVersion/RUBY2_0)))
+    "2.0" (CompatVersion/RUBY2_0)
+    (throw (IllegalArgumentException.
+            (format (str "compat-version is set to `%s`, which is not an allowed option."
+                         " The available compat-versions are `1.9` and `2.0`") compat-version)))))
 
 (schema/defn ^:always-validate init-jruby :- jruby-schemas/ConfigurableJRuby
   "Applies configuration to a JRuby... thing.  See comments in `ConfigurableJRuby`
