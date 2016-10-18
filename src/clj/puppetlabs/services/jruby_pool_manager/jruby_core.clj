@@ -142,6 +142,12 @@
       (update-in [:initialize-scripting-container]
                  #(or % default-initialize-scripting-container))))
 
+(defn parse-compat-version
+  [compat-version]
+  (cond-> compat-version
+          (integer? compat-version) double
+          :true str))
+
 (schema/defn ^:always-validate
   initialize-config :- jruby-schemas/JRubyConfig
   "Initialize keys with default settings if they are not given a value.
@@ -149,7 +155,7 @@
   [config :- {schema/Keyword schema/Any}]
   (-> config
       (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
-      (update-in [:compat-version] #(str (or % default-jruby-compat-version)))
+      (update-in [:compat-version] #(parse-compat-version (or % default-jruby-compat-version)))
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
       (update-in [:max-borrows-per-instance] #(or % 0))

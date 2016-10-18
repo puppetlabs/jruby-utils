@@ -69,6 +69,13 @@
                        (assoc :compat-version 2.0)
                        (jruby-core/initialize-config)
                        :compat-version))))
+    (testing "compat-version is honored if specified as an integer"
+      ;; HOCON might parse doubles as integers in some cases? so we should tolerate it as an integer
+      ;; too
+      (is (= "2.0" (-> minimal-config
+                       (assoc :compat-version 2)
+                       (jruby-core/initialize-config)
+                       :compat-version))))
     (testing "gem-path is set to nil if not specified"
       (is (nil? (-> minimal-config
                     jruby-core/initialize-config
