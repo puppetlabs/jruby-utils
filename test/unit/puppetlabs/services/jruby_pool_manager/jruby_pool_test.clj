@@ -46,6 +46,36 @@
                       (assoc :compile-mode "jit")
                       (jruby-core/initialize-config)
                       :compile-mode))))
+    (testing "compat-version is set to default if not specified"
+      (is (= jruby-core/default-jruby-compat-version
+             (:compat-version config))))
+    (testing "compat-version is honored if specified as a string"
+      (is (= "1.9" (-> minimal-config
+                       (assoc :compat-version "1.9")
+                       (jruby-core/initialize-config)
+                       :compat-version)))
+      (is (= "2.0" (-> minimal-config
+                       (assoc :compat-version "2.0")
+                       (jruby-core/initialize-config)
+                       :compat-version))))
+    (testing "compat-version is honored if specified as a double"
+      ;; depending on how the setting is laid down in a HOCON file, it seems feasible that it might
+      ;; be a string or a double. We should tolerate either.
+      (is (= "1.9" (-> minimal-config
+                       (assoc :compat-version 1.9)
+                       (jruby-core/initialize-config)
+                       :compat-version)))
+      (is (= "2.0" (-> minimal-config
+                       (assoc :compat-version 2.0)
+                       (jruby-core/initialize-config)
+                       :compat-version))))
+    (testing "compat-version is honored if specified as an integer"
+      ;; HOCON might parse doubles as integers in some cases? so we should tolerate it as an integer
+      ;; too
+      (is (= "2.0" (-> minimal-config
+                       (assoc :compat-version 2)
+                       (jruby-core/initialize-config)
+                       :compat-version))))
     (testing "gem-path is set to nil if not specified"
       (is (nil? (-> minimal-config
                     jruby-core/initialize-config

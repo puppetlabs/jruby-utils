@@ -20,6 +20,10 @@
   "Default value for JRuby's 'CompileMode' setting."
   :off)
 
+(def default-jruby-compat-version
+  "Default value for JRuby's 'CompatVersion' setting."
+  "1.9")
+
 (def default-borrow-timeout
   "Default timeout when borrowing instances from the JRuby pool in
    milliseconds. Current value is 1200000ms, or 20 minutes."
@@ -138,6 +142,12 @@
       (update-in [:initialize-scripting-container]
                  #(or % default-initialize-scripting-container))))
 
+(defn parse-compat-version
+  [compat-version]
+  (cond-> compat-version
+          (integer? compat-version) double
+          :true str))
+
 (schema/defn ^:always-validate
   initialize-config :- jruby-schemas/JRubyConfig
   "Initialize keys with default settings if they are not given a value.
@@ -145,6 +155,7 @@
   [config :- {schema/Keyword schema/Any}]
   (-> config
       (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
+      (update-in [:compat-version] #(parse-compat-version (or % default-jruby-compat-version)))
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
       (update-in [:max-borrows-per-instance] #(or % 0))

@@ -12,14 +12,6 @@
            (com.puppetlabs.jruby_utils.jruby ScriptingContainer)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Definitions
-
-(def compat-version
-  "The JRuby compatibility version to use for all ruby components, e.g. the
-  master service and CLI tools."
-  (CompatVersion/RUBY1_9))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private
 
 (schema/defn ^:always-validate initialize-gem-path :- {schema/Keyword schema/Any}
@@ -41,16 +33,27 @@
     :force RubyInstanceConfig$CompileMode/FORCE
     :off RubyInstanceConfig$CompileMode/OFF))
 
+(schema/defn ^:always-validate get-compat-version
+  "Get the JRuby compatibility version to use for all ruby components, e.g. the
+  master service and CLI tools."
+  [compat-version :- jruby-schemas/SupportedJRubyCompatVersions]
+  (case compat-version
+    "1.9" (CompatVersion/RUBY1_9)
+    "2.0" (CompatVersion/RUBY2_0)
+    (throw (IllegalArgumentException.
+            (format (str "compat-version is set to `%s`, which is not an allowed option."
+                         " The available compat-versions are `1.9` and `2.0`") compat-version)))))
+
 (schema/defn ^:always-validate init-jruby :- jruby-schemas/ConfigurableJRuby
   "Applies configuration to a JRuby... thing.  See comments in `ConfigurableJRuby`
   schema for more details."
   [jruby :- jruby-schemas/ConfigurableJRuby
    config :- jruby-schemas/JRubyConfig]
-  (let [{:keys [ruby-load-path compile-mode lifecycle]} config
+  (let [{:keys [ruby-load-path compile-mode lifecycle compat-version]} config
         initialize-scripting-container-fn (:initialize-scripting-container lifecycle)]
     (doto jruby
       (.setLoadPaths ruby-load-path)
-      (.setCompatVersion compat-version)
+      (.setCompatVersion (get-compat-version compat-version))
       (.setCompileMode (get-compile-mode compile-mode)))
     (initialize-scripting-container-fn jruby config)))
 
