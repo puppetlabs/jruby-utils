@@ -1,3 +1,13 @@
+### 0.4.0 - 2016-10-19
+
+This is a minor feature release.
+
+Features:
+
+* Introduce support for a `compat-version` config option, which allows the MRI
+  compatibility version to be configured.  Only supports 1.9 or 2.0, with 1.9
+  being the default if not specified.
+
 ### 0.3.0 - 2016-10-05
 
 This is a minor feature release and maintenance release.
