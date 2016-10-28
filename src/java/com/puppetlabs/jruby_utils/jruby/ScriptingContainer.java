@@ -1,35 +1,32 @@
 package com.puppetlabs.jruby_utils.jruby;
 
-import org.jruby.embed.LocalContextScope;
-import org.jruby.embed.LocalVariableBehavior;
+import org.jruby.embed.EmbedEvalUnit;
+import org.jruby.embed.EmbedRubyInstanceConfigAdapter;
+import org.jruby.runtime.Block;
 
 /**
- * An extension of the JRuby ScriptingContainer class which is
- * slightly easier to use from Clojure
  */
-public class ScriptingContainer
-        extends org.jruby.embed.ScriptingContainer {
-    public ScriptingContainer(LocalContextScope scope) {
-        super(scope);
-    }
-    public ScriptingContainer(LocalContextScope scope, LocalVariableBehavior behavior) {
-        super(scope, behavior);
-    }
-
-    /**
-     * This method delegates to a specific signature of #callMethod from the
-     * parent class.  There are many overloaded signatures in the parent class,
-     * many of which have overlapping arities.  This sometimes causes problems
-     * with Clojure attempting to determine the correct signature to call.
-     *
-     * @param receiver - the Ruby object to call a method on
-     * @param methodName - the name of the method to call
-     * @param args - an array of args to call the method with
-     * @param returnType - the expected type of the return value from the method call
-     * @return - the result of calling the method on the Ruby receiver object
-     */
-    public Object callMethodWithArgArray(Object receiver, String methodName,
-                                         Object[] args, Class<? extends Object> returnType) {
-        return callMethod(receiver, methodName, args, returnType);
-    }
+public interface ScriptingContainer extends EmbedRubyInstanceConfigAdapter {
+    Object callMethod(Object receiver, String methodName, Object... args);
+    Object callMethod(Object receiver, String methodName,
+                      Block block, Object... args);
+    <T> T callMethod(Object receiver, String methodName, Class<T> returnType);
+    <T> T callMethod(Object receiver, String methodName, Object singleArg,
+                     Class<T> returnType);
+    <T> T callMethod(Object receiver, String methodName, Object[] args,
+                     Class<T> returnType);
+    <T> T callMethod(Object receiver, String methodName, Object[] args,
+                     Block block, Class<T> returnType);
+    <T> T callMethod(Object receiver, String methodName, Class<T> returnType,
+                     EmbedEvalUnit unit);
+    <T> T callMethod(Object receiver, String methodName, Object[] args,
+                     Class<T> returnType, EmbedEvalUnit unit);
+    <T> T callMethod(Object receiver, String methodName, Object[] args,
+                     Block block, Class<T> returnType, EmbedEvalUnit unit);
+    Object callMethodWithArgArray(Object receiver,
+                              String methodName,
+                              Object[] args,
+                              Class<? extends Object> returnType);
+    Object runScriptlet(String script);
+    void terminate();
 }
