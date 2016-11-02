@@ -9,7 +9,8 @@
            (org.jruby.embed LocalContextScope)
            (java.util.concurrent TimeUnit)
            (clojure.lang IFn)
-           (com.puppetlabs.jruby_utils.jruby ScriptingContainer)))
+           (com.puppetlabs.jruby_utils.jruby InternalScriptingContainer
+                                             ScriptingContainer)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private
@@ -60,7 +61,7 @@
 (schema/defn ^:always-validate empty-scripting-container :- ScriptingContainer
   "Creates a clean instance of a JRuby `ScriptingContainer` with no code loaded."
   [config :- jruby-schemas/JRubyConfig]
-  (-> (ScriptingContainer. LocalContextScope/SINGLETHREAD)
+  (-> (InternalScriptingContainer. LocalContextScope/SINGLETHREAD)
       (init-jruby config)))
 
 (schema/defn ^:always-validate create-scripting-container :- ScriptingContainer
