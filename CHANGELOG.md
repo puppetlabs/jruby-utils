@@ -1,3 +1,10 @@
+### 0.4.1 - 2016-11-02
+
+This is a minor release.
+
+* Introduce a ScriptingContainer interface as an abstraction in place of a concrete
+  ScriptingContainer class in various public APIs.
+
 ### 0.4.0 - 2016-10-19
 
 This is a minor feature release.
