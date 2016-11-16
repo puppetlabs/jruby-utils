@@ -90,6 +90,10 @@
     (assoc env "GEM_PATH" gem-path)
     env))
 
+(def env-allowed-list
+  "A list of environment variables that are allowed to be passed through from the environment."
+  ["HOME" "PATH" "HTTP_PROXY" "http_proxy" "HTTPS_PROXY" "https_proxy" "NO_PROXY" "no_proxy" "bar"])
+
 (schema/defn ^:always-validate managed-environment :- jruby-schemas/EnvMap
   "The environment variables that should be passed to the JRuby interpreters.
 
@@ -107,13 +111,12 @@
   JARS_NO_REQUIRE is honored.  Setting both of those here for forward
   compatibility.
 
-  We also merge an environment-vars map with the config to allow for whitelisted
+  We also merge an environment-vars map with the config to allow for configured
   environment variables to be visible to the Ruby code. This map is by default
   set to {} if the user does not specify it in the configuration file."
   [env :- jruby-schemas/EnvMap
    config :- jruby-schemas/JRubyConfig]
-  (let [whitelist ["HOME" "PATH"]
-        clean-env (select-keys env whitelist)]
+  (let [clean-env (select-keys env env-allowed-list)]
     (merge (-> (assoc clean-env
                  "GEM_HOME" (:gem-home config)
                  "JARS_NO_REQUIRE" "true"
