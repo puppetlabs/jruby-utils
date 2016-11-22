@@ -90,9 +90,13 @@
     (assoc env "GEM_PATH" gem-path)
     env))
 
-(def env-allowed-list
+(def proxy-vars-allowed-list
+  "A list of proxy-related variables that are allowed to be passed the environment"
+  ["HTTP_PROXY" "http_proxy" "HTTPS_PROXY" "https_proxy" "NO_PROXY" "no_proxy"])
+
+(def env-vars-allowed-list
   "A list of environment variables that are allowed to be passed through from the environment."
-  ["HOME" "PATH" "HTTP_PROXY" "http_proxy" "HTTPS_PROXY" "https_proxy" "NO_PROXY" "no_proxy" "bar"])
+  (concat proxy-vars-allowed-list ["HOME" "PATH"]))
 
 (schema/defn ^:always-validate managed-environment :- jruby-schemas/EnvMap
   "The environment variables that should be passed to the JRuby interpreters.
@@ -116,7 +120,7 @@
   set to {} if the user does not specify it in the configuration file."
   [env :- jruby-schemas/EnvMap
    config :- jruby-schemas/JRubyConfig]
-  (let [clean-env (select-keys env env-allowed-list)]
+  (let [clean-env (select-keys env env-vars-allowed-list)]
     (merge (-> (assoc clean-env
                  "GEM_HOME" (:gem-home config)
                  "JARS_NO_REQUIRE" "true"
