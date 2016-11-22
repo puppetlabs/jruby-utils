@@ -40,7 +40,8 @@ This is a maintenance release.
 This is a feature release.
 
  * [SERVER-584](https://tickets.puppetlabs.com/browse/SERVER-584)
-   Introduce a whitelisting capability to improve the handling of environment variables.
+   Introduce a setting to allow configured environment variables to be passed
+   through to the JRuby scripting container.
 
 ### 0.1.0
 
