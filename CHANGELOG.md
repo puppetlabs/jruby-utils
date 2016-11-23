@@ -1,3 +1,10 @@
+### 0.5.0 - 2016-11-22
+
+This is a minor feature release.
+
+* [SERVER-377](https://tickets.puppetlabs.com/browse/SERVER-377) Allow proxy
+  environment variables to pass through to scripting container.
+
 ### 0.4.1 - 2016-11-02
 
 This is a minor release.
