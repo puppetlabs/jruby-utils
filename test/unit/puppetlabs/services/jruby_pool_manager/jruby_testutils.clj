@@ -86,3 +86,19 @@
 (defn timed-await
   [agent]
   (await-for 240000 agent))
+
+(schema/defn wait-for-instances
+  [pool :- jruby-schemas/pool-queue-type
+   num-instances :- schema/Int]
+  (let [max-iterations 20]
+    (loop [count 0]
+      (cond (= num-instances (jruby-core/free-instance-count pool))
+            true
+
+            (>= count max-iterations)
+            false
+
+            :default
+            (do
+              (Thread/sleep 500)
+              (recur (inc count)))))))

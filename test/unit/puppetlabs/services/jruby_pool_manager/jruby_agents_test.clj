@@ -15,35 +15,6 @@
 
 (use-fixtures :once schema-test/validate-schemas)
 
-(deftest retry-poison-pill-test
-  (testing "Flush puts a retry poison pill into the old pool"
-    (tk-bootstrap/with-app-with-config
-     app
-     jruby-testutils/default-services
-     {}
-     (let [config (jruby-testutils/jruby-config {:max-active-instances 1})
-           pool-manager-service (tk-app/get-service app :PoolManagerService)
-           pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
-       (let [old-pool (jruby-core/get-pool pool-context)
-             pool-state-swapped (promise)
-             pool-state-watch-fn (fn [key pool-state old-val new-val]
-                                   (when (not= (:pool old-val) (:pool new-val))
-                                     (remove-watch pool-state key)
-                                     (deliver pool-state-swapped true)))]
-         ; borrow an instance so we know that the pool is ready
-         (jruby-core/with-jruby-instance jruby-instance pool-context :retry-poison-pill-test)
-         (add-watch (jruby-internal/get-pool-state-container pool-context)
-                    :pool-state-watch pool-state-watch-fn)
-         (jruby-core/flush-pool! pool-context)
-         ; wait until we know the new pool has been swapped in
-         @pool-state-swapped
-         ; wait until the flush is complete
-         (jruby-testutils/timed-await (jruby-agents/get-pool-agent pool-context))
-         (let [old-pool-instance (jruby-internal/borrow-from-pool!*
-                                  jruby-internal/borrow-without-timeout-fn
-                                  old-pool)]
-           (is (jruby-schemas/retry-poison-pill? old-pool-instance))))))))
-
 (deftest with-jruby-retry-test-via-mock-get-pool
   (testing "with-jruby-instance retries if it encounters a RetryPoisonPill"
     (tk-bootstrap/with-app-with-config
@@ -104,5 +75,21 @@
              pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
          (jruby-core/flush-pool! pool-context)
          ; wait until the flush is complete
-         (jruby-testutils/timed-await (jruby-agents/get-pool-agent pool-context))
+         (jruby-testutils/wait-for-instances (jruby-core/get-pool pool-context) 1)
          (is (= "Hello from cleanup" (deref cleanup-atom))))))))
+
+(deftest collect-all-jrubies-test
+  (testing "returns list of all the jruby instances"
+    (tk-bootstrap/with-app-with-config
+     app
+     jruby-testutils/default-services
+     {}
+     (let [config (jruby-testutils/jruby-config {:max-active-instances 4})
+           pool-manager-service (tk-app/get-service app :PoolManagerService)
+           pool-context (pool-manager-protocol/create-pool pool-manager-service config)
+           pool-state (jruby-core/get-pool-state pool-context)
+           pool (jruby-core/get-pool pool-context)
+           jruby-list (jruby-agents/collect-all-jrubies pool-state)]
+       (is (= 4 (count jruby-list)))
+       (is (every? #(instance? JRubyInstance %) jruby-list))
+       (is (= 0 (.size pool)))))))
