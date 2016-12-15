@@ -21,13 +21,9 @@
       (mod next-id pool-size)
       next-id)))
 
-(schema/defn get-pool-agent :- jruby-schemas/JRubyPoolAgent
-  [pool-context :- jruby-schemas/PoolContext]
-  (get-in pool-context [:internal :pool-agent]))
-
 (schema/defn get-modify-instance-agent :- jruby-schemas/JRubyPoolAgent
   [pool-context :- jruby-schemas/PoolContext]
-  (get-in pool-context [:internal :flush-instance-agent]))
+  (get-in pool-context [:internal :modify-instance-agent]))
 
 (schema/defn ^:always-validate
   send-agent :- jruby-schemas/JRubyPoolAgent
@@ -86,6 +82,8 @@
   [expected-pool-size :- schema/Int
    pool :- jruby-schemas/pool-queue-type]
   (= expected-pool-size (count (.getRegisteredElements pool))))
+
+
 
 (schema/defn collect-all-jrubies :- [JRubyInstance]
   "Locks the pool and borrows all the instances"
@@ -153,21 +151,25 @@
   flush-pool-for-shutdown!
   "Flush of the current JRuby pool when shutting down during a stop.
   Delivers the on-complete promise when the pool has been flushed."
-  ;; Since this function is only called by the pool-agent, we know that if we
+  ;; Since the drain-pool! function takes the pool lock, we know that if we
   ;; receive multiple flush requests before the first one finishes, they will
-  ;; be queued up and we don't need to worry about race conditions between the
-  ;; steps we perform here in the body.
+  ;; be queued up waiting for the lock, which can't be granted until all the instances
+  ;; are returned to the pool, which won't be done until sometimes after
+  ;; this function exits
   [pool-context :- jruby-schemas/PoolContext
    on-complete :- IDeref]
   (try
     (log/info "Flush request received; creating new JRuby pool.")
     (let [pool-state (jruby-internal/get-pool-state pool-context)
           pool (:pool pool-state)
-          pool-size (:size pool-state)]
+          pool-size (:size pool-state)
+          poison-insert-complete (promise)]
       (when-not (pool-initialized? pool-size pool)
         (throw (IllegalStateException. "Attempting to flush a pool that does not appear to have successfully initialized. Aborting.")))
       (drain-pool! pool-context pool-state false)
-      (.insertPill pool (ShutdownPoisonPill. pool)))
+      (send-agent (get-modify-instance-agent pool-context)
+                  #(jruby-internal/fill-pool-with-poison-pills! pool-state poison-insert-complete))
+      @poison-insert-complete)
     (finally
       (deliver on-complete true))))
 

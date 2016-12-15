@@ -133,7 +133,7 @@
        ;; set a ruby constant in each instance so that we can recognize them
        (is (true? (set-constants-and-verify pool-context 4)))
        (jruby-core/flush-pool! pool-context)
-       (is (true? (jruby-testutils/timed-await (jruby-agents/get-pool-agent pool-context)))
+       (is (jruby-testutils/wait-for-instances (jruby-internal/get-pool pool-context) 4)
            (str "timed out waiting for the flush to complete, stack:\n"
                 (get-all-stack-traces-as-str)))
        ;; now the pool is flushed, so the constants should be cleared
@@ -148,7 +148,9 @@
      (let [config (jruby-testutils/jruby-config {:max-active-instances 4
                                                  :borrow-timeout test-borrow-timeout})
            pool-manager-service (tk-app/get-service app :PoolManagerService)
-           pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
+           pool-context (pool-manager-protocol/create-pool pool-manager-service config)
+           pool-state (jruby-internal/get-pool-state pool-context)
+           pool (:pool pool-state)]
        ;; wait for all jrubies to be added to the pool
        (jruby-testutils/wait-for-jrubies-from-pool-context pool-context)
        (is (= 4 (.size (jruby-core/get-pool pool-context))))
@@ -156,8 +158,8 @@
        (let [flushed-pool (jruby-core/get-pool pool-context)]
          ;; flushing the pool removes all JRubyInstances but causes a ShutdownPoisonPill
          ;; to be added
-         (is (= 1 (.size flushed-pool)))
-         (is (jruby-schemas/shutdown-poison-pill? (.borrowItem flushed-pool))))))))
+         (is (= 4 (.size flushed-pool)))
+         (is (every? jruby-schemas/shutdown-poison-pill? (.getRegisteredElements pool))))))))
 
 (deftest ^:integration max-borrows-flush-while-pool-flush-in-progress-test
   (testing "hitting max-borrows while flush in progress doesn't interfere with flush"
@@ -253,7 +255,7 @@
 
          (jruby-core/flush-pool! pool-context)
          ; wait until the flush is complete
-         (await (jruby-agents/get-pool-agent pool-context))
+         (is (jruby-testutils/wait-for-instances (jruby-internal/get-pool pool-context) 1))
          (is (= "Terminating FOO" (deref foo-atom))))))))
 
 (deftest initialize-scripting-container-hook-test

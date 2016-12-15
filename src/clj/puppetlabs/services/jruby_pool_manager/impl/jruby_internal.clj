@@ -86,6 +86,18 @@
    pool :- jruby-schemas/pool-queue-type]
   (.borrowItemWithTimeout pool timeout TimeUnit/MILLISECONDS))
 
+(schema/defn fill-pool-with-poison-pills!
+ [pool-state :- jruby-schemas/PoolState
+  on-complete :- IDeref]
+  (let [pool (:pool pool-state)
+        pool-size (:size pool-state)]
+    (when (not (= pool-size (.remainingCapacity pool)))
+      (throw (IllegalStateException. (str "Pool should be drained before filling it "
+                                          "with poison pills"))))
+    (dotimes [_ pool-size]
+      (.insertPill pool (ShutdownPoisonPill. pool))))
+  (deliver on-complete true))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 

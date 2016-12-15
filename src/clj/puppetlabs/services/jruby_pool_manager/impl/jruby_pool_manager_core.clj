@@ -11,10 +11,7 @@
   [config :- jruby-schemas/JRubyConfig]
   (let [agent-shutdown-fn (get-in config [:lifecycle :shutdown-on-error])]
     {:config config
-     :internal {:pool-agent (jruby-agents/pool-agent agent-shutdown-fn)
-                ;; For an explanation of why we need a separate agent for the `flush-instance`,
-                ;; see the comments in puppetlabs.services.jruby-pool-manager.jruby-agents/send-flush-instance
-                :flush-instance-agent (jruby-agents/pool-agent agent-shutdown-fn)
+     :internal {:modify-instance-agent (jruby-agents/pool-agent agent-shutdown-fn)
                 :pool-state (atom (jruby-internal/create-pool-from-config config))
                 :event-callbacks (atom [])}}))
 

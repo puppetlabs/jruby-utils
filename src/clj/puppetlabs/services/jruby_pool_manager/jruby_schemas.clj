@@ -107,8 +107,7 @@
 (def PoolContext
   "The data structure that stores all JRuby pools and the original configuration."
   {:config JRubyConfig
-   :internal {:pool-agent JRubyPoolAgent
-              :flush-instance-agent JRubyPoolAgent
+   :internal {:modify-instance-agent JRubyPoolAgent
               :pool-state PoolStateContainer
               :event-callbacks Atom}})
 
