@@ -210,7 +210,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
 
     /**
      * Insert a poison pill into the pool.  It should only ever be used to
-     * insert a `PoisonPill` or `RetryPoisonPill` to the pool.
+     * insert a `PoisonPill` or `ShutdownPoisonPill` to the pool.
      */
     @Override
     public void insertPill(E e) {

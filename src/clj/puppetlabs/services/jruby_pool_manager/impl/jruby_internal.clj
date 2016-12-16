@@ -208,10 +208,10 @@
           (jruby-schemas/jruby-instance? instance)
           instance
 
-          ((some-fn nil? jruby-schemas/retry-poison-pill?) instance)
+          (jruby-schemas/shutdown-poison-pill? instance)
           instance
 
-          (instance? ShutdownPoisonPill instance)
+          (nil? instance)
           instance
 
           :else
@@ -244,25 +244,21 @@
   return-to-pool
   "Return a borrowed pool instance to its free pool."
   [instance :- jruby-schemas/JRubyInstanceOrPill]
-  (if (jruby-schemas/jruby-instance? instance)
-    (let [new-state (swap! (get-instance-state-container instance)
-                           update-in [:borrow-count] inc)
-          {:keys [max-borrows flush-instance-fn pool]} (:internal instance)]
-      (if (and (pos? max-borrows)
-               (>= (:borrow-count new-state) max-borrows))
-        (do
-          (log/infof (str "Flushing JRubyInstance %s because it has exceeded the "
-                          "maximum number of borrows (%s)")
-                     (:id instance)
-                     max-borrows)
-          (try
-            (flush-instance-fn pool instance)
-            (finally
-              (.releaseItem pool instance false))))
-        (.releaseItem pool instance)))
-    ;; if we get here, it was from a borrow and we got a Retry, so we just
-    ;; return it to the pool.
-    (.releaseItem (:pool instance) instance)))
+  (let [new-state (swap! (get-instance-state-container instance)
+                         update-in [:borrow-count] inc)
+        {:keys [max-borrows flush-instance-fn pool]} (:internal instance)]
+    (if (and (pos? max-borrows)
+             (>= (:borrow-count new-state) max-borrows))
+      (do
+        (log/infof (str "Flushing JRubyInstance %s because it has exceeded the "
+                        "maximum number of borrows (%s)")
+                   (:id instance)
+                   max-borrows)
+        (try
+          (flush-instance-fn pool instance)
+          (finally
+            (.releaseItem pool instance false))))
+      (.releaseItem pool instance))))
 
 (schema/defn ^:always-validate new-main :- jruby-schemas/JRubyMain
   "Return a new JRubyMain instance which should only be used for CLI purposes,

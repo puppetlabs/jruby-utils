@@ -5,51 +5,12 @@
             [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
             [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.app :as tk-app]
-            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby-pool-manager.impl.jruby-agents :as jruby-agents]
             [puppetlabs.services.jruby-pool-manager.impl.jruby-pool-manager-core :as jruby-pool-manager-core]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol])
-  (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas RetryPoisonPill JRubyInstance)
-           (com.puppetlabs.jruby_utils.pool JRubyPool)))
+  (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance)))
 
 (use-fixtures :once schema-test/validate-schemas)
-
-(deftest with-jruby-retry-test-via-mock-get-pool
-  (testing "with-jruby-instance retries if it encounters a RetryPoisonPill"
-    (tk-bootstrap/with-app-with-config
-     app
-     jruby-testutils/default-services
-     {}
-     (let [config (jruby-testutils/jruby-config {:max-active-instances 1})
-           pool-manager-service (tk-app/get-service app :PoolManagerService)
-           pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
-       (jruby-core/with-jruby-instance
-        jruby-instance
-        pool-context
-        :with-jruby-retry-test
-        (is (instance? JRubyInstance jruby-instance)
-            "Unable to borrow instance before using retry pool"))
-       (let [real-pool (jruby-core/get-pool pool-context)
-             retry-pool (JRubyPool. 1)
-             _ (->> retry-pool
-                    (RetryPoisonPill.)
-                    (.insertPill retry-pool))
-             mock-pools [retry-pool retry-pool retry-pool real-pool]
-             num-borrows (atom 0)
-             get-mock-pool (fn [_] (let [result (nth mock-pools @num-borrows)]
-                                     (swap! num-borrows inc)
-                                     result))]
-         (with-redefs [jruby-internal/get-pool get-mock-pool]
-           (jruby-core/with-jruby-instance
-            jruby-instance
-            pool-context
-            :with-jruby-retry-test
-            (is (instance? JRubyInstance jruby-instance)
-                (format
-                 "Unable to borrow instance after retries.  Num borrows: %d"
-                 @num-borrows))))
-         (is (= 4 @num-borrows)))))))
 
 (deftest next-instance-id-test
   (let [pool-context (jruby-pool-manager-core/create-pool-context

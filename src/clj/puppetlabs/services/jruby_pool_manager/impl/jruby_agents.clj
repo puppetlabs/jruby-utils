@@ -5,8 +5,7 @@
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas])
   (:import (clojure.lang IFn IDeref)
-           (puppetlabs.services.jruby_pool_manager.jruby_schemas PoisonPill RetryPoisonPill
-                                                                 JRubyInstance ShutdownPoisonPill)))
+           (puppetlabs.services.jruby_pool_manager.jruby_schemas PoisonPill JRubyInstance)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private
