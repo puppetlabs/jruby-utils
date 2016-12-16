@@ -155,11 +155,12 @@
        (jruby-testutils/wait-for-jrubies-from-pool-context pool-context)
        (is (= 4 (.size (jruby-core/get-pool pool-context))))
        (jruby-core/flush-pool-for-shutdown! pool-context)
-       (let [flushed-pool (jruby-core/get-pool pool-context)]
-         ;; flushing the pool removes all JRubyInstances but causes a ShutdownPoisonPill
-         ;; to be added
-         (is (= 4 (.size flushed-pool)))
-         (is (every? jruby-schemas/shutdown-poison-pill? (.getRegisteredElements pool))))))))
+
+       ;; flushing the pool removes all JRubyInstances but causes ShutdownPoisonPills
+       ;; to be added, so it should still have 4 instances.
+       (is (= 4 (.size pool)))
+       ;; But they should all be shutdown poison pills
+       (is (every? jruby-schemas/shutdown-poison-pill? (.getRegisteredElements pool)))))))
 
 (deftest ^:integration max-borrows-flush-while-pool-flush-in-progress-test
   (testing "hitting max-borrows while flush in progress doesn't interfere with flush"
@@ -211,7 +212,7 @@
            ;; Wait until instance2 is returned
            (is (jruby-testutils/wait-for-instances pool 3) "Timed out waiting for instance2 to return to pool"))
 
-         ;; and finally, we return the last instance from the old pool
+         ;; and finally, we return the last instance we borrowed to the pool
          (jruby-core/return-to-pool instance1
                                     :max-borrows-flush-while-pool-flush-in-progress-test
                                     [])

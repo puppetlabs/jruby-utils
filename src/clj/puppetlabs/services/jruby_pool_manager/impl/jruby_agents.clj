@@ -39,6 +39,23 @@
 
 (declare send-flush-instance!)
 
+(schema/defn send-and-await-fill-with-poison-pills!
+  "Uses the modify-instance-agent to fill up the pool with poison pills
+
+  insert-fn should be a function that takes in a reference to the pool
+  and inserts some kind of poison pill
+
+  Blocks until the agent has completed filling the pool"
+  [pool-context :- jruby-schemas/PoolContext
+   insert-fn :- IFn]
+  (let [on-complete (promise)
+        pool-state (jruby-internal/get-pool-state pool-context)
+        fill-fn (fn []
+                  (jruby-internal/fill-pool-with-poison-pills! pool-state insert-fn)
+                  (deliver on-complete true))]
+    (send-agent (get-modify-instance-agent pool-context) fill-fn)
+    @on-complete))
+
 (schema/defn ^:always-validate
   prime-pool!
   "Sequentially fill the pool with new JRubyInstances.  NOTE: this
@@ -58,7 +75,13 @@
                        id count))))
       (catch Exception e
         (.clear pool)
-        (.insertPill pool (PoisonPill. e))
+        ; This call to fill-pool-with-poison-pills! doesn't need to be sent
+        ; through an agent because prime-pool! should already be running in
+        ; in the modify-instance-agent
+        (jruby-internal/fill-pool-with-poison-pills!
+         (jruby-internal/get-pool-state pool-context)
+         (partial jruby-internal/insert-poison-pill e))
+
         (throw (IllegalStateException. "There was a problem adding a JRubyInstance to the pool." e))))))
 
 (schema/defn ^:always-validate
@@ -82,8 +105,6 @@
   [expected-pool-size :- schema/Int
    pool :- jruby-schemas/pool-queue-type]
   (= expected-pool-size (count (.getRegisteredElements pool))))
-
-
 
 (schema/defn collect-all-jrubies :- [JRubyInstance]
   "Locks the pool and borrows all the instances"
@@ -127,7 +148,8 @@
                      new-id pool-size)
           (catch Exception e
             (.clear pool)
-            (.insertPill pool (PoisonPill. e))
+            (send-and-await-fill-with-poison-pills! pool-context
+                                                    (partial jruby-internal/insert-poison-pill e))
             (throw (IllegalStateException.
                     "There was a problem creating a JRubyInstance for the pool."
                     e)))))))
@@ -156,22 +178,17 @@
   ;; be queued up waiting for the lock, which can't be granted until all the instances
   ;; are returned to the pool, which won't be done until sometimes after
   ;; this function exits
-  [pool-context :- jruby-schemas/PoolContext
-   on-complete :- IDeref]
-  (try
-    (log/info "Flush request received; creating new JRuby pool.")
-    (let [pool-state (jruby-internal/get-pool-state pool-context)
-          pool (:pool pool-state)
-          pool-size (:size pool-state)
-          poison-insert-complete (promise)]
-      (when-not (pool-initialized? pool-size pool)
-        (throw (IllegalStateException. "Attempting to flush a pool that does not appear to have successfully initialized. Aborting.")))
-      (drain-pool! pool-context pool-state false)
-      (send-agent (get-modify-instance-agent pool-context)
-                  #(jruby-internal/fill-pool-with-poison-pills! pool-state poison-insert-complete))
-      @poison-insert-complete)
-    (finally
-      (deliver on-complete true))))
+  [pool-context :- jruby-schemas/PoolContext]
+  (log/debug "Beginning flush of JRuby pools for shutdown")
+  (let [pool-state (jruby-internal/get-pool-state pool-context)
+        pool (:pool pool-state)
+        pool-size (:size pool-state)]
+    (when-not (pool-initialized? pool-size pool)
+      (throw (IllegalStateException. "Attempting to flush a pool that does not appear to have successfully initialized. Aborting.")))
+    (drain-pool! pool-context pool-state false)
+    (send-and-await-fill-with-poison-pills! pool-context
+                                            jruby-internal/insert-shutdown-poison-pill))
+  (log/debug "Finished flush of JRuby pools for shutdown"))
 
 (schema/defn ^:always-validate
   flush-and-repopulate-pool!
