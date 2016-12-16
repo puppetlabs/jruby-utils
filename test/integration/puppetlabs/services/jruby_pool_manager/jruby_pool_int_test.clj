@@ -197,12 +197,14 @@
            (is (= 9 (:borrow-count (jruby-core/get-instance-state instance2))))
            (is (= 2 (jruby-core/free-instance-count pool)))
 
-           ;; trigger a flush
+           ; Just to show that the pool is not locked yet
+           (is (not (.isLocked pool)))
+           ;; trigger a flush asynchronously
            (future (jruby-core/flush-pool! pool-context))
 
-           ;; at this point, the flush is blocked, waiting for us
-           ;; to release the two instances we're holding before it can start
-
+           ;; Once the lock is held this means that the flush is waiting
+           ;; for all the instances to be returned before continuing
+           (is (jruby-testutils/wait-for-pool-lock pool))
 
            ;; now we're going to return instance2 to the pool.  This should cause it
            ;; to get flushed. The main pool flush operation is still blocked.

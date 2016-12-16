@@ -5,7 +5,8 @@
             [puppetlabs.services.jruby-pool-manager.jruby-pool-manager-service :as pool-manager]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.services :as tk-service]
-            [schema.core :as schema]))
+            [schema.core :as schema])
+  (:import (clojure.lang IFn)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constants
@@ -87,18 +88,33 @@
   [agent]
   (await-for 240000 agent))
 
-(schema/defn wait-for-instances
+(schema/defn wait-for-predicate :- schema/Bool
+  "Wait for some predicate to return true
+  defaults to 20 iterations of 500 ms, ~10 seconds
+  Returns true if f ever returns true, false otherwise"
+  ([f :- IFn]
+   (wait-for-predicate f 20 500))
+  ([f :- IFn
+    max-iterations :- schema/Int
+    sleep-time :- schema/Int]
+   (loop [count 0]
+     (cond (f)
+           true
+
+           (>= count max-iterations)
+           false
+
+           :default
+           (do
+             (Thread/sleep sleep-time)
+             (recur (inc count)))))))
+
+(schema/defn wait-for-instances :- schema/Bool
   [pool :- jruby-schemas/pool-queue-type
    num-instances :- schema/Int]
-  (let [max-iterations 20]
-    (loop [count 0]
-      (cond (= num-instances (jruby-core/free-instance-count pool))
-            true
+  (wait-for-predicate
+   #(= num-instances (jruby-core/free-instance-count pool))))
 
-            (>= count max-iterations)
-            false
-
-            :default
-            (do
-              (Thread/sleep 500)
-              (recur (inc count)))))))
+(schema/defn wait-for-pool-lock :- schema/Bool
+  [pool :- jruby-schemas/pool-queue-type]
+  (wait-for-predicate #(.isLocked pool)))
