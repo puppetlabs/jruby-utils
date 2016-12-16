@@ -50,7 +50,8 @@
   :classifiers [["test" :testutils]]
 
   :profiles {:dev {:dependencies  [[puppetlabs/kitchensink :classifier "test" :scope "test"]
-                                   [puppetlabs/trapperkeeper :classifier "test" :scope "test"]]}
+                                   [puppetlabs/trapperkeeper :classifier "test" :scope "test"]]
+                   :jvm-opts ["-Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger"]}
              :testutils {:source-paths ^:replace ["test/unit" "test/integration"]}}
 
   :plugins [[lein-parent "0.3.1"]]

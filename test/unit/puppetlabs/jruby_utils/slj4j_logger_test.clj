@@ -1,13 +1,13 @@
 (ns puppetlabs.jruby-utils.slj4j-logger-test
   (:require [clojure.test :refer :all]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils])
-  (:import (com.puppetlabs.jruby_utils.jruby Slf4jLogger)))
+  (:import (org.jruby.util.log LoggerFactory)))
 
 (deftest slf4j-logger-test
   (let [actual-logger-name "my-test-logger"
         exception-message "exceptionally bad news"
         expected-logger-name (str "jruby." actual-logger-name)
-        logger (Slf4jLogger. actual-logger-name)
+        logger (LoggerFactory/getLogger actual-logger-name)
         actual-log-event (fn [event]
                            (assoc event :exception
                                         (when-let [exception (:exception event)]
