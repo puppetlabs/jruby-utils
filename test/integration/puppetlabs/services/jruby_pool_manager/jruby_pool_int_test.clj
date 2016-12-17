@@ -200,27 +200,29 @@
            ; Just to show that the pool is not locked yet
            (is (not (.isLocked pool)))
            ;; trigger a flush asynchronously
-           (future (jruby-core/flush-pool! pool-context))
+           (let [flush-future (future (jruby-core/flush-pool! pool-context))]
+             ;; Once the lock is held this means that the flush is waiting
+             ;; for all the instances to be returned before continuing
+             (is (jruby-testutils/wait-for-pool-lock pool))
 
-           ;; Once the lock is held this means that the flush is waiting
-           ;; for all the instances to be returned before continuing
-           (is (jruby-testutils/wait-for-pool-lock pool))
+             ;; now we're going to return instance2 to the pool.  This should cause it
+             ;; to get flushed. The main pool flush operation is still blocked.
+             (jruby-core/return-to-pool instance2
+                                        :max-borrows-flush-while-pool-flush-in-progress-test
+                                        [])
+             ;; Wait until instance2 is returned
+             (is (jruby-testutils/wait-for-instances pool 3) "Timed out waiting for instance2 to return to pool")
 
-           ;; now we're going to return instance2 to the pool.  This should cause it
-           ;; to get flushed. The main pool flush operation is still blocked.
-           (jruby-core/return-to-pool instance2
-                                      :max-borrows-flush-while-pool-flush-in-progress-test
-                                      [])
-           ;; Wait until instance2 is returned
-           (is (jruby-testutils/wait-for-instances pool 3) "Timed out waiting for instance2 to return to pool"))
+             ;; and finally, we return the last instance we borrowed to the pool
+             (jruby-core/return-to-pool instance1
+                                        :max-borrows-flush-while-pool-flush-in-progress-test
+                                        [])
 
-         ;; and finally, we return the last instance we borrowed to the pool
-         (jruby-core/return-to-pool instance1
-                                    :max-borrows-flush-while-pool-flush-in-progress-test
-                                    [])
+             ;; wait until the flush is complete
+             (deref flush-future 10000 false)
+             (is (not (.isLocked pool)))
 
-         ;; wait until the flush is complete
-         (is (jruby-testutils/wait-for-instances pool 4) "Timed out waiting for the flush to finish"))
+             (is (jruby-testutils/wait-for-instances pool 4) "Timed out waiting for the flush to finish"))))
 
        ;; we should have 4 fresh instances with the constant.
        (is (true? (verify-no-constants pool-context 4)))
