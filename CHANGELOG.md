@@ -1,3 +1,10 @@
+### 0.6.0 - 2016-12-19
+
+This is a feature release.
+
+* [SERVER-1475](https://tickets.puppetlabs.com/browse/SERVER-1475) Introduce
+  an Slf4jLogger class for use in routing JRuby log output to slf4j.
+
 ### 0.5.0 - 2016-11-22
 
 This is a minor feature release.
