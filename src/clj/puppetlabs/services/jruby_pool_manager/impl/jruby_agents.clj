@@ -90,12 +90,12 @@
   the modify-instance-agent"
   [pool-context :- jruby-schemas/PoolContext
    instance :- JRubyInstance
-   new-pool :- jruby-schemas/pool-queue-type
    new-id :- schema/Int
    config :- jruby-schemas/JRubyConfig]
-  (let [cleanup-fn (get-in pool-context [:config :lifecycle :cleanup])]
+  (let [cleanup-fn (get-in pool-context [:config :lifecycle :cleanup])
+        pool (jruby-internal/get-pool pool-context)]
     (jruby-internal/cleanup-pool-instance! instance cleanup-fn)
-    (jruby-internal/create-pool-instance! new-pool new-id config
+    (jruby-internal/create-pool-instance! pool new-id config
                                           (partial send-flush-instance! pool-context))))
 
 (schema/defn ^:always-validate
@@ -225,17 +225,9 @@
   (flush-and-repopulate-pool! pool-context))
 
 (schema/defn ^:always-validate
-  send-flush-pool-for-shutdown!
-  "Sends requests to the agent to flush the existing pool to prepare for shutdown."
-  [pool-context :- jruby-schemas/PoolContext
-   on-complete :- IDeref]
-  (flush-pool-for-shutdown! pool-context on-complete))
-
-(schema/defn ^:always-validate
   send-flush-instance! :- jruby-schemas/JRubyPoolAgent
   "Sends requests to the flush-instance agent to flush the instance and create a new one."
   [pool-context :- jruby-schemas/PoolContext
-   pool :- jruby-schemas/pool-queue-type
    instance :- JRubyInstance]
   ;; We use a separate agent from the main `pool-agent` here, because there is a possibility for deadlock otherwise.
   ;; e.g.:
@@ -253,4 +245,4 @@
   (let [{:keys [config]} pool-context
         modify-instance-agent (get-modify-instance-agent pool-context)
         id (next-instance-id (:id instance) pool-context)]
-    (send-agent modify-instance-agent #(flush-instance! pool-context instance pool id config))))
+    (send-agent modify-instance-agent #(flush-instance! pool-context instance id config))))
