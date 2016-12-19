@@ -88,16 +88,6 @@ public interface LockablePool<E> {
     void releaseItem(E e);
 
    /**
-    * Release an item.
-    *
-    * @param e the element
-    * @param returnToPool if <tt>true</tt>, return the item back to the
-    *                     pool.  For a value of <tt>false</tt>, discard the
-    *                     item.
-    */
-    void releaseItem(E e, boolean returnToPool);
-
-   /**
     * Insert a poison pill into the pool.
     *
     * @param e the pill element to add to the queue

@@ -381,36 +381,11 @@
       (is (not (.isLocked pool))))))
 
 (deftest pool-release-item-test
-  (testing (str "releaseItem call with value 'false' does not return item to "
-                "pool but does allow pool to still be lockable")
+  (testing "releaseItem returns item to pool and allows pool to still be lockable"
     (let [pool (create-populated-pool 2)
           instance (.borrowItem pool)]
       (is (= 1 (.size pool)))
-      (.releaseItem pool instance false)
-      (.unregister pool instance)
-      (is (= 1 (.size pool)))
-      (is (not (.isLocked pool)))
-      (.lock pool)
-      (is (.isLocked pool))
-      (is (nil? (timed-deref
-                  (future (.borrowItemWithTimeout pool
-                                                   1
-                                                   TimeUnit/MICROSECONDS))))
-          "timed out waiting for borrow with timeout in lock to finish")
-      (.unlock pool)
-      (is (not (nil? (timed-deref
-                      (future (.borrowItemWithTimeout pool
-                                                      1
-                                                      TimeUnit/MICROSECONDS)))))
-          "timed out waiting for borrow with timeout after unlock to finish")
-      (is (not (.isLocked pool)))))
-       
-  (testing (str "releaseItem call with value 'true' returns item to "
-                "pool and allows pool to still be lockable")
-    (let [pool (create-populated-pool 2)
-          instance (.borrowItem pool)]
-      (is (= 1 (.size pool)))
-      (.releaseItem pool instance true)
+      (.releaseItem pool instance)
       (is (= 2 (.size pool)))
       (is (not (.isLocked pool)))
       (.lock pool)

@@ -254,10 +254,7 @@
                         "maximum number of borrows (%s)")
                    (:id instance)
                    max-borrows)
-        (try
-          (flush-instance-fn pool instance)
-          (finally
-            (.releaseItem pool instance false))))
+        (flush-instance-fn pool instance))
       (.releaseItem pool instance))))
 
 (schema/defn ^:always-validate new-main :- jruby-schemas/JRubyMain

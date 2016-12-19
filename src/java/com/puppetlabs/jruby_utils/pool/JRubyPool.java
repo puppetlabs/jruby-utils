@@ -192,17 +192,10 @@ public final class JRubyPool<E> implements LockablePool<E> {
 
     @Override
     public void releaseItem(E e) {
-        releaseItem(e, true);
-    }
-
-    @Override
-    public void releaseItem(E e, boolean returnToPool) {
         final ReentrantLock lock = this.queueLock;
         lock.lock();
         try {
-            if (returnToPool) {
-                addFirst(e);
-            }
+            addFirst(e);
         } finally {
             lock.unlock();
         }
