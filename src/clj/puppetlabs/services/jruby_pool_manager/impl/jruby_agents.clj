@@ -138,24 +138,24 @@
         config (:config pool-context)
         cleanup-fn (get-in config [:lifecycle :cleanup])]
     (doseq [[old-instance new-id] (zipmap old-instances new-instance-ids)]
-      (jruby-internal/cleanup-pool-instance! old-instance cleanup-fn)
-      (when refill?
-        (try
+      (try
+        (jruby-internal/cleanup-pool-instance! old-instance cleanup-fn)
+        (when refill?
           (jruby-internal/create-pool-instance! pool new-id config
                                                 (partial send-flush-instance! pool-context))
           (log/infof "Finished creating JRubyInstance %d of %d"
-                     new-id pool-size)
-          (catch Exception e
-            (.clear pool)
-            (send-and-await-fill-with-poison-pills! pool-context
-                                                    (partial jruby-internal/insert-poison-pill e))
-            (throw (IllegalStateException.
-                    "There was a problem creating a JRubyInstance for the pool."
-                    e)))))))
+                     new-id pool-size))
+        (catch Exception e
+          (.clear pool)
+          (send-and-await-fill-with-poison-pills! pool-context
+                                                  (partial jruby-internal/insert-poison-pill e))
+          (throw (IllegalStateException.
+                  "There was a problem creating a JRubyInstance for the pool."
+                  e))))))
   (log/info "Finished draining pool."))
 
 (schema/defn ^:always-validate
-  drain-pool!
+  drain-and-refill-pool!
   "Borrow and destroy all the jruby instances, optionally refilling the
   pool with fresh jrubies. Locks the pool in order to drain it, but releases
   the lock before destroying the instances and refilling the pool"
@@ -184,7 +184,7 @@
         pool-size (:size pool-state)]
     (when-not (pool-initialized? pool-size pool)
       (throw (IllegalStateException. "Attempting to flush a pool that does not appear to have successfully initialized. Aborting.")))
-    (drain-pool! pool-context pool-state false)
+    (drain-and-refill-pool! pool-context pool-state false)
     (send-and-await-fill-with-poison-pills! pool-context
                                             jruby-internal/insert-shutdown-poison-pill))
   (log/debug "Finished flush of JRuby pools for shutdown"))
@@ -199,7 +199,7 @@
   ;; steps we perform here in the body.
   (log/info "Flush request received; flushing old JRuby instances.")
   (let [pool-state (jruby-internal/get-pool-state pool-context)]
-    (drain-pool! pool-context pool-state true)))
+    (drain-and-refill-pool! pool-context pool-state true)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
