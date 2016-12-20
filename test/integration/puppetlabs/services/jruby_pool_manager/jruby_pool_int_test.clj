@@ -162,6 +162,46 @@
        ;; But they should all be shutdown poison pills
        (is (every? jruby-schemas/shutdown-poison-pill? (.getRegisteredElements pool)))))))
 
+(deftest ^:integration hold-file-handle-on-instance-while-another-is-flushed-test
+  (testing "file handle opened from one pool instance is held after other jrubies are destoyed"
+    (tk-bootstrap/with-app-with-config
+     app
+     jruby-testutils/default-services
+     {}
+     (let [config (jruby-testutils/jruby-config {:max-active-instances 4
+                                                 :max-borrows-per-instance 10
+                                                 :borrow-timeout test-borrow-timeout})
+           pool-manager-service (tk-app/get-service app :PoolManagerService)
+           pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
+       ;; set a ruby constant in each instance so that we can recognize them
+       (is (true? (set-constants-and-verify pool-context 4)))
+       ;; borrow an instance and hold the reference to it.
+       (let [instance (jruby-core/borrow-from-pool-with-timeout
+                       pool-context
+                       :hold-file-handle-while-another-instance-is-flushed
+                       [])
+             sc (:scripting-container instance)]
+         (.runScriptlet sc
+                        (str "require 'tempfile'\n\n"
+                             "$unique_file = "
+                             "Tempfile.new"
+                             "('hold-instance-test-', './target')"))
+         (try
+           ; After this, the next borrow and return will trigger a flush
+           (borrow-until-desired-borrow-count pool-context 9)
+           (let [instance-to-flush (jruby-core/borrow-from-pool pool-context :instance-to-flush [])]
+             (is (= 9 (:borrow-count (jruby-core/get-instance-state instance-to-flush))))
+             (jruby-core/return-to-pool instance-to-flush :instance-to-flush []))
+
+           (is (nil? (.runScriptlet sc "$unique_file.close"))
+               "Unexpected response on attempt to close unique file")
+           (finally
+             (.runScriptlet sc "$unique_file.unlink")))
+         ;; return the instance
+         (jruby-core/return-to-pool instance :hold-file-handle-while-another-instance-is-flushed [])
+         ;; Show that the instance-to-flush instance did actually get flushed
+         (check-jrubies-for-constant-counts pool-context 3 1))))))
+
 (deftest ^:integration max-borrows-flush-while-pool-flush-in-progress-test
   (testing "hitting max-borrows while flush in progress doesn't interfere with flush"
     (tk-bootstrap/with-app-with-config
