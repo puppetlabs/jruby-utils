@@ -53,4 +53,4 @@
                                    [puppetlabs/trapperkeeper :classifier "test" :scope "test"]]}
              :testutils {:source-paths ^:replace ["test/unit" "test/integration"]}}
 
-  :plugins [[lein-parent "0.3.1" :exclusions [org.clojure/clojure]]])
+  :plugins [[lein-parent "0.3.1"]])
