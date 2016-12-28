@@ -133,7 +133,7 @@
        ;; set a ruby constant in each instance so that we can recognize them
        (is (true? (set-constants-and-verify pool-context 4)))
        (jruby-core/flush-pool! pool-context)
-       (is (jruby-testutils/wait-for-instances (jruby-internal/get-pool pool-context) 4)
+       (is (jruby-testutils/timed-await (jruby-agents/get-modify-instance-agent pool-context))
            (str "timed out waiting for the flush to complete, stack:\n"
                 (get-all-stack-traces-as-str)))
        ;; now the pool is flushed, so the constants should be cleared
@@ -259,12 +259,12 @@
                                         [])
 
              ;; wait until the flush is complete
-             (deref flush-future 10000 false)
+             (is (deref flush-future 10000 false))
              (is (not (.isLocked pool)))
 
              (is (jruby-testutils/wait-for-instances pool 4) "Timed out waiting for the flush to finish"))))
 
-       ;; we should have 4 fresh instances with the constant.
+       ;; we should have 4 fresh instances without the constant.
        (is (true? (verify-no-constants pool-context 4)))
 
        ;; The jruby return instance calls done within the previous
@@ -300,7 +300,7 @@
 
          (jruby-core/flush-pool! pool-context)
          ; wait until the flush is complete
-         (is (jruby-testutils/wait-for-instances (jruby-internal/get-pool pool-context) 1))
+         (is (jruby-testutils/timed-await (jruby-agents/get-modify-instance-agent pool-context)))
          (is (= "Terminating FOO" (deref foo-atom))))))))
 
 (deftest initialize-scripting-container-hook-test

@@ -36,7 +36,7 @@
              pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
          (jruby-core/flush-pool! pool-context)
          ; wait until the flush is complete
-         (jruby-testutils/wait-for-instances (jruby-core/get-pool pool-context) 1)
+         (is (jruby-testutils/timed-await (jruby-agents/get-modify-instance-agent pool-context)))
          (is (= "Hello from cleanup" (deref cleanup-atom))))))))
 
 (deftest collect-all-jrubies-test
