@@ -91,23 +91,9 @@
   (.insertPill pool (ShutdownPoisonPill. pool)))
 
 (schema/defn insert-poison-pill
-  [error :- Throwable
-   pool :- jruby-schemas/pool-queue-type]
+  [pool :- jruby-schemas/pool-queue-type
+   error :- Throwable]
   (.insertPill pool (PoisonPill. error)))
-
-(schema/defn fill-pool-with-poison-pills!
-  "Fill an empty pool with poison pills. Should always be run on the
-  modify-instance-agent. insert-fn should be a fn that inserts a poison
-  pill of some kind into the pool"
-  [pool-state :- jruby-schemas/PoolState
-   insert-fn :- IFn]
-  (let [pool (:pool pool-state)
-        pool-size (:size pool-state)]
-    (when (not (= pool-size (.remainingCapacity pool)))
-      (throw (IllegalStateException. (str "Pool should be drained before filling it "
-                                          "with poison pills"))))
-    (dotimes [_ pool-size]
-      (insert-fn pool))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

@@ -158,8 +158,8 @@
 
        ;; flushing the pool should remove all JRubyInstances
        (is (= 0 (.size pool)))
-       ;; But they should all be shutdown poison pills
-       (is (every? jruby-schemas/shutdown-poison-pill? (.getRegisteredElements pool)))))))
+       ;; any borrows should now return shutdown poison pill
+       (is (jruby-schemas/shutdown-poison-pill? (.borrowItem pool)))))))
 
 (deftest ^:integration hold-file-handle-on-instance-while-another-is-flushed-test
   (testing "file handle opened from one pool instance is held after other jrubies are destoyed"
