@@ -156,9 +156,8 @@
        (is (= 4 (.size (jruby-core/get-pool pool-context))))
        (jruby-core/flush-pool-for-shutdown! pool-context)
 
-       ;; flushing the pool removes all JRubyInstances but causes ShutdownPoisonPills
-       ;; to be added, so it should still have 4 instances.
-       (is (= 4 (.size pool)))
+       ;; flushing the pool should remove all JRubyInstances
+       (is (= 0 (.size pool)))
        ;; But they should all be shutdown poison pills
        (is (every? jruby-schemas/shutdown-poison-pill? (.getRegisteredElements pool)))))))
 

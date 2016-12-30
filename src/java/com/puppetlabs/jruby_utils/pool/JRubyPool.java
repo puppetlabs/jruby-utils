@@ -86,6 +86,12 @@ public final class JRubyPool<E> implements LockablePool<E> {
     // to impose any noticeable performance degradation.
     private volatile Thread poolLockThread = null;
 
+    // Holds a poison pill object for errors and shutdowns
+    // If not null, takes priority over any pool instance when a call to
+    // borrowItem is made. Returns made using releaseItem are ignored if the
+    // released item is the poison pill already stored here
+    private E poisonPill;
+
     /**
      * Create a JRubyPool
      *
@@ -134,6 +140,9 @@ public final class JRubyPool<E> implements LockablePool<E> {
             do {
                 if (isPoolLockHeldByAnotherThread(currentThread)) {
                     poolNotLocked.await();
+                } else if (this.poisonPill != null){
+                    // Return the pill immediately if there is one
+                    item = poisonPill;
                 } else if (liveQueue.size() < 1) {
                     queueNotEmpty.await();
                 } else {
@@ -173,6 +182,9 @@ public final class JRubyPool<E> implements LockablePool<E> {
                     }
                     remainingMaxTimeToWait =
                             poolNotLocked.awaitNanos(remainingMaxTimeToWait);
+                } else if (this.poisonPill != null){
+                    // Return the pill immediately if there is one
+                    item = poisonPill;
                 } else if (liveQueue.size() < 1) {
                     if (remainingMaxTimeToWait <= 0) {
                         break;
@@ -195,7 +207,10 @@ public final class JRubyPool<E> implements LockablePool<E> {
         final ReentrantLock lock = this.queueLock;
         lock.lock();
         try {
-            addFirst(e);
+            // Do nothing if the item being returned is the poisonPill
+            if (e != this.poisonPill){
+                addFirst(e);
+            }
         } finally {
             lock.unlock();
         }
@@ -210,7 +225,8 @@ public final class JRubyPool<E> implements LockablePool<E> {
         final ReentrantLock lock = this.queueLock;
         lock.lock();
         try {
-            addFirst(e);
+            this.poisonPill = e;
+            signalPoolNotEmpty();
         } finally {
             lock.unlock();
         }
@@ -382,7 +398,8 @@ public final class JRubyPool<E> implements LockablePool<E> {
         // is active at a time - a caller of lock() that has just acquired
         // the pool lock but is waiting for all registered elements to be
         // returned to the queue.
-        if (registeredElements.size() == liveQueue.size()) {
+        if (registeredElements.size() == liveQueue.size() ||
+                poisonPill != null) {
             allRegisteredInQueue.signal();
         }
     }

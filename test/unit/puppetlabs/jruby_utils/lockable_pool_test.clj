@@ -584,7 +584,24 @@
     (let [pool (create-populated-pool 1)
           pill (str "i'm a pill")]
       (.insertPill pool pill)
-      (is (identical? (.borrowItem pool) pill)))))
+      (is (identical? (.borrowItem pool) pill))
+      (testing "subsequent borrows return the same pill"
+        (is (identical? (.borrowItem pool) pill)))))
+  (testing "when borrow is blocked, inserting a pill unblocks it"
+    (let [pool (create-populated-pool 1)
+          pill (str "I'm just a pill, yes I'm only a pill")
+          instance (.borrowItem pool)
+          borrow-promise (promise)
+          blocked-borrow (future (let [instance (.borrowItem pool)]
+                                   (deliver borrow-promise instance)))]
+      (is (= 0 (.size pool)))
+      ; Pool is empty and the borrow future is blocked
+      (is (not (realized? borrow-promise)))
+      ; inserting the pill should unblock the promise
+      (.insertPill pool pill)
+      ; borrow finishes and gives us back the pill
+      (let [promise-result (timed-deref borrow-promise)]
+        (is (identical? promise-result pill))))))
 
 (deftest pool-clear-test
   (testing (str "pool clear removes all elements from queue and only matching"
