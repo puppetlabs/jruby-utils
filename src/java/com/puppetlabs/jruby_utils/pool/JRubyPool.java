@@ -90,7 +90,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
     // If not null, takes priority over any pool instance when a call to
     // borrowItem is made. Returns made using releaseItem are ignored if the
     // released item is the poison pill already stored here
-    private E poisonPill;
+    private volatile E pill;
 
     /**
      * Create a JRubyPool
@@ -138,11 +138,11 @@ public final class JRubyPool<E> implements LockablePool<E> {
         try {
             final Thread currentThread = Thread.currentThread();
             do {
-                if (isPoolLockHeldByAnotherThread(currentThread)) {
-                    poolNotLocked.await();
-                } else if (this.poisonPill != null){
+                if (this.pill != null){
                     // Return the pill immediately if there is one
-                    item = poisonPill;
+                    item = pill;
+                } else if (isPoolLockHeldByAnotherThread(currentThread)) {
+                    poolNotLocked.await();
                 } else if (liveQueue.size() < 1) {
                     queueNotEmpty.await();
                 } else {
@@ -176,15 +176,15 @@ public final class JRubyPool<E> implements LockablePool<E> {
             // `LinkedBlockingDeque` in `pollFirst` uses.  See:
             // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/687fd7c7986d/src/share/classes/java/util/concurrent/LinkedBlockingDeque.java#l522
             do {
-                if (isPoolLockHeldByAnotherThread(currentThread)) {
+                if (this.pill != null){
+                    // Return the pill immediately if there is one
+                    item = pill;
+                } else if (isPoolLockHeldByAnotherThread(currentThread)) {
                     if (remainingMaxTimeToWait <= 0) {
                         break;
                     }
                     remainingMaxTimeToWait =
                             poolNotLocked.awaitNanos(remainingMaxTimeToWait);
-                } else if (this.poisonPill != null){
-                    // Return the pill immediately if there is one
-                    item = poisonPill;
                 } else if (liveQueue.size() < 1) {
                     if (remainingMaxTimeToWait <= 0) {
                         break;
@@ -202,13 +202,25 @@ public final class JRubyPool<E> implements LockablePool<E> {
         return item;
     }
 
+    /**
+     * Release an item and return it to the pool. Does nothing if the item
+     * being released is the pill.
+     * Throws an `IllegalArgumentException` if the item is not currently
+     * registered by the pool and the item is not the pill, if one has been
+     * inserted
+     */
     @Override
     public void releaseItem(E e) {
         final ReentrantLock lock = this.queueLock;
         lock.lock();
         try {
-            // Do nothing if the item being returned is the poisonPill
-            if (e != this.poisonPill){
+            if (!isRegistered(e) && e != this.pill){
+                String errorMsg = "The item being released is not registered with the pool";
+                throw new IllegalArgumentException(errorMsg);
+            }
+
+            // Do nothing if the item being returned is the pill
+            if (e != this.pill){
                 addFirst(e);
             }
         } finally {
@@ -216,17 +228,24 @@ public final class JRubyPool<E> implements LockablePool<E> {
         }
     }
 
+    private boolean isRegistered(E e){
+        return this.registeredElements.contains(e);
+    }
+
     /**
      * Insert a poison pill into the pool.  It should only ever be used to
-     * insert a `PoisonPill` or `ShutdownPoisonPill` to the pool.
+     * insert a `PoisonPill` or `ShutdownPoisonPill` to the pool. Only the
+     * first call will insert a pill. Subsequent insertions will be ignored
      */
     @Override
     public void insertPill(E e) {
         final ReentrantLock lock = this.queueLock;
         lock.lock();
         try {
-            this.poisonPill = e;
-            signalPoolNotEmpty();
+            if (this.pill == null){
+                this.pill = e;
+                signalPoolNotEmpty();
+            }
         } finally {
             lock.unlock();
         }
@@ -399,7 +418,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
         // the pool lock but is waiting for all registered elements to be
         // returned to the queue.
         if (registeredElements.size() == liveQueue.size() ||
-                poisonPill != null) {
+                pill != null) {
             allRegisteredInQueue.signal();
         }
     }
