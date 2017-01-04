@@ -20,6 +20,10 @@
       (mod next-id pool-size)
       next-id)))
 
+(schema/defn get-shutdown-on-error-fn :- IFn
+  [pool-context :- jruby-schemas/PoolContext]
+  (get-in pool-context [:internal :shutdown-on-error-fn]))
+
 (schema/defn get-modify-instance-agent :- jruby-schemas/JRubyPoolAgent
   [pool-context :- jruby-schemas/PoolContext]
   (get-in pool-context [:internal :modify-instance-agent]))
@@ -140,7 +144,8 @@
    pool-state :- jruby-schemas/PoolState
    refill? :- schema/Bool]
   (log/info "Draining JRuby pool.")
-  (let [old-instances (collect-all-jrubies pool-state)]
+  (let [shutdown-on-error (get-shutdown-on-error-fn pool-context)
+        old-instances (shutdown-on-error #(collect-all-jrubies pool-state))]
     (log/info "Borrowed all JRuby instances, proceeding with cleanup.")
     (send-agent (get-modify-instance-agent pool-context)
                 #(cleanup-and-refill-pool pool-context pool-state old-instances refill?))))
