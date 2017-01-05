@@ -125,7 +125,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
         lock.lock();
         try {
             registeredElements.remove(e);
-            signalIfAllRegisteredInQueue();
+            signalIfLockCanProceed();
         } finally {
             lock.unlock();
         }
@@ -408,6 +408,10 @@ public final class JRubyPool<E> implements LockablePool<E> {
         }
     }
 
+    /**
+     * Should be called if the pool is no longer empty (or a pill is inserted),
+     * so that threads waiting for pool instances can be woken up
+     */
     private void signalPoolNotEmpty() {
         // Could use 'signalAll' here instead of 'signal' but 'signal' is
         // less expensive in that only one waiter will be woken up.  Can use
@@ -416,10 +420,15 @@ public final class JRubyPool<E> implements LockablePool<E> {
         // subsequent posts of this signal when instances are added/returned to
         // the queue.
         queueNotEmpty.signal();
-        signalIfAllRegisteredInQueue();
+        signalIfLockCanProceed();
     }
 
-    private void signalIfAllRegisteredInQueue() {
+    /**
+     * Checks if threads waiting on the pool lock should be woken up.
+     * This will wake them up if either the number of available instances is
+     * equal to the maximum size of the pool, or if a pill has been inserted
+     */
+    private void signalIfLockCanProceed() {
         // Could use 'signalAll' here instead of 'signal'.  Doesn't really
         // matter though in that there will only be one waiter at most which
         // is active at a time - a caller of lock() that has just acquired
