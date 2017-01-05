@@ -45,9 +45,10 @@ public final class JRubyPool<E> implements LockablePool<E> {
     private final ReentrantLock queueLock = new ReentrantLock(false);
 
     // Condition signaled when all elements that have been registered have been
-    // returned to the queue.  Awaited when a lock has been requested but
-    // one or more registered elements has been borrowed from the pool.
-    private final Condition allRegisteredInQueue = queueLock.newCondition();
+    // returned to the queue or if a pill has been inserted.  Awaited when a
+    // lock has been requested but one or more registered elements has been
+    // borrowed from the pool.
+    private final Condition lockAvailable = queueLock.newCondition();
 
     // Condition signaled when an element has been added into the queue.
     // Awaited when a request has been made to borrow an item but no elements
@@ -327,7 +328,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
             }
             try {
                 while (registeredElements.size() != liveQueue.size()) {
-                    allRegisteredInQueue.await();
+                    lockAvailable.await();
                     if (this.pill != null){
                         throw new InterruptedException(pillErrorMsg);
                     }
@@ -427,7 +428,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
         // returned to the queue.
         if (registeredElements.size() == liveQueue.size() ||
                 pill != null) {
-            allRegisteredInQueue.signal();
+            lockAvailable.signal();
         }
     }
 
