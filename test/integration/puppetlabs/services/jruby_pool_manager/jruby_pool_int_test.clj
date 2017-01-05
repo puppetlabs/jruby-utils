@@ -242,7 +242,7 @@
            (let [flush-future (future (jruby-core/flush-pool! pool-context))]
              ;; Once the lock is held this means that the flush is waiting
              ;; for all the instances to be returned before continuing
-             (is (jruby-testutils/wait-for-pool-lock pool))
+             (is (jruby-testutils/wait-for-pool-to-be-locked pool))
 
              ;; now we're going to return instance2 to the pool.  This should cause it
              ;; to get flushed. The main pool flush operation is still blocked.

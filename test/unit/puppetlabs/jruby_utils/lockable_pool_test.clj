@@ -662,7 +662,7 @@
                                                e)))]
         ; The future's thread will take the lock, and then block waiting for
         ; either the pool to fill up, or a pill to be inserted
-        (jruby-testutils/wait-for-pool-lock pool)
+        (jruby-testutils/wait-for-pool-to-be-locked pool)
         (.insertPill pool pill)
         (let [exception @blocked-lock-future]
           (is (= InterruptedException (type exception)))

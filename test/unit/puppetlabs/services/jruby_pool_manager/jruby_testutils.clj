@@ -115,6 +115,6 @@
   (wait-for-predicate
    #(= num-instances (jruby-core/free-instance-count pool))))
 
-(schema/defn wait-for-pool-lock :- schema/Bool
+(schema/defn wait-for-pool-to-be-locked :- schema/Bool
   [pool :- jruby-schemas/pool-queue-type]
   (wait-for-predicate #(.isLocked pool)))
