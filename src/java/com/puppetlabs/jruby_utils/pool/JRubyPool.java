@@ -215,13 +215,12 @@ public final class JRubyPool<E> implements LockablePool<E> {
         final ReentrantLock lock = this.queueLock;
         lock.lock();
         try {
-            if (!isRegistered(e) && e != this.pill){
-                String errorMsg = "The item being released is not registered with the pool";
-                throw new IllegalArgumentException(errorMsg);
-            }
-
-            // Do nothing if the item being returned is the pill
             if (e != this.pill){
+                if (!isRegistered(e)){
+                    String errorMsg = "The item being released is not registered with the pool";
+                    throw new IllegalArgumentException(errorMsg);
+                }
+
                 addFirst(e);
             }
         } finally {
