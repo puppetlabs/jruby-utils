@@ -1,5 +1,6 @@
 (ns puppetlabs.jruby_utils.lockable-pool-test
-  (:require [clojure.test :refer :all])
+  (:require [clojure.test :refer :all]
+            [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils])
   (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
            (java.util.concurrent TimeUnit ExecutionException)))
 
@@ -649,18 +650,19 @@
 
   (testing "a blocked .lock call throws an InterruptedException once a pill is inserted"
     (let [pool (create-populated-pool 1)
-          pill "pillful ignorance"
-          instance (.borrowItem pool)]
+          pill "pillful ignorance"]
+      ; Make it so the pool is not full
+      (.borrowItem pool)
+
       ; Exceptions thrown from the future will be returned as InterruptedException,
       ; so we can't use thrown-with-msg?. We'll catch it, return it instead of
       ; throwing it, and inspect it manually below
       (let [blocked-lock-future (future (try (.lock pool)
                                              (catch InterruptedException e
                                                e)))]
-        ; Give future time to start
-        (Thread/sleep 500)
-        ; At this point, the future can't lock the pool
-        ; because the pool needs to be full first, or a pill inserted
+        ; The future's thread will take the lock, and then block waiting for
+        ; either the pool to fill up, or a pill to be inserted
+        (jruby-testutils/wait-for-pool-lock pool)
         (.insertPill pool pill)
         (let [exception @blocked-lock-future]
           (is (= InterruptedException (type exception)))
