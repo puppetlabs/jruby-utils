@@ -312,6 +312,11 @@ public final class JRubyPool<E> implements LockablePool<E> {
         final ReentrantLock lock = this.queueLock;
         lock.lock();
         try {
+            String pillErrorMsg = "Lock can't be granted because a pill has been inserted";
+            if (this.pill != null){
+                throw new InterruptedException(pillErrorMsg);
+            }
+
             final Thread currentThread = Thread.currentThread();
             while (!isPoolLockHeldByCurrentThread(currentThread)) {
                 if (!isPoolLockHeld()) {
@@ -323,6 +328,9 @@ public final class JRubyPool<E> implements LockablePool<E> {
             try {
                 while (registeredElements.size() != liveQueue.size()) {
                     allRegisteredInQueue.await();
+                    if (this.pill != null){
+                        throw new InterruptedException(pillErrorMsg);
+                    }
                 }
             } catch (Exception e) {
                 freePoolLock();
