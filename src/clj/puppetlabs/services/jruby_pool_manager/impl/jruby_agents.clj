@@ -133,7 +133,9 @@
           (throw (IllegalStateException.
                   "There was a problem creating a JRubyInstance for the pool."
                   e))))))
-  (log/info "Finished draining pool."))
+  (if refill?
+    (log/info "Finished draining and refilling pool.")
+    (log/info "Finished draining pool.")))
 
 (schema/defn ^:always-validate
   drain-and-refill-pool!
@@ -143,7 +145,9 @@
   [pool-context :- jruby-schemas/PoolContext
    pool-state :- jruby-schemas/PoolState
    refill? :- schema/Bool]
-  (log/info "Draining JRuby pool.")
+  (if refill?
+    (log/info "Draining and refilling JRuby pool.")
+    (log/info "Draining JRuby pool."))
   (let [shutdown-on-error (get-shutdown-on-error-fn pool-context)
         old-instances (shutdown-on-error #(collect-all-jrubies pool-state))]
     (log/info "Borrowed all JRuby instances, proceeding with cleanup.")
