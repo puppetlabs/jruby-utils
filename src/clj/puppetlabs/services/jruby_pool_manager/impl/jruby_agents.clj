@@ -168,8 +168,6 @@
   (let [pool-state (jruby-internal/get-pool-state pool-context)
         pool (:pool pool-state)
         pool-size (:size pool-state)]
-    (when-not (pool-initialized? pool-size pool)
-      (throw (IllegalStateException. "Attempting to flush a pool that does not appear to have successfully initialized. Aborting.")))
     (drain-and-refill-pool! pool-context pool-state false)
     (jruby-internal/insert-shutdown-poison-pill pool))
   (log/debug "Finished flush of JRuby pools for shutdown"))
