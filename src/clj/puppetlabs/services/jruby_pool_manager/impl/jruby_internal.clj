@@ -228,20 +228,24 @@
 
 (schema/defn ^:always-validate
   return-to-pool
-  "Return a borrowed pool instance to its free pool."
+  "Return a borrowed pool instance to its free pool.
+  Also check if the borrow count has exceeded, and flush it if needed.
+  If the instance is not a JRubyInstance, it must be a poison pill, in
+  which case this function is a noop"
   [instance :- jruby-schemas/JRubyInstanceOrPill]
-  (let [new-state (swap! (get-instance-state-container instance)
-                         update-in [:borrow-count] inc)
-        {:keys [max-borrows flush-instance-fn pool]} (:internal instance)]
-    (if (and (pos? max-borrows)
-             (>= (:borrow-count new-state) max-borrows))
-      (do
-        (log/infof (str "Flushing JRubyInstance %s because it has exceeded the "
-                        "maximum number of borrows (%s)")
-                   (:id instance)
-                   max-borrows)
-        (flush-instance-fn instance))
-      (.releaseItem pool instance))))
+  (when (jruby-schemas/jruby-instance? instance)
+    (let [new-state (swap! (get-instance-state-container instance)
+                           update-in [:borrow-count] inc)
+          {:keys [max-borrows flush-instance-fn pool]} (:internal instance)]
+      (if (and (pos? max-borrows)
+               (>= (:borrow-count new-state) max-borrows))
+        (do
+          (log/infof (str "Flushing JRubyInstance %s because it has exceeded the "
+                          "maximum number of borrows (%s)")
+                     (:id instance)
+                     max-borrows)
+          (flush-instance-fn instance))
+        (.releaseItem pool instance)))))
 
 (schema/defn ^:always-validate new-main :- jruby-schemas/JRubyMain
   "Return a new JRubyMain instance which should only be used for CLI purposes,
