@@ -101,7 +101,6 @@
   "The data structure that stores all JRuby pools and the original configuration."
   {:config JRubyConfig
    :internal {:modify-instance-agent JRubyPoolAgent
-              :shutdown-on-error-fn IFn
               :pool-state PoolStateContainer
               :event-callbacks Atom}})
 

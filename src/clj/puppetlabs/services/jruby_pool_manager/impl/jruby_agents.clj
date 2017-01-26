@@ -22,7 +22,7 @@
 
 (schema/defn get-shutdown-on-error-fn :- IFn
   [pool-context :- jruby-schemas/PoolContext]
-  (get-in pool-context [:internal :shutdown-on-error-fn]))
+  (get-in pool-context [:config :lifecycle :shutdown-on-error]))
 
 (schema/defn get-modify-instance-agent :- jruby-schemas/JRubyPoolAgent
   [pool-context :- jruby-schemas/PoolContext]

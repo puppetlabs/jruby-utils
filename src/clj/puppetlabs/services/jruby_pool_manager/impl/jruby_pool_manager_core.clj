@@ -12,7 +12,6 @@
   (let [shutdown-on-error-fn (get-in config [:lifecycle :shutdown-on-error])]
     {:config config
      :internal {:modify-instance-agent (jruby-agents/pool-agent shutdown-on-error-fn)
-                :shutdown-on-error-fn shutdown-on-error-fn
                 :pool-state (atom (jruby-internal/create-pool-from-config config))
                 :event-callbacks (atom [])}}))
 
