@@ -307,6 +307,11 @@ public final class JRubyPool<E> implements LockablePool<E> {
         return size;
     }
 
+    /**
+     * Lock the pool. Blocks until the lock is granted and the pool has been filled
+     * back up to its full capacity
+     * @throws InterruptedException
+     */
     @Override
     public void lock() throws InterruptedException {
         final ReentrantLock lock = this.queueLock;
@@ -326,7 +331,8 @@ public final class JRubyPool<E> implements LockablePool<E> {
                 }
             }
             try {
-                while (registeredElements.size() != liveQueue.size()) {
+                //
+                while (liveQueue.size() != this.maxSize) {
                     lockAvailable.await();
                     if (this.pill != null){
                         throw new InterruptedException(pillErrorMsg);
