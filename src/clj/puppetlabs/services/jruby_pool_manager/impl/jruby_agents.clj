@@ -87,7 +87,7 @@
    pool :- jruby-schemas/pool-queue-type]
   (= expected-pool-size (count (.getRegisteredElements pool))))
 
-(schema/defn collect-all-jrubies :- [JRubyInstance]
+(schema/defn borrow-all-jrubies :- [JRubyInstance]
   "Locks the pool and borrows all the instances"
   [pool-state :- jruby-schemas/PoolState]
   (let [pool-size (:size pool-state)
@@ -149,7 +149,7 @@
     (log/info "Draining and refilling JRuby pool.")
     (log/info "Draining JRuby pool."))
   (let [shutdown-on-error (get-shutdown-on-error-fn pool-context)
-        old-instances (shutdown-on-error #(collect-all-jrubies pool-state))]
+        old-instances (shutdown-on-error #(borrow-all-jrubies pool-state))]
     (log/info "Borrowed all JRuby instances, proceeding with cleanup.")
     (send-agent (get-modify-instance-agent pool-context)
                 #(cleanup-and-refill-pool pool-context pool-state old-instances refill?))))

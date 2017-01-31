@@ -50,7 +50,7 @@
            pool-context (pool-manager-protocol/create-pool pool-manager-service config)
            pool-state (jruby-core/get-pool-state pool-context)
            pool (jruby-core/get-pool pool-context)
-           jruby-list (jruby-agents/collect-all-jrubies pool-state)]
+           jruby-list (jruby-agents/borrow-all-jrubies pool-state)]
        (is (= 4 (count jruby-list)))
        (is (every? #(instance? JRubyInstance %) jruby-list))
        (is (= 0 (.size pool)))))))
