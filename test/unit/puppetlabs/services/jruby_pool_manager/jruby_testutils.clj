@@ -5,6 +5,7 @@
             [puppetlabs.services.jruby-pool-manager.jruby-pool-manager-service :as pool-manager]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.services :as tk-service]
+            [clojure.tools.logging :as log]
             [schema.core :as schema])
   (:import (clojure.lang IFn)))
 
@@ -102,7 +103,9 @@
            true
 
            (>= count max-iterations)
-           false
+           (do
+             (log/debugf "Waiting for predicate failed after %s tries" max-iterations)
+             false)
 
            :default
            (do
