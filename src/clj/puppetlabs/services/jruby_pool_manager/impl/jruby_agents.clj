@@ -113,7 +113,8 @@
   [pool-context :- jruby-schemas/PoolContext
    pool-state :- jruby-schemas/PoolState
    old-instances :- [JRubyInstance]
-   refill? :- schema/Bool]
+   refill? :- schema/Bool
+   on-complete :- IDeref]
   (let [pool (:pool pool-state)
         pool-size (:size pool-state)
         new-instance-ids (map inc (range pool-size))
@@ -135,24 +136,34 @@
                   e))))))
   (if refill?
     (log/info "Finished draining and refilling pool.")
-    (log/info "Finished draining pool.")))
+    (log/info "Finished draining pool."))
+  (deliver on-complete true))
 
 (schema/defn ^:always-validate
   drain-and-refill-pool!
   "Borrow and destroy all the jruby instances, optionally refilling the
   pool with fresh jrubies. Locks the pool in order to drain it, but releases
-  the lock before destroying the instances and refilling the pool"
-  [pool-context :- jruby-schemas/PoolContext
-   pool-state :- jruby-schemas/PoolState
-   refill? :- schema/Bool]
-  (if refill?
-    (log/info "Draining and refilling JRuby pool.")
-    (log/info "Draining JRuby pool."))
-  (let [shutdown-on-error (get-shutdown-on-error-fn pool-context)
-        old-instances (shutdown-on-error #(borrow-all-jrubies pool-state))]
-    (log/info "Borrowed all JRuby instances, proceeding with cleanup.")
-    (send-agent (get-modify-instance-agent pool-context)
-                #(cleanup-and-refill-pool pool-context pool-state old-instances refill?))))
+  the lock before destroying the instances and refilling the pool
+
+  If an on-complete promise is given, it can be used by the caller to make
+  this function syncronous. Otherwise it only blocks until the pool instances
+  have been borrowed and the cleanup-and-refill-pool fn is sent to the agent"
+  ([pool-context :- jruby-schemas/PoolContext
+    pool-state :- jruby-schemas/PoolState
+    refill? :- schema/Bool]
+   (drain-and-refill-pool! pool-context pool-state refill? (promise)))
+  ([pool-context :- jruby-schemas/PoolContext
+    pool-state :- jruby-schemas/PoolState
+    refill? :- schema/Bool
+    on-complete :- IDeref]
+   (if refill?
+     (log/info "Draining and refilling JRuby pool.")
+     (log/info "Draining JRuby pool."))
+   (let [shutdown-on-error (get-shutdown-on-error-fn pool-context)
+         old-instances (shutdown-on-error #(borrow-all-jrubies pool-state))]
+     (log/info "Borrowed all JRuby instances, proceeding with cleanup.")
+     (send-agent (get-modify-instance-agent pool-context)
+                 #(cleanup-and-refill-pool pool-context pool-state old-instances refill? on-complete)))))
 
 (schema/defn ^:always-validate
   flush-pool-for-shutdown!
@@ -160,29 +171,17 @@
   Delivers the on-complete promise when the pool has been flushed."
   ;; Since the drain-pool! function takes the pool lock, we know that if we
   ;; receive multiple flush requests before the first one finishes, they will
-  ;; be queued up waiting for the lock, which can't be granted until all the instances
-  ;; are returned to the pool, which won't be done until sometimes after
-  ;; this function exits
-  [pool-context :- jruby-schemas/PoolContext]
+  ;; be queued up waiting for the lock, which will never be granted because this
+  ;; function does not refill the pool, but instead inserts a shutdown poison pill
+  [pool-context :- jruby-schemas/PoolContext
+   on-complete :- IDeref]
   (log/debug "Beginning flush of JRuby pools for shutdown")
   (let [pool-state (jruby-internal/get-pool-state pool-context)
-        pool (:pool pool-state)
-        pool-size (:size pool-state)]
-    (drain-and-refill-pool! pool-context pool-state false)
+        pool (:pool pool-state)]
+    (drain-and-refill-pool! pool-context pool-state false on-complete)
     (jruby-internal/insert-shutdown-poison-pill pool))
-  (log/debug "Finished flush of JRuby pools for shutdown"))
-
-(schema/defn ^:always-validate
-  flush-and-repopulate-pool!
-  "Flush of the current JRuby pool."
-  [pool-context :- jruby-schemas/PoolContext]
-  ;; Since this function is only called by the pool-agent, we know that if we
-  ;; receive multiple flush requests before the first one finishes, they will
-  ;; be queued up and we don't need to worry about race conditions between the
-  ;; steps we perform here in the body.
-  (log/info "Flush request received; flushing old JRuby instances.")
-  (let [pool-state (jruby-internal/get-pool-state pool-context)]
-    (drain-and-refill-pool! pool-context pool-state true)))
+  (log/debug "Finished flush of JRuby pools for shutdown")
+  @on-complete)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -202,29 +201,26 @@
     (send-agent modify-instance-agent #(prime-pool! pool-context))))
 
 (schema/defn ^:always-validate
-  send-flush-and-repopulate-pool! :- jruby-schemas/JRubyPoolAgent
-  "Sends requests to the agent to flush the existing pool and create a new one."
+flush-and-repopulate-pool!
+  "Flush of the current JRuby pool. Blocks until all the instances have
+  been borrowed from the pool, and before the pool has been refilled"
   [pool-context :- jruby-schemas/PoolContext]
-  (flush-and-repopulate-pool! pool-context))
+  ;; Since the drain-and-refill-pool! function takes the pool lock, we know that if we
+  ;; receive multiple flush requests before the first one finishes, they will
+  ;; be queued up waiting for the lock, which can't be granted until all the instances
+  ;; are returned to the pool, which won't be done until sometimes after
+  ;; this function exits
+  (log/info "Flush request received; flushing old JRuby instances.")
+  (let [pool-state (jruby-internal/get-pool-state pool-context)]
+    (drain-and-refill-pool! pool-context pool-state true)))
 
 (schema/defn ^:always-validate
   send-flush-instance! :- jruby-schemas/JRubyPoolAgent
   "Sends requests to the flush-instance agent to flush the instance and create a new one."
   [pool-context :- jruby-schemas/PoolContext
    instance :- JRubyInstance]
-  ;; We use a separate agent from the main `pool-agent` here, because there is a possibility for deadlock otherwise.
-  ;; e.g.:
-  ;; 1. A flush-pool request comes in, and we start using the main pool agent to flush the pool.  We do that by
-  ;;    borrowing all of the instances from the pool as they are returned to it, and the agent doesn't return
-  ;;    control until it has borrowed the correct number of instances.
-  ;; 2. While that is happening, an individual instance reaches the 'max-borrows' value.  This instance will never
-  ;;    be returned to the pool; it is handled by sending a function to an agent, which will flush the individual
-  ;;    instance, create a replacement one, and return that to the pool.
-  ;;
-  ;; If we use the same agent for both of these operations, then step 2 will never begin until step 1 completes, and
-  ;; step 1 will never complete because the `max-borrows` instance will never be returned to the pool.
-  ;;
-  ;; Using a separate agent for the 'max-borrows' instance flush alleviates this issue.
+  ;; We use an agent to syncronize jruby creation and destruction to migitage
+  ;; any possible race conditions in the underlying jruby scripting container
   (let [{:keys [config]} pool-context
         modify-instance-agent (get-modify-instance-agent pool-context)
         id (next-instance-id (:id instance) pool-context)]

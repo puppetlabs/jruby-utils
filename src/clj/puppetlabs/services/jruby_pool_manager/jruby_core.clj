@@ -222,14 +222,16 @@
   flush-pool!
   "Flush all the current JRubyInstances and repopulate the pool."
   [pool-context]
-  (jruby-agents/send-flush-and-repopulate-pool! pool-context))
+  (jruby-agents/flush-and-repopulate-pool! pool-context))
 
 (schema/defn ^:always-validate
   flush-pool-for-shutdown!
   "Flush all the current JRubyInstances so that the pool can be shutdown
   without any instances being active."
   [pool-context]
-  (jruby-agents/flush-pool-for-shutdown! pool-context))
+  (let [on-complete (promise)]
+    (jruby-agents/flush-pool-for-shutdown! pool-context on-complete)
+    @on-complete))
 
 (schema/defn ^:always-validate
   lock-pool
