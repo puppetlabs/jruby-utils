@@ -94,57 +94,6 @@
         ;; make sure we got here
         (is (true? true))))))
 
-(deftest pool-lock-is-blocking-until-borrows-unregistered-test
-  (let [pool (create-populated-pool 3)
-        instances (borrow-n-instances pool 2)]
-    (is (= 2 (count instances)))
-    (is (not (.isLocked pool)))
-
-    (let [future-started? (promise)
-          lock-acquired? (promise)
-          unlock? (promise)
-          lock-thread (future (deliver future-started? true)
-                              (.lock pool)
-                              (deliver lock-acquired? true)
-                              @unlock?
-                              (.unlock pool)
-                              true)]
-      @future-started?
-      (testing "pool.lock() blocks until borrowed instances are unregistered"
-        (is (not (realized? lock-thread)))
-
-        (testing (str "other threads may successfully unregister instances "
-                      "while pool.lock() is being executed")
-          (.unregister pool (first instances))
-          (is (not (realized? lock-thread)))
-          (.unregister pool (second instances)))
-
-        (is (true? (timed-deref lock-acquired?))
-            "timed out waiting for the lock thread to be acquired"))
-        (is (not (realized? lock-thread)))
-        (is (.isLocked pool))
-        (deliver unlock? true)
-        (is (true? (timed-deref lock-thread))
-            "timed out waiting for the lock thread to finish"))
-        (is (not (.isLocked pool)))
-
-    (let [future-started? (promise)
-          last-instance (.borrowItem pool)
-          lock-thread (future (deliver future-started? true)
-                              (.lock pool)
-                              true)]
-      @future-started?
-      (testing "pool.lock() blocks until last borrowed instance is unregistered"
-        (is (not (realized? lock-thread)))
-
-        (testing (str "last instance can be unregistered while pool.lock() "
-                      "is being executed")
-          (.unregister pool last-instance))
-
-        (is (true? (timed-deref lock-thread))
-            "timed out waiting for the lock thread to finish")
-        (is (.isLocked pool))))))
-
 (deftest pool-lock-blocks-borrows-test
   (testing "no other threads may borrow once pool.lock() has been invoked (before or after it returns)"
     (let [pool (create-populated-pool 2)
