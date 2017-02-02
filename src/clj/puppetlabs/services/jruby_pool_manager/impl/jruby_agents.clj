@@ -103,8 +103,7 @@
   new instances. Should only be called from the modify-instance-agent"
   [pool-context :- jruby-schemas/PoolContext
    old-instances :- [JRubyInstance]
-   refill? :- schema/Bool
-   on-complete :- IDeref]
+   refill? :- schema/Bool]
   (let [pool (jruby-internal/get-pool pool-context)
         pool-size (jruby-internal/get-pool-size pool-context)
         new-instance-ids (map inc (range pool-size))
@@ -126,8 +125,7 @@
                   e))))))
   (if refill?
     (log/info "Finished draining and refilling pool.")
-    (log/info "Finished draining pool."))
-  (deliver on-complete true))
+    (log/info "Finished draining pool.")))
 
 (schema/defn ^:always-validate
   drain-and-refill-pool!
@@ -148,15 +146,18 @@
      (log/info "Draining and refilling JRuby pool.")
      (log/info "Draining JRuby pool."))
    (let [shutdown-on-error (get-shutdown-on-error-fn pool-context)
-         old-instances (shutdown-on-error #(borrow-all-jrubies pool-context))]
+         old-instances (shutdown-on-error #(borrow-all-jrubies pool-context))
+         modify-instance-agent (get-modify-instance-agent pool-context)
+         ; Make sure the promise is delivered even if cleanup fails
+         try-cleanup-and-refill #(try
+                                   (cleanup-and-refill-pool pool-context old-instances refill?)
+                                   (finally (deliver on-complete true)))]
      (log/info "Borrowed all JRuby instances, proceeding with cleanup.")
-     (send-agent (get-modify-instance-agent pool-context)
-                 #(cleanup-and-refill-pool pool-context old-instances refill? on-complete)))))
+     (send-agent modify-instance-agent try-cleanup-and-refill))))
 
 (schema/defn ^:always-validate
   flush-pool-for-shutdown!
-  "Flush of the current JRuby pool when shutting down during a stop.
-  Delivers the on-complete promise when the pool has been flushed."
+  "Flush of the current JRuby pool when shutting down during a stop."
   ;; Since the drain-pool! function takes the pool lock, we know that if we
   ;; receive multiple flush requests before the first one finishes, they will
   ;; be queued up waiting for the lock, which will never be granted because this
