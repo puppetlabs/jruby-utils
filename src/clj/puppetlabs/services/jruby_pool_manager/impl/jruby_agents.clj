@@ -190,9 +190,10 @@
     (send-agent modify-instance-agent #(prime-pool! pool-context))))
 
 (schema/defn ^:always-validate
-flush-and-repopulate-pool!
+  flush-and-repopulate-pool!
   "Flush of the current JRuby pool. Blocks until all the instances have
-  been borrowed from the pool, and before the pool has been refilled"
+  been borrowed from the pool, but does not wait for the instances
+  to be flushed or recreated"
   [pool-context :- jruby-schemas/PoolContext]
   ;; Since the drain-and-refill-pool! function takes the pool lock, we know that if we
   ;; receive multiple flush requests before the first one finishes, they will
@@ -207,7 +208,7 @@ flush-and-repopulate-pool!
   "Sends requests to the flush-instance agent to flush the instance and create a new one."
   [pool-context :- jruby-schemas/PoolContext
    instance :- JRubyInstance]
-  ;; We use an agent to syncronize jruby creation and destruction to migitage
+  ;; We use an agent to syncronize jruby creation and destruction to mitigate
   ;; any possible race conditions in the underlying jruby scripting container
   (let [{:keys [config]} pool-context
         modify-instance-agent (get-modify-instance-agent pool-context)
