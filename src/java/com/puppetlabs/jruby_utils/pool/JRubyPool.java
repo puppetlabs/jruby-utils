@@ -331,7 +331,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
                 }
             }
             try {
-                //
+                // Wait until the pool has been completely filled
                 while (liveQueue.size() != this.maxSize) {
                     lockAvailable.await();
                     if (this.pill != null){
