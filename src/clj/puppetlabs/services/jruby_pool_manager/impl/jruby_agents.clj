@@ -161,15 +161,16 @@
   ;; receive multiple flush requests before the first one finishes, they will
   ;; be queued up waiting for the lock, which will never be granted because this
   ;; function does not refill the pool, but instead inserts a shutdown poison pill
-  [pool-context :- jruby-schemas/PoolContext
-   on-complete :- IDeref]
+  [pool-context :- jruby-schemas/PoolContext]
   (log/debug "Beginning flush of JRuby pools for shutdown")
   (let [pool-state (jruby-internal/get-pool-state pool-context)
-        pool (:pool pool-state)]
+        pool (:pool pool-state)
+        on-complete (promise)]
     (drain-and-refill-pool! pool-context false on-complete)
-    (jruby-internal/insert-shutdown-poison-pill pool))
-  (log/debug "Finished flush of JRuby pools for shutdown")
-  @on-complete)
+    (jruby-internal/insert-shutdown-poison-pill pool)
+    ; Wait for flush to complete
+    @on-complete
+    (log/debug "Finished flush of JRuby pools for shutdown")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

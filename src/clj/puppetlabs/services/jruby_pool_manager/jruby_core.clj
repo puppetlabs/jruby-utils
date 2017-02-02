@@ -229,9 +229,7 @@
   "Flush all the current JRubyInstances so that the pool can be shutdown
   without any instances being active."
   [pool-context]
-  (let [on-complete (promise)]
-    (jruby-agents/flush-pool-for-shutdown! pool-context on-complete)
-    @on-complete))
+  (jruby-agents/flush-pool-for-shutdown! pool-context))
 
 (schema/defn ^:always-validate
   lock-pool
