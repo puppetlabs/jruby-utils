@@ -1,5 +1,6 @@
 (ns puppetlabs.jruby_utils.lockable-pool-test
-  (:require [clojure.test :refer :all])
+  (:require [clojure.test :refer :all]
+            [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils])
   (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
            (java.util.concurrent TimeUnit ExecutionException)))
 
@@ -92,57 +93,6 @@
           (.releaseItem pool instance))
         ;; make sure we got here
         (is (true? true))))))
-
-(deftest pool-lock-is-blocking-until-borrows-unregistered-test
-  (let [pool (create-populated-pool 3)
-        instances (borrow-n-instances pool 2)]
-    (is (= 2 (count instances)))
-    (is (not (.isLocked pool)))
-
-    (let [future-started? (promise)
-          lock-acquired? (promise)
-          unlock? (promise)
-          lock-thread (future (deliver future-started? true)
-                              (.lock pool)
-                              (deliver lock-acquired? true)
-                              @unlock?
-                              (.unlock pool)
-                              true)]
-      @future-started?
-      (testing "pool.lock() blocks until borrowed instances are unregistered"
-        (is (not (realized? lock-thread)))
-
-        (testing (str "other threads may successfully unregister instances "
-                      "while pool.lock() is being executed")
-          (.unregister pool (first instances))
-          (is (not (realized? lock-thread)))
-          (.unregister pool (second instances)))
-
-        (is (true? (timed-deref lock-acquired?))
-            "timed out waiting for the lock thread to be acquired"))
-        (is (not (realized? lock-thread)))
-        (is (.isLocked pool))
-        (deliver unlock? true)
-        (is (true? (timed-deref lock-thread))
-            "timed out waiting for the lock thread to finish"))
-        (is (not (.isLocked pool)))
-
-    (let [future-started? (promise)
-          last-instance (.borrowItem pool)
-          lock-thread (future (deliver future-started? true)
-                              (.lock pool)
-                              true)]
-      @future-started?
-      (testing "pool.lock() blocks until last borrowed instance is unregistered"
-        (is (not (realized? lock-thread)))
-
-        (testing (str "last instance can be unregistered while pool.lock() "
-                      "is being executed")
-          (.unregister pool last-instance))
-
-        (is (true? (timed-deref lock-thread))
-            "timed out waiting for the lock thread to finish")
-        (is (.isLocked pool))))))
 
 (deftest pool-lock-blocks-borrows-test
   (testing "no other threads may borrow once pool.lock() has been invoked (before or after it returns)"
@@ -381,36 +331,11 @@
       (is (not (.isLocked pool))))))
 
 (deftest pool-release-item-test
-  (testing (str "releaseItem call with value 'false' does not return item to "
-                "pool but does allow pool to still be lockable")
+  (testing "releaseItem returns item to pool and allows pool to still be lockable"
     (let [pool (create-populated-pool 2)
           instance (.borrowItem pool)]
       (is (= 1 (.size pool)))
-      (.releaseItem pool instance false)
-      (.unregister pool instance)
-      (is (= 1 (.size pool)))
-      (is (not (.isLocked pool)))
-      (.lock pool)
-      (is (.isLocked pool))
-      (is (nil? (timed-deref
-                  (future (.borrowItemWithTimeout pool
-                                                   1
-                                                   TimeUnit/MICROSECONDS))))
-          "timed out waiting for borrow with timeout in lock to finish")
-      (.unlock pool)
-      (is (not (nil? (timed-deref
-                      (future (.borrowItemWithTimeout pool
-                                                      1
-                                                      TimeUnit/MICROSECONDS)))))
-          "timed out waiting for borrow with timeout after unlock to finish")
-      (is (not (.isLocked pool)))))
-       
-  (testing (str "releaseItem call with value 'true' returns item to "
-                "pool and allows pool to still be lockable")
-    (let [pool (create-populated-pool 2)
-          instance (.borrowItem pool)]
-      (is (= 1 (.size pool)))
-      (.releaseItem pool instance true)
+      (.releaseItem pool instance)
       (is (= 2 (.size pool)))
       (is (not (.isLocked pool)))
       (.lock pool)
@@ -609,7 +534,89 @@
     (let [pool (create-populated-pool 1)
           pill (str "i'm a pill")]
       (.insertPill pool pill)
-      (is (identical? (.borrowItem pool) pill)))))
+      (is (identical? (.borrowItem pool) pill))
+      (testing "subsequent borrows return the same pill"
+        (is (identical? (.borrowItem pool) pill)))))
+  (testing "when borrow is blocked, inserting a pill unblocks it"
+    (let [pool (create-populated-pool 1)
+          pill (str "I'm just a pill, yes I'm only a pill")
+          instance (.borrowItem pool)
+          blocked-borrow (future (.borrowItem pool))]
+      (is (= 0 (.size pool)))
+
+      ; Give future a chance to run and block
+      (Thread/sleep 500)
+      ; Pool is empty and the borrow future is blocked
+      (is (not (realized? blocked-borrow)))
+      ; inserting the pill should unblock the promise
+      (.insertPill pool pill)
+      ; borrow finishes and gives us back the pill
+      (let [future-result (timed-deref blocked-borrow)]
+        (is (identical? future-result pill)))))
+
+  (testing "second insert doesn't change the pill"
+    (let [pool (create-populated-pool 1)
+          first-pill (str "pill clinton")
+          second-pill (str "pillary clinton")]
+      (.insertPill pool first-pill)
+      (is (identical? first-pill (.borrowItem pool)))
+
+      (.insertPill pool second-pill)
+      ; Should still be equal to the first pill
+      (is (identical? first-pill (.borrowItem pool)))
+      (is (not (identical? second-pill (.borrowItem pool)))))))
+
+(deftest release-item-exceptions-test
+  (testing "releasing a different pill than the one that was inserted errors"
+    (let [pool (create-populated-pool 1)
+          first-pill (str "a city upon a pill")
+          second-pill (str "capitol pill")]
+      (.insertPill pool first-pill)
+      ; Only to show that it does not error
+      (is (nil? (.releaseItem pool first-pill)))
+      (is (thrown-with-msg?
+           IllegalArgumentException
+           #"The item being released is not registered with the pool"
+           (.releaseItem pool second-pill)))))
+
+  (testing "releasing a jruby not registered with the pool errors"
+    (let [pool (create-populated-pool 1)
+          not-in-pool-instance "I was never registered"]
+      (is (thrown-with-msg?
+           IllegalArgumentException
+           #"The item being released is not registered with the pool"
+           (.releaseItem pool not-in-pool-instance))))))
+
+(deftest lock-interrupted-by-pill-insertion-test
+  (testing "a call to .lock will throw if there is a pill"
+    (let [pool (create-populated-pool 1)
+          pill "pilliam shakespeare"]
+      (.insertPill pool pill)
+      (is (thrown-with-msg?
+           InterruptedException
+           #"Lock can't be granted because a pill has been inserted"
+           (.lock pool)))))
+
+  (testing "a blocked .lock call throws an InterruptedException once a pill is inserted"
+    (let [pool (create-populated-pool 1)
+          pill "pillful ignorance"]
+      ; Make it so the pool is not full
+      (.borrowItem pool)
+
+      ; Exceptions thrown from the future will be returned as InterruptedException,
+      ; so we can't use thrown-with-msg?. We'll catch it, return it instead of
+      ; throwing it, and inspect it manually below
+      (let [blocked-lock-future (future (try (.lock pool)
+                                             (catch InterruptedException e
+                                               e)))]
+        ; The future's thread will take the lock, and then block waiting for
+        ; either the pool to fill up, or a pill to be inserted
+        (jruby-testutils/wait-for-pool-to-be-locked pool)
+        (.insertPill pool pill)
+        (let [exception @blocked-lock-future]
+          (is (= InterruptedException (type exception)))
+          (is (= "Lock can't be granted because a pill has been inserted"
+                 (.getMessage exception))))))))
 
 (deftest pool-clear-test
   (testing (str "pool clear removes all elements from queue and only matching"

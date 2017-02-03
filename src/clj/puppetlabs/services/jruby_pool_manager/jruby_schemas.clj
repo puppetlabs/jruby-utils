@@ -19,13 +19,6 @@
   ;; state in a thread-safe manner.
   [err])
 
-(defrecord RetryPoisonPill
-  ;; A sentinel object to put into an old pool when we swap in a new pool.
-  ;; This can be used to build `borrow` functionality that will detect the
-  ;; case where we're trying to borrow from an old pool, so that we can retry
-  ;; with the new pool.
-  [pool])
-
 (defrecord ShutdownPoisonPill
   ;; A sentinel object to put into a pool when we are shutting down.
   ;; This can be used to build `borrow` functionality that will detect the
@@ -107,8 +100,7 @@
 (def PoolContext
   "The data structure that stores all JRuby pools and the original configuration."
   {:config JRubyConfig
-   :internal {:pool-agent JRubyPoolAgent
-              :flush-instance-agent JRubyPoolAgent
+   :internal {:modify-instance-agent JRubyPoolAgent
               :pool-state PoolStateContainer
               :event-callbacks Atom}})
 
@@ -158,10 +150,6 @@
   [x]
   (instance? PoisonPill x))
 
-(defn retry-poison-pill?
-  [x]
-  (instance? RetryPoisonPill x))
-
 (defn shutdown-poison-pill?
   [x]
   (instance? ShutdownPoisonPill x))
@@ -169,14 +157,12 @@
 (def JRubyInstanceOrPill
   (schema/conditional
    jruby-instance? (schema/pred jruby-instance?)
-   retry-poison-pill? (schema/pred retry-poison-pill?)
    shutdown-poison-pill? (schema/pred shutdown-poison-pill?)))
 
 (def JRubyInternalBorrowResult
   ;; Result of calling `.borrowItem` on the pool
   (schema/pred (some-fn nil?
                         poison-pill?
-                        retry-poison-pill?
                         shutdown-poison-pill?
                         jruby-instance?)))
 
@@ -185,7 +171,6 @@
   ;; pool. Specifically, if the item borrow was a poison pill, an error is
   ;; thrown, so `poison-pill?` is not part of this schema.
   (schema/pred (some-fn nil?
-                        retry-poison-pill?
                         shutdown-poison-pill?
                         jruby-instance?)))
 

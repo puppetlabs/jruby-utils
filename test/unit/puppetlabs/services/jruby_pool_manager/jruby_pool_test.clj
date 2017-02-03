@@ -1,5 +1,6 @@
 (ns puppetlabs.services.jruby-pool-manager.jruby-pool-test
-  (:import (clojure.lang ExceptionInfo))
+  (:import (clojure.lang ExceptionInfo)
+           (puppetlabs.services.jruby_pool_manager.jruby_schemas ShutdownPoisonPill))
   (:require [clojure.test :refer :all]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
@@ -325,3 +326,22 @@
          (is (not= id (:id instance2)))
          (jruby-core/return-to-pool instance2 :test []))
        (jruby-core/return-to-pool instance1 :test [])))))
+
+(deftest return-pill-to-pool-test
+  (testing "Returning a pill to the pool does not throw"
+    ; Essentially this test is insurance to make sure we aren't doing anything
+    ; funky when we return a pill to the pool. Instances have some internal
+    ; data that gets manipulated during a return that poison pills don't have,
+    ; and we'd get null pointer exceptions if this code path tried to access
+    ; those non-existent properties on the pill object
+    (tk-bootstrap/with-app-with-config
+     app
+     jruby-testutils/default-services
+     {}
+     (let [config (jruby-test-config 2)
+           pool-manager-service (tk-app/get-service app :PoolManagerService)
+           pool-context (pool-manager-protocol/create-pool pool-manager-service config)
+           pool (jruby-core/get-pool pool-context)
+           pill (ShutdownPoisonPill. pool)]
+       ; Returning a pill should be a noop
+       (jruby-core/return-to-pool pill :test [])))))

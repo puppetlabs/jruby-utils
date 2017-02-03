@@ -222,18 +222,14 @@
   flush-pool!
   "Flush all the current JRubyInstances and repopulate the pool."
   [pool-context]
-  (jruby-agents/send-flush-and-repopulate-pool! pool-context))
+  (jruby-agents/flush-and-repopulate-pool! pool-context))
 
 (schema/defn ^:always-validate
   flush-pool-for-shutdown!
   "Flush all the current JRubyInstances so that the pool can be shutdown
   without any instances being active."
   [pool-context]
-  (let [on-complete (promise)]
-    (log/debug "Beginning flush of JRuby pools for shutdown")
-    (jruby-agents/send-flush-pool-for-shutdown! pool-context on-complete)
-    @on-complete
-    (log/debug "Finished flush of JRuby pools for shutdown")))
+  (jruby-agents/flush-pool-for-shutdown! pool-context))
 
 (schema/defn ^:always-validate
   lock-pool
@@ -304,15 +300,11 @@
          (ringutils/throw-service-unavailable!
           (str "Attempted to borrow a JRubyInstance from the pool "
                "during a shutdown. Please try again.")))
-       (if (jruby-schemas/retry-poison-pill? pool-instance#)
-         (do
-           (return-to-pool pool-instance# ~reason event-callbacks#)
-           (recur (borrow-from-pool-with-timeout ~pool-context ~reason event-callbacks#)))
-         (let [~jruby-instance pool-instance#]
-           (try
-             ~@body
-             (finally
-               (return-to-pool pool-instance# ~reason event-callbacks#))))))))
+       (let [~jruby-instance pool-instance#]
+         (try
+           ~@body
+           (finally
+             (return-to-pool pool-instance# ~reason event-callbacks#)))))))
 
 (defmacro with-lock
   "Acquires a lock on the pool, executes the body, and releases the lock."

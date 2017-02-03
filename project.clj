@@ -54,5 +54,4 @@
                    :jvm-opts ["-Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger"]}
              :testutils {:source-paths ^:replace ["test/unit" "test/integration"]}}
 
-  :plugins [[lein-parent "0.3.1"]]
-  )
+  :plugins [[lein-parent "0.3.1"]])
