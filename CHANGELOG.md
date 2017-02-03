@@ -1,3 +1,12 @@
+### 0.7.0 - 2017-01-03
+
+This is a bugfix and internal improvement release.
+
+* Remove the need for a second `JrubyPool` during pool flushes to improve
+  system stability
+* Fix possibility of race condition where the pool lock can be granted even
+  when some jruby instances are still doing work
+
 ### 0.6.0 - 2016-12-19
 
 This is a feature release.
