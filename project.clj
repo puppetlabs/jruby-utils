@@ -5,7 +5,7 @@
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
 
   :min-lein-version "2.7.1"
-  :parent-project {:coords [puppetlabs/clj-parent "0.1.3"]
+  :parent-project {:coords [puppetlabs/clj-parent "0.3.3"]
                    :inherit [:managed-dependencies]}
 
   :pedantic? :abort
@@ -34,6 +34,7 @@
                  ;; 'uberjar-exclusions' example toward the end of this file.
                  [org.jruby/jruby-stdlib "1.7.26"]
 
+                 [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
                  [puppetlabs/trapperkeeper]
                  [puppetlabs/ring-middleware]]
@@ -54,4 +55,5 @@
                    :jvm-opts ["-Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger"]}
              :testutils {:source-paths ^:replace ["test/unit" "test/integration"]}}
 
-  :plugins [[lein-parent "0.3.1"]])
+  :plugins [[lein-parent "0.3.1"]
+            [puppetlabs/i18n "0.6.0"]])

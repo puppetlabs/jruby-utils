@@ -3,7 +3,8 @@
             [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas])
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
+            [puppetlabs.i18n.core :as i18n])
   (:import (clojure.lang IFn IDeref)
            (puppetlabs.services.jruby_pool_manager.jruby_schemas PoisonPill JRubyInstance)))
 
@@ -48,22 +49,27 @@
   function should never be called except by the modify-instance-agent."
   [{:keys [config] :as pool-context} :- jruby-schemas/PoolContext]
   (let [pool (jruby-internal/get-pool pool-context)]
-    (log/debug (str "Initializing JRubyInstances with the following settings:\n"
-                    (ks/pprint-to-string config)))
+    (log/debug
+     (format "%s\n%s"
+             (i18n/trs "Initializing JRubyInstances with the following settings:")
+             (ks/pprint-to-string config)))
     (try
       (let [count (.remainingCapacity pool)]
         (dotimes [i count]
           (let [id (inc i)]
-            (log/debugf "Priming JRubyInstance %d of %d" id count)
+            (log/debugf (i18n/trs "Priming JRubyInstance {0} of {1}"
+                                  id count))
             (jruby-internal/create-pool-instance! pool id config
                                                   (partial send-flush-instance! pool-context))
-            (log/infof "Finished creating JRubyInstance %d of %d"
-                       id count))))
+            (log/infof (i18n/trs "Finished creating JRubyInstance {0} of {1}"
+                                 id count)))))
       (catch Exception e
         (.clear pool)
         (jruby-internal/insert-poison-pill pool e)
 
-        (throw (IllegalStateException. "There was a problem adding a JRubyInstance to the pool." e))))))
+        (throw (IllegalStateException.
+                (i18n/tru "There was a problem adding a JRubyInstance to the pool.")
+                e))))))
 
 (schema/defn ^:always-validate
   flush-instance!
@@ -93,7 +99,7 @@
         (.clear pool)
         (jruby-internal/insert-poison-pill pool e)
         (throw (IllegalStateException.
-                "There was a problem borrowing a JRubyInstance from the pool."
+                (i18n/tru "There was a problem borrowing a JRubyInstance from the pool.")
                 e)))
       (finally
         (.unlock pool)))))
@@ -115,17 +121,17 @@
         (when refill?
           (jruby-internal/create-pool-instance! pool new-id config
                                                 (partial send-flush-instance! pool-context))
-          (log/infof "Finished creating JRubyInstance %d of %d"
-                     new-id pool-size))
+          (log/infof (i18n/trs "Finished creating JRubyInstance {0} of {1}"
+                               new-id pool-size)))
         (catch Exception e
           (.clear pool)
           (jruby-internal/insert-poison-pill pool e)
           (throw (IllegalStateException.
-                  "There was a problem creating a JRubyInstance for the pool."
+                  (i18n/trs "There was a problem creating a JRubyInstance for the pool.")
                   e))))))
   (if refill?
-    (log/info "Finished draining and refilling pool.")
-    (log/info "Finished draining pool.")))
+    (log/info (i18n/trs "Finished draining and refilling pool."))
+    (log/info (i18n/trs "Finished draining pool."))))
 
 (schema/defn ^:always-validate
   drain-and-refill-pool!
@@ -143,8 +149,8 @@
     refill? :- schema/Bool
     on-complete :- IDeref]
    (if refill?
-     (log/info "Draining and refilling JRuby pool.")
-     (log/info "Draining JRuby pool."))
+     (log/info (i18n/trs "Draining and refilling JRuby pool."))
+     (log/info (i18n/trs "Draining JRuby pool.")))
    (let [shutdown-on-error (get-shutdown-on-error-fn pool-context)
          old-instances (shutdown-on-error #(borrow-all-jrubies pool-context))
          modify-instance-agent (get-modify-instance-agent pool-context)
@@ -152,7 +158,7 @@
          try-cleanup-and-refill #(try
                                    (cleanup-and-refill-pool pool-context old-instances refill?)
                                    (finally (deliver on-complete true)))]
-     (log/info "Borrowed all JRuby instances, proceeding with cleanup.")
+     (log/info (i18n/trs "Borrowed all JRuby instances, proceeding with cleanup."))
      (send-agent modify-instance-agent try-cleanup-and-refill))))
 
 (schema/defn ^:always-validate
@@ -163,7 +169,7 @@
   ;; be queued up waiting for the lock, which will never be granted because this
   ;; function does not refill the pool, but instead inserts a shutdown poison pill
   [pool-context :- jruby-schemas/PoolContext]
-  (log/debug "Beginning flush of JRuby pools for shutdown")
+  (log/debug (i18n/trs "Beginning flush of JRuby pools for shutdown"))
   (let [pool-state (jruby-internal/get-pool-state pool-context)
         pool (:pool pool-state)
         on-complete (promise)]
@@ -171,7 +177,7 @@
     (jruby-internal/insert-shutdown-poison-pill pool)
     ; Wait for flush to complete
     @on-complete
-    (log/debug "Finished flush of JRuby pools for shutdown")))
+    (log/debug (i18n/trs "Finished flush of JRuby pools for shutdown"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -201,7 +207,7 @@
   ;; be queued up waiting for the lock, which can't be granted until all the instances
   ;; are returned to the pool, which won't be done until sometimes after
   ;; this function exits
-  (log/info "Flush request received; flushing old JRuby instances.")
+  (log/info (i18n/trs "Flush request received; flushing old JRuby instances."))
   (drain-and-refill-pool! pool-context true))
 
 (schema/defn ^:always-validate
