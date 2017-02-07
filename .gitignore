@@ -27,3 +27,6 @@ Gemfile.local
 /junit/
 /tmp/
 acceptance/scripts/hosts.cfg
+/dev-resources/i18n/bin
+/resources/locales.clj
+/resources/**/Messages*.class

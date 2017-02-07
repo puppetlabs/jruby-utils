@@ -9,7 +9,8 @@
             [puppetlabs.services.jruby-pool-manager.impl.jruby-events :as jruby-events]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
-            [slingshot.slingshot :as sling])
+            [slingshot.slingshot :as sling]
+            [puppetlabs.i18n.core :as i18n])
   (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance)
            (clojure.lang IFn)))
 
@@ -237,11 +238,11 @@
   [pool :- jruby-schemas/pool-queue-type
    reason :- schema/Any
    event-callbacks :- [IFn]]
-  (log/debug "Acquiring lock on JRubyPool...")
+  (log/debug (i18n/trs "Acquiring lock on JRubyPool..."))
   (jruby-events/lock-requested event-callbacks reason)
   (.lock pool)
   (jruby-events/lock-acquired event-callbacks reason)
-  (log/debug "Lock acquired"))
+  (log/debug (i18n/trs "Lock acquired")))
 
 (schema/defn ^:always-validate
   unlock-pool
@@ -251,7 +252,7 @@
    event-callbacks :- [IFn]]
   (.unlock pool)
   (jruby-events/lock-released event-callbacks reason)
-  (log/debug "Lock on JRubyPool released"))
+  (log/debug (i18n/trs "Lock on JRubyPool released")))
 
 (schema/defn ^:always-validate cli-ruby! :- jruby-schemas/JRubyMainStatus
   "Run JRuby as though native `ruby` were invoked with args on the CLI"
@@ -272,7 +273,8 @@
     (if url
       (cli-ruby! config
         (concat ["-e" (format "load '%s'" url) "--"] args))
-      (log/errorf "command %s could not be found in %s" command bin-dir))))
+      (log/errorf (i18n/trs "command {0} could not be found in {1}"
+                            command bin-dir)))))
 
 (defmacro with-jruby-instance
   "Encapsulates the behavior of borrowing and returning a JRubyInstance.
@@ -294,12 +296,13 @@
        (if (nil? pool-instance#)
          (sling/throw+
           {:kind ::jruby-timeout
-           :msg (str "Attempt to borrow a JRubyInstance from the pool timed out.")}))
+           :msg (i18n/tru "Attempt to borrow a JRubyInstance from the pool timed out.")}))
        (when (jruby-schemas/shutdown-poison-pill? pool-instance#)
          (return-to-pool pool-instance# ~reason event-callbacks#)
          (ringutils/throw-service-unavailable!
-          (str "Attempted to borrow a JRubyInstance from the pool "
-               "during a shutdown. Please try again.")))
+          (format "%s %s"
+                  (i18n/tru "Attempted to borrow a JRubyInstance from the pool during a shutdown.")
+                  (i18n/tru "Please try again."))))
        (let [~jruby-instance pool-instance#]
          (try
            ~@body

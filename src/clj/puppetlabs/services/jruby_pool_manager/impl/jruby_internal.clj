@@ -1,7 +1,8 @@
 (ns puppetlabs.services.jruby-pool-manager.impl.jruby-internal
   (:require [schema.core :as schema]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [puppetlabs.i18n.core :as i18n])
   (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
            (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance PoisonPill
                                                                  ShutdownPoisonPill)
@@ -42,8 +43,10 @@
     "1.9" (CompatVersion/RUBY1_9)
     "2.0" (CompatVersion/RUBY2_0)
     (throw (IllegalArgumentException.
-            (format (str "compat-version is set to `%s`, which is not an allowed option."
-                         " The available compat-versions are `1.9` and `2.0`") compat-version)))))
+            (format "%s %s"
+                    (i18n/trs "compat-version is set to `{0}`, which is not an allowed option."
+                              compat-version)
+                    (i18n/trs "The available compat-versions are `1.9` and `2.0`"))))))
 
 (schema/defn ^:always-validate init-jruby :- jruby-schemas/ConfigurableJRuby
   "Applies configuration to a JRuby... thing.  See comments in `ConfigurableJRuby`
@@ -114,7 +117,8 @@
     (.unregister pool instance)
     (cleanup-fn instance)
     (.terminate scripting-container)
-    (log/infof "Cleaned up old JRubyInstance with id %s." (:id instance))))
+    (log/infof (i18n/trs "Cleaned up old JRubyInstance with id {0}."
+                         (:id instance)))))
 
 (schema/defn ^:always-validate
   create-pool-instance! :- JRubyInstance
@@ -127,8 +131,8 @@
         initialize-pool-instance-fn (:initialize-pool-instance lifecycle)]
     (when-not ruby-load-path
       (throw (Exception.
-               "JRuby service missing config value 'ruby-load-path'")))
-    (log/infof "Creating JRubyInstance with id %s." id)
+              (i18n/trs "JRuby service missing config value 'ruby-load-path'"))))
+    (log/infof (i18n/trs "Creating JRubyInstance with id {0}." id))
     (let [scripting-container (create-scripting-container
                                config)]
       (let [instance (jruby-schemas/map->JRubyInstance
@@ -188,8 +192,8 @@
           (do
             (.releaseItem pool instance)
             (throw (IllegalStateException.
-                     "Unable to borrow JRubyInstance from pool"
-                     (:err instance))))
+                    (i18n/tru "Unable to borrow JRubyInstance from pool")
+                    (:err instance))))
 
           (jruby-schemas/jruby-instance? instance)
           instance
@@ -202,7 +206,8 @@
 
           :else
           (throw (IllegalStateException.
-                   (str "Borrowed unrecognized object from pool!: " instance))))))
+                  (i18n/tru "Borrowed unrecognized object from pool!: {0}"
+                            instance))))))
 
 (schema/defn ^:always-validate
   borrow-from-pool :- jruby-schemas/JRubyInstanceOrPill
@@ -240,10 +245,10 @@
       (if (and (pos? max-borrows)
                (>= (:borrow-count new-state) max-borrows))
         (do
-          (log/infof (str "Flushing JRubyInstance %s because it has exceeded the "
-                          "maximum number of borrows (%s)")
+          (log/infof
+           (i18n/trs "Flushing JRubyInstance {0} because it has exceeded the maximum number of borrows ({1})"
                      (:id instance)
-                     max-borrows)
+                     max-borrows))
           (flush-instance-fn instance))
         (.releaseItem pool instance)))))
 
