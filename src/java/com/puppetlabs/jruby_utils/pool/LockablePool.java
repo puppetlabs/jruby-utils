@@ -2,6 +2,7 @@ package com.puppetlabs.jruby_utils.pool;
 
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public interface LockablePool<E> {
 
@@ -138,6 +139,17 @@ public interface LockablePool<E> {
     *                              waiting for the pool to be unlocked
     */
     void lock() throws InterruptedException;
+
+    /**
+     * Lock the pool. Behaves the same as {@link #lock()} but only waits for
+     * the amount of time specified in the <tt>timeout</tt> parameter. Throws
+     * a TimeoutException if the timeout is exceeded.
+     *
+     * @param timeout how long to wait before giving up, in units of unit
+     * @param unit    a <tt>TimeUnit</tt> determining how to interpret the
+     *                <tt>timeout</tt> parameter
+     */
+    void lockWithTimeout(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException;
 
     /**
      * Returns whether or not the pool is currently locked.  Note that the

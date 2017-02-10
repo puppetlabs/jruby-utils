@@ -5,6 +5,7 @@ import java.util.LinkedList;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -334,6 +335,56 @@ public final class JRubyPool<E> implements LockablePool<E> {
                 // Wait until the pool has been completely filled
                 while (liveQueue.size() != this.maxSize) {
                     lockAvailable.await();
+                    if (this.pill != null){
+                        throw new InterruptedException(pillErrorMsg);
+                    }
+                }
+            } catch (Exception e) {
+                freePoolLock();
+                throw e;
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void lockWithTimeout(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException {
+        final ReentrantLock lock = this.queueLock;
+        long remainingMaxTimeToWait = unit.toNanos(timeout);
+
+        // `queueLock.lockInterruptibly()` is called here as opposed to just
+        // `queueLock.queueLock` to follow the pattern that the JDK's
+        // `LinkedBlockingDeque` does for a timed poll from a deque.  See:
+        // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/687fd7c7986d/src/share/classes/java/util/concurrent/LinkedBlockingDeque.java#l516
+        lock.lockInterruptibly();
+        try {
+            String pillErrorMsg = "Lock can't be granted because a pill has been inserted";
+            String timeoutErrorMsg = "Timeout limit reached before lock could be granted";
+            if (this.pill != null){
+                throw new InterruptedException(pillErrorMsg);
+            }
+
+            final Thread currentThread = Thread.currentThread();
+            while (!isPoolLockHeldByCurrentThread(currentThread)) {
+                if (!isPoolLockHeld()) {
+                    poolLockThread = currentThread;
+                } else {
+                    if (remainingMaxTimeToWait <= 0) {
+                        throw new TimeoutException(timeoutErrorMsg);
+                    }
+                    remainingMaxTimeToWait = poolNotLocked.awaitNanos(remainingMaxTimeToWait);
+                }
+            }
+
+            try {
+                // Wait until the pool has been completely filled
+                while (liveQueue.size() != this.maxSize) {
+                    if (remainingMaxTimeToWait <= 0) {
+                        throw new TimeoutException(timeoutErrorMsg);
+                    }
+                    remainingMaxTimeToWait = lockAvailable.awaitNanos(remainingMaxTimeToWait);
+
                     if (this.pill != null){
                         throw new InterruptedException(pillErrorMsg);
                     }

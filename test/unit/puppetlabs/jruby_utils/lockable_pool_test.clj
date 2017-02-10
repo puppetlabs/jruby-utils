@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils])
   (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
-           (java.util.concurrent TimeUnit ExecutionException)))
+           (java.util.concurrent TimeUnit ExecutionException TimeoutException)))
 
 (defn timed-deref
   [ref]
@@ -329,6 +329,19 @@
       (is (true? (timed-deref lock-thread))
           "timed out waiting for lock thread to finish")
       (is (not (.isLocked pool))))))
+
+(deftest pool-lock-with-timeout-test
+  (testing "lock is granted if timeout is not exceeded"
+    (let [pool (create-populated-pool 1)]
+      (.lockWithTimeout pool 1 TimeUnit/NANOSECONDS)
+      (is (.isLocked pool))))
+  (testing "lock throws TimeoutException if timeout is exceeded"
+    (let [pool (create-populated-pool 1)
+          borrowed-instance (.borrowItem pool)]
+      (is (thrown-with-msg?
+           TimeoutException
+           #"Timeout limit reached before lock could be granted"
+           (.lockWithTimeout pool 1 TimeUnit/NANOSECONDS))))))
 
 (deftest pool-release-item-test
   (testing "releaseItem returns item to pool and allows pool to still be lockable"
