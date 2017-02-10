@@ -171,6 +171,12 @@
   (get-in context [:config :max-active-instances]))
 
 (schema/defn ^:always-validate
+  get-flush-timeout :- schema/Int
+  "Gets the size of the JRuby pool from the pool context."
+  [context :- jruby-schemas/PoolContext]
+  (get-in context [:config :flush-timeout]))
+
+(schema/defn ^:always-validate
   get-instance-state-container :- jruby-schemas/JRubyInstanceStateContainer
   "Gets the InstanceStateContainer (atom) from the instance."
   [instance :- JRubyInstance]

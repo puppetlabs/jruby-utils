@@ -4,9 +4,11 @@
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
-            [puppetlabs.i18n.core :as i18n])
+            [puppetlabs.i18n.core :as i18n]
+            [slingshot.slingshot :as sling])
   (:import (clojure.lang IFn IDeref)
-           (puppetlabs.services.jruby_pool_manager.jruby_schemas PoisonPill JRubyInstance)))
+           (puppetlabs.services.jruby_pool_manager.jruby_schemas PoisonPill JRubyInstance)
+           (java.util.concurrent TimeUnit TimeoutException)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private
@@ -86,23 +88,54 @@
     (jruby-internal/create-pool-instance! pool new-id config
                                           (partial send-flush-instance! pool-context))))
 
-(schema/defn borrow-all-jrubies :- [JRubyInstance]
-  "Locks the pool and borrows all the instances"
-  [pool-context :- jruby-schemas/PoolContext]
+(schema/defn borrow-all-jrubies*
+  "The core logic for borrow-all-jrubies. Should not be called from borrow-all-jrubies"
+  [pool-context :- jruby-schemas/PoolContext
+   borrow-exception :- IDeref]
   (let [pool-size (jruby-internal/get-pool-size pool-context)
         pool (jruby-internal/get-pool pool-context)
         borrow-fn (partial jruby-internal/borrow-from-pool pool-context)]
-    (.lock pool)
     (try
       (into [] (repeatedly pool-size borrow-fn))
+
+      ; We catch the exception here, place it in the borrow-exception atom
+      ; for use in the calling fn, and then throw it again so that
+      ; shutdown-on-error will also catch it and shutdown the app
       (catch Exception e
         (.clear pool)
         (jruby-internal/insert-poison-pill pool e)
-        (throw (IllegalStateException.
-                (i18n/tru "There was a problem borrowing a JRubyInstance from the pool.")
-                e)))
+        (let [exception (IllegalStateException.
+                         (i18n/tru "There was a problem borrowing a JRubyInstance from the pool.")
+                         e)]
+          (reset! borrow-exception exception)
+          (throw exception)))
       (finally
         (.unlock pool)))))
+
+(schema/defn borrow-all-jrubies :- [JRubyInstance]
+  "Locks the pool and borrows all the instances"
+  [pool-context :- jruby-schemas/PoolContext]
+  (let [pool (jruby-internal/get-pool pool-context)
+        flush-timeout (jruby-internal/get-flush-timeout pool-context)
+        shutdown-on-error (get-shutdown-on-error-fn pool-context)
+        borrow-exception (atom nil)]
+    ; If lock fails, abort and throw an exception
+    (try
+      (.lockWithTimeout pool flush-timeout TimeUnit/MILLISECONDS)
+      (catch TimeoutException e
+        (sling/throw+ {:kind ::jruby-lock-timeout
+                       :msg (.getMessage e)})))
+
+    ; Bit of a hack to work around shutdown-on-error behavior:
+    ; shutdown-on-error will either return the jrubies as expected,
+    ; or if there was an error, it will shutdown the server and return a promise.
+    ; We want to rethrow whatever exception it encountered so that it can bubble
+    ; up to whatever code requested this flush, so borrow-all-jrubies* will put
+    ; that exception into the borrow-exception atom
+    (let [jrubies (shutdown-on-error #(borrow-all-jrubies* pool-context borrow-exception))]
+      (if-let [exception @borrow-exception]
+        (throw exception)
+        jrubies))))
 
 (schema/defn cleanup-and-refill-pool
   "Cleans up the given instances and optionally refills the pool with
@@ -151,8 +184,7 @@
    (if refill?
      (log/info (i18n/trs "Draining and refilling JRuby pool."))
      (log/info (i18n/trs "Draining JRuby pool.")))
-   (let [shutdown-on-error (get-shutdown-on-error-fn pool-context)
-         old-instances (shutdown-on-error #(borrow-all-jrubies pool-context))
+   (let [old-instances (borrow-all-jrubies pool-context)
          modify-instance-agent (get-modify-instance-agent pool-context)
          ; Make sure the promise is delivered even if cleanup fails
          try-cleanup-and-refill #(try
