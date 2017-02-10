@@ -491,8 +491,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
         // is active at a time - a caller of lock() that has just acquired
         // the pool lock but is waiting for all registered elements to be
         // returned to the queue.
-        if (registeredElements.size() == liveQueue.size() ||
-                pill != null) {
+        if (this.maxSize == liveQueue.size() || pill != null) {
             lockAvailable.signal();
         }
     }
