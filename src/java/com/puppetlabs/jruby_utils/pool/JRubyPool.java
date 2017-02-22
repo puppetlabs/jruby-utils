@@ -319,12 +319,12 @@ public final class JRubyPool<E> implements LockablePool<E> {
         lock.lock();
         try {
             String pillErrorMsg = "Lock can't be granted because a pill has been inserted";
-            if (this.pill != null){
-                throw new InterruptedException(pillErrorMsg);
-            }
 
             final Thread currentThread = Thread.currentThread();
             while (!isPoolLockHeldByCurrentThread(currentThread)) {
+                if (this.pill != null){
+                    throw new InterruptedException(pillErrorMsg);
+                }
                 if (!isPoolLockHeld()) {
                     poolLockThread = currentThread;
                 } else {
@@ -361,12 +361,13 @@ public final class JRubyPool<E> implements LockablePool<E> {
         try {
             String pillErrorMsg = "Lock can't be granted because a pill has been inserted";
             String timeoutErrorMsg = "Timeout limit reached before lock could be granted";
-            if (this.pill != null){
-                throw new InterruptedException(pillErrorMsg);
-            }
 
             final Thread currentThread = Thread.currentThread();
             while (!isPoolLockHeldByCurrentThread(currentThread)) {
+                if (this.pill != null){
+                    throw new InterruptedException(pillErrorMsg);
+                }
+
                 if (!isPoolLockHeld()) {
                     poolLockThread = currentThread;
                 } else {
