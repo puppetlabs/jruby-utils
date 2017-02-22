@@ -341,7 +341,8 @@
       (is (thrown-with-msg?
            TimeoutException
            #"Timeout limit reached before lock could be granted"
-           (.lockWithTimeout pool 1 TimeUnit/NANOSECONDS))))))
+           (.lockWithTimeout pool 1 TimeUnit/NANOSECONDS)
+           (is (not (.isLocked pool))))))))
 
 (deftest pool-release-item-test
   (testing "releaseItem returns item to pool and allows pool to still be lockable"
