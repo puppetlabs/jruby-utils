@@ -124,7 +124,8 @@
       (.lockWithTimeout pool flush-timeout TimeUnit/MILLISECONDS)
       (catch TimeoutException e
         (sling/throw+ {:kind ::jruby-lock-timeout
-                       :msg (.getMessage e)})))
+                       :msg (i18n/trs "An attempt to lock the JRubyPool failed with a timeout")}
+                      e)))
 
     ; Bit of a hack to work around shutdown-on-error behavior:
     ; shutdown-on-error will either return the jrubies as expected,
