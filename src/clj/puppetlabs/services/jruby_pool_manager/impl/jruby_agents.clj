@@ -89,7 +89,7 @@
                                           (partial send-flush-instance! pool-context))))
 
 (schema/defn borrow-all-jrubies*
-  "The core logic for borrow-all-jrubies. Should not be called from borrow-all-jrubies"
+  "The core logic for borrow-all-jrubies. Should only be called from borrow-all-jrubies"
   [pool-context :- jruby-schemas/PoolContext
    borrow-exception :- IDeref]
   (let [pool-size (jruby-internal/get-pool-size pool-context)
