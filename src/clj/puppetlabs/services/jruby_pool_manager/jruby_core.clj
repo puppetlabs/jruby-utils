@@ -12,7 +12,8 @@
             [slingshot.slingshot :as sling]
             [puppetlabs.i18n.core :as i18n])
   (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance)
-           (clojure.lang IFn)))
+           (clojure.lang IFn)
+           (java.util.concurrent TimeUnit)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Constants
@@ -251,6 +252,21 @@
   (log/debug (i18n/trs "Lock acquired")))
 
 (schema/defn ^:always-validate
+  lock-pool-with-timeout
+  "Locks the JRuby pool for exclusive access using a timeout in milliseconds.
+  If the timeout is exceeded, a TimeoutException will be thrown and
+  the pool will remain unlocked"
+  [pool :- jruby-schemas/pool-queue-type
+   timeout-ms :- schema/Int
+   reason :- schema/Any
+   event-callbacks :- [IFn]]
+  (log/debug (i18n/trs "Acquiring lock on JRubyPool..."))
+  (jruby-events/lock-requested event-callbacks reason)
+  (.lockWithTimeout pool timeout-ms TimeUnit/MILLISECONDS)
+  (jruby-events/lock-acquired event-callbacks reason)
+  (log/debug (i18n/trs "Lock acquired")))
+
+(schema/defn ^:always-validate
   unlock-pool
   "Unlocks the JRuby pool, restoring concurernt access."
   [pool :- jruby-schemas/pool-queue-type
@@ -321,6 +337,19 @@
   `(let [pool# (get-pool ~pool-context)
          event-callbacks# (get-event-callbacks ~pool-context)]
      (lock-pool pool# ~reason event-callbacks#)
+     (try
+       ~@body
+       (finally
+         (unlock-pool pool# ~reason event-callbacks#)))))
+
+(defmacro with-lock-with-timeout
+  "Acquires a lock on the pool with a timeout in milliseconds,
+  executes the body, and releases the lock. If the timeout is exceeded,
+  a TimeoutException will be thrown"
+  [pool-context timeout-ms reason & body]
+  `(let [pool# (get-pool ~pool-context)
+         event-callbacks# (get-event-callbacks ~pool-context)]
+     (lock-pool-with-timeout pool# ~timeout-ms ~reason event-callbacks#)
      (try
        ~@body
        (finally
