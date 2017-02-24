@@ -140,7 +140,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
         try {
             final Thread currentThread = Thread.currentThread();
             do {
-                if (this.pill != null){
+                if (this.pill != null) {
                     // Return the pill immediately if there is one
                     item = pill;
                 } else if (isPoolLockHeldByAnotherThread(currentThread)) {
@@ -178,7 +178,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
             // `LinkedBlockingDeque` in `pollFirst` uses.  See:
             // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/687fd7c7986d/src/share/classes/java/util/concurrent/LinkedBlockingDeque.java#l522
             do {
-                if (this.pill != null){
+                if (this.pill != null) {
                     // Return the pill immediately if there is one
                     item = pill;
                 } else if (isPoolLockHeldByAnotherThread(currentThread)) {
@@ -216,8 +216,8 @@ public final class JRubyPool<E> implements LockablePool<E> {
         final ReentrantLock lock = this.queueLock;
         lock.lock();
         try {
-            if (e != this.pill){
-                if (!isRegistered(e)){
+            if (e != this.pill) {
+                if (!isRegistered(e)) {
                     String errorMsg = "The item being released is not registered with the pool";
                     throw new IllegalArgumentException(errorMsg);
                 }
@@ -229,7 +229,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
         }
     }
 
-    private boolean isRegistered(E e){
+    private boolean isRegistered(E e) {
         return this.registeredElements.contains(e);
     }
 
@@ -243,7 +243,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
         final ReentrantLock lock = this.queueLock;
         lock.lock();
         try {
-            if (this.pill == null){
+            if (this.pill == null) {
                 this.pill = e;
                 signalPoolNotEmpty();
             }
@@ -322,7 +322,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
 
             final Thread currentThread = Thread.currentThread();
             while (!isPoolLockHeldByCurrentThread(currentThread)) {
-                if (this.pill != null){
+                if (this.pill != null) {
                     throw new InterruptedException(pillErrorMsg);
                 }
                 if (!isPoolLockHeld()) {
@@ -335,7 +335,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
                 // Wait until the pool has been completely filled
                 while (liveQueue.size() != this.maxSize) {
                     lockAvailable.await();
-                    if (this.pill != null){
+                    if (this.pill != null) {
                         throw new InterruptedException(pillErrorMsg);
                     }
                 }
@@ -364,7 +364,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
 
             final Thread currentThread = Thread.currentThread();
             while (!isPoolLockHeldByCurrentThread(currentThread)) {
-                if (this.pill != null){
+                if (this.pill != null) {
                     throw new InterruptedException(pillErrorMsg);
                 }
 
@@ -386,7 +386,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
                     }
                     remainingMaxTimeToWait = lockAvailable.awaitNanos(remainingMaxTimeToWait);
 
-                    if (this.pill != null){
+                    if (this.pill != null) {
                         throw new InterruptedException(pillErrorMsg);
                     }
                 }
