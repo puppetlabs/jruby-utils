@@ -5,6 +5,7 @@ import java.util.LinkedList;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -139,7 +140,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
         try {
             final Thread currentThread = Thread.currentThread();
             do {
-                if (this.pill != null){
+                if (this.pill != null) {
                     // Return the pill immediately if there is one
                     item = pill;
                 } else if (isPoolLockHeldByAnotherThread(currentThread)) {
@@ -177,7 +178,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
             // `LinkedBlockingDeque` in `pollFirst` uses.  See:
             // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/687fd7c7986d/src/share/classes/java/util/concurrent/LinkedBlockingDeque.java#l522
             do {
-                if (this.pill != null){
+                if (this.pill != null) {
                     // Return the pill immediately if there is one
                     item = pill;
                 } else if (isPoolLockHeldByAnotherThread(currentThread)) {
@@ -215,8 +216,8 @@ public final class JRubyPool<E> implements LockablePool<E> {
         final ReentrantLock lock = this.queueLock;
         lock.lock();
         try {
-            if (e != this.pill){
-                if (!isRegistered(e)){
+            if (e != this.pill) {
+                if (!isRegistered(e)) {
                     String errorMsg = "The item being released is not registered with the pool";
                     throw new IllegalArgumentException(errorMsg);
                 }
@@ -228,7 +229,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
         }
     }
 
-    private boolean isRegistered(E e){
+    private boolean isRegistered(E e) {
         return this.registeredElements.contains(e);
     }
 
@@ -242,7 +243,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
         final ReentrantLock lock = this.queueLock;
         lock.lock();
         try {
-            if (this.pill == null){
+            if (this.pill == null) {
                 this.pill = e;
                 signalPoolNotEmpty();
             }
@@ -318,12 +319,12 @@ public final class JRubyPool<E> implements LockablePool<E> {
         lock.lock();
         try {
             String pillErrorMsg = "Lock can't be granted because a pill has been inserted";
-            if (this.pill != null){
-                throw new InterruptedException(pillErrorMsg);
-            }
 
             final Thread currentThread = Thread.currentThread();
             while (!isPoolLockHeldByCurrentThread(currentThread)) {
+                if (this.pill != null) {
+                    throw new InterruptedException(pillErrorMsg);
+                }
                 if (!isPoolLockHeld()) {
                     poolLockThread = currentThread;
                 } else {
@@ -334,7 +335,58 @@ public final class JRubyPool<E> implements LockablePool<E> {
                 // Wait until the pool has been completely filled
                 while (liveQueue.size() != this.maxSize) {
                     lockAvailable.await();
-                    if (this.pill != null){
+                    if (this.pill != null) {
+                        throw new InterruptedException(pillErrorMsg);
+                    }
+                }
+            } catch (Exception e) {
+                freePoolLock();
+                throw e;
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void lockWithTimeout(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException {
+        final ReentrantLock lock = this.queueLock;
+        long remainingMaxTimeToWait = unit.toNanos(timeout);
+
+        // `queueLock.lockInterruptibly()` is called here as opposed to just
+        // `queueLock.queueLock` to follow the pattern that the JDK's
+        // `LinkedBlockingDeque` does for a timed poll from a deque.  See:
+        // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/687fd7c7986d/src/share/classes/java/util/concurrent/LinkedBlockingDeque.java#l516
+        lock.lockInterruptibly();
+        try {
+            String pillErrorMsg = "Lock can't be granted because a pill has been inserted";
+            String timeoutErrorMsg = "Timeout limit reached before lock could be granted";
+
+            final Thread currentThread = Thread.currentThread();
+            while (!isPoolLockHeldByCurrentThread(currentThread)) {
+                if (this.pill != null) {
+                    throw new InterruptedException(pillErrorMsg);
+                }
+
+                if (!isPoolLockHeld()) {
+                    poolLockThread = currentThread;
+                } else {
+                    if (remainingMaxTimeToWait <= 0) {
+                        throw new TimeoutException(timeoutErrorMsg);
+                    }
+                    remainingMaxTimeToWait = poolNotLocked.awaitNanos(remainingMaxTimeToWait);
+                }
+            }
+
+            try {
+                // Wait until the pool has been completely filled
+                while (liveQueue.size() != this.maxSize) {
+                    if (remainingMaxTimeToWait <= 0) {
+                        throw new TimeoutException(timeoutErrorMsg);
+                    }
+                    remainingMaxTimeToWait = lockAvailable.awaitNanos(remainingMaxTimeToWait);
+
+                    if (this.pill != null) {
                         throw new InterruptedException(pillErrorMsg);
                     }
                 }
@@ -438,10 +490,9 @@ public final class JRubyPool<E> implements LockablePool<E> {
         // Could use 'signalAll' here instead of 'signal'.  Doesn't really
         // matter though in that there will only be one waiter at most which
         // is active at a time - a caller of lock() that has just acquired
-        // the pool lock but is waiting for all registered elements to be
-        // returned to the queue.
-        if (registeredElements.size() == liveQueue.size() ||
-                pill != null) {
+        // the pool lock but is waiting for the live queue to be completely
+        // filled
+        if (this.maxSize == liveQueue.size() || pill != null) {
             lockAvailable.signal();
         }
     }

@@ -71,6 +71,7 @@
    :compile-mode SupportedJRubyCompileModes
    :compat-version SupportedJRubyCompatVersions
    :borrow-timeout schema/Int
+   :flush-timeout schema/Int
    :max-active-instances schema/Int
    :max-borrows-per-instance schema/Int
    :lifecycle LifecycleFns
