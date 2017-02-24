@@ -490,8 +490,8 @@ public final class JRubyPool<E> implements LockablePool<E> {
         // Could use 'signalAll' here instead of 'signal'.  Doesn't really
         // matter though in that there will only be one waiter at most which
         // is active at a time - a caller of lock() that has just acquired
-        // the pool lock but is waiting for all registered elements to be
-        // returned to the queue.
+        // the pool lock but is waiting for the live queue to be completely
+        // filled
         if (this.maxSize == liveQueue.size() || pill != null) {
             lockAvailable.signal();
         }
