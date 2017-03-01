@@ -143,7 +143,7 @@
        (jruby-core/with-lock-with-timeout
         pool-context
         10000000
-        :with-lock-holds-lock-test
+        :lock-with-timeout-test
         (is (.isLocked pool)))
        (is (not (.isLocked pool))))))
 
@@ -158,7 +158,7 @@
            pool (jruby-core/get-pool pool-context)
            borrowed-instance (jruby-core/borrow-from-pool
                               pool-context
-                              :with-lock-with-timeout-test
+                              :lock-timeout-exceeded-test
                               [])]
 
        ; Since an instance has been borrowed the lock won't be granted and should
@@ -169,8 +169,7 @@
             (jruby-core/with-lock-with-timeout
              pool-context
              1
-             :with-lock-holds-lock-test
+             :lock-timeout-exceeded-test
              ; should not reach here
              (is false))))
-       (is (not (.isLocked pool)))
-       ()))))
+       (is (not (.isLocked pool)))))))
