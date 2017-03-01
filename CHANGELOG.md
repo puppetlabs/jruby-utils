@@ -1,3 +1,14 @@
+### 0.8.0 - 2017-03-01
+
+This is a minor feature and bugfix release.
+
+* Introduce `:flush-timeout` config setting to specify how long a pool flush
+  attempt will wait for jruby instances to be returned to the pool before
+  aborting the attempt
+
+* Add `lockWithTimeout` method to the `JrubyPool` class to facilitate the new
+  `:flush-timeout` setting
+
 ### 0.7.0 - 2017-01-03
 
 This is a bugfix and internal improvement release.
