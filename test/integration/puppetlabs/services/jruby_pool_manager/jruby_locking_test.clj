@@ -5,7 +5,8 @@
             [schema.test :as schema-test]
             [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
-            [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]))
+            [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol])
+  (:import (java.util.concurrent TimeoutException)))
 
 (use-fixtures :once schema-test/validate-schemas)
 
@@ -127,3 +128,48 @@
          @lock-thread
          (testing "can borrow from non-locking thread after lock released"
            (is (can-borrow-from-different-thread? pool-context))))))))
+
+(deftest ^:integration with-lock-with-timeout-test
+  (testing "can obtain lock when timeout is not exceeded"
+    (tk-bootstrap/with-app-with-config
+     app
+     jruby-testutils/default-services
+     {}
+     (let [config (jruby-test-config 1)
+           pool-manager-service (tk-app/get-service app :PoolManagerService)
+           pool-context (pool-manager-protocol/create-pool pool-manager-service config)
+           pool (jruby-core/get-pool pool-context)]
+
+       (jruby-core/with-lock-with-timeout
+        pool-context
+        10000000
+        :lock-with-timeout-test
+        (is (.isLocked pool)))
+       (is (not (.isLocked pool))))))
+
+  (testing "TimeoutException thrown when lock timeout is exceeded"
+    (tk-bootstrap/with-app-with-config
+     app
+     jruby-testutils/default-services
+     {}
+     (let [config (jruby-test-config 1)
+           pool-manager-service (tk-app/get-service app :PoolManagerService)
+           pool-context (pool-manager-protocol/create-pool pool-manager-service config)
+           pool (jruby-core/get-pool pool-context)
+           borrowed-instance (jruby-core/borrow-from-pool
+                              pool-context
+                              :lock-timeout-exceeded-test
+                              [])]
+
+       ; Since an instance has been borrowed the lock won't be granted and should
+       ; trigger the timeout immediately
+       (is (thrown-with-msg?
+            TimeoutException
+            #"Timeout limit reached before lock could be granted"
+            (jruby-core/with-lock-with-timeout
+             pool-context
+             1
+             :lock-timeout-exceeded-test
+             ; should not reach here
+             (is false))))
+       (is (not (.isLocked pool)))))))
