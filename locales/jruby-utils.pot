@@ -1,13 +1,12 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR Puppet <docs@puppet.com>
-# This file is distributed under the same license as the PACKAGE package.
+# This file is distributed under the same license as the puppetlabs.jruby_utils package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.jruby_utils \n"
-"X-Git-Ref: a67f3041451b19f7ade1fa985d2b75b607c53ce9\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -26,7 +25,6 @@ msgstr ""
 msgid "Priming JRubyInstance {0} of {1}"
 msgstr ""
 
-#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
 msgid "Finished creating JRubyInstance {0} of {1}"
 msgstr ""
