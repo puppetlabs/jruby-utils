@@ -1,0 +1,149 @@
+# Esperanto translations for puppetlabs.jruby_utils package.
+# Copyright (C) 2017 Puppet <docs@puppet.com>
+# This file is distributed under the same license as the puppetlabs.jruby_utils package.
+# Automatically generated, 2017.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: puppetlabs.jruby_utils \n"
+"Report-Msgid-Bugs-To: docs@puppet.com\n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: eo\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "Initializing JRubyInstances with the following settings:"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "Priming JRubyInstance {0} of {1}"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "Finished creating JRubyInstance {0} of {1}"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "There was a problem adding a JRubyInstance to the pool."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "There was a problem borrowing a JRubyInstance from the pool."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "An attempt to lock the JRubyPool failed with a timeout"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "There was a problem creating a JRubyInstance for the pool."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "Finished draining and refilling pool."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "Finished draining pool."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "Draining and refilling JRuby pool."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "Draining JRuby pool."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "Borrowed all JRuby instances, proceeding with cleanup."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "Beginning flush of JRuby pools for shutdown"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "Finished flush of JRuby pools for shutdown"
+msgstr ""
+
+#. Since the drain-and-refill-pool! function takes the pool lock, we know that if we
+#. receive multiple flush requests before the first one finishes, they will
+#. be queued up waiting for the lock, which can't be granted until all the instances
+#. are returned to the pool, which won't be done until sometimes after
+#. this function exits
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "Flush request received; flushing old JRuby instances."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
+msgid "compat-version is set to `{0}`, which is not an allowed option."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
+msgid "The available compat-versions are `1.9` and `2.0`"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
+msgid "Cleaned up old JRubyInstance with id {0}."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
+msgid "JRuby service missing config value 'ruby-load-path'"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
+msgid "Creating JRubyInstance with id {0}."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
+msgid "Unable to borrow JRubyInstance from pool"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
+msgid "Borrowed unrecognized object from pool!: {0}"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
+msgid ""
+"Flushing JRubyInstance {0} because it has exceeded the maximum number of "
+"borrows ({1})"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
+msgid "Acquiring lock on JRubyPool..."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
+msgid "Lock acquired"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
+msgid "Lock on JRubyPool released"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
+msgid "command {0} could not be found in {1}"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
+msgid "Attempt to borrow a JRubyInstance from the pool timed out."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
+msgid "Attempted to borrow a JRubyInstance from the pool during a shutdown."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
+msgid "Please try again."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_pool_manager_service.clj
+msgid "Initializing the JRuby service"
+msgstr ""
