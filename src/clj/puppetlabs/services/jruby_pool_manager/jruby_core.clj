@@ -13,7 +13,9 @@
             [puppetlabs.i18n.core :as i18n])
   (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance)
            (clojure.lang IFn)
-           (java.util.concurrent TimeUnit)))
+           (java.util.concurrent TimeUnit)
+           (org.jruby RubyInstanceConfig)
+           (org.jruby.runtime Constants)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Constants
@@ -162,21 +164,39 @@
           (integer? compat-version) double
           :true str))
 
+(schema/defn ^:always-validate warn-if-compat-version-setting-not-supported
+  [parsed-compat-version :- schema/Str]
+  (let [const-compat-version (jruby-internal/get-compat-version
+                              parsed-compat-version)
+        instance-config (RubyInstanceConfig.)]
+    (.setCompatVersion instance-config const-compat-version)
+    (when-not (= const-compat-version (.getCompatVersion instance-config))
+      (log/warnf
+       "%s %s %s"
+       (i18n/trs "compat-version is set to `{0}`, which is not a supported version."
+                 parsed-compat-version)
+       (i18n/trs "Version `{0}` will be used instead." Constants/RUBY_VERSION)
+       (i18n/trs "Setting 'compat-version' is deprecated and will be removed in a future release.")))))
+
 (schema/defn ^:always-validate
   initialize-config :- jruby-schemas/JRubyConfig
   "Initialize keys with default settings if they are not given a value.
   The config is validated after these defaults are set."
-  [config :- {schema/Keyword schema/Any}]
-  (-> config
-      (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
-      (update-in [:compat-version] #(parse-compat-version (or % default-jruby-compat-version)))
-      (update-in [:borrow-timeout] #(or % default-borrow-timeout))
-      (update-in [:flush-timeout] #(or % default-flush-timeout))
-      (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
-      (update-in [:max-borrows-per-instance] #(or % 0))
-      (update-in [:environment-vars] #(or % {}))
-      (update-in [:lifecycle] initialize-lifecycle-fns)
-      jruby-internal/initialize-gem-path))
+  [{:keys [compat-version] :as config} :- {schema/Keyword schema/Any}]
+  (let [parsed-compat-version (parse-compat-version
+                               (or compat-version default-jruby-compat-version))]
+    (when compat-version
+      (warn-if-compat-version-setting-not-supported parsed-compat-version))
+    (-> config
+        (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
+        (assoc :compat-version parsed-compat-version)
+        (update-in [:borrow-timeout] #(or % default-borrow-timeout))
+        (update-in [:flush-timeout] #(or % default-flush-timeout))
+        (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
+        (update-in [:max-borrows-per-instance] #(or % 0))
+        (update-in [:environment-vars] #(or % {}))
+        (update-in [:lifecycle] initialize-lifecycle-fns)
+        jruby-internal/initialize-gem-path)))
 
 (schema/defn register-event-handler
   "Register the callback function by adding it to the event callbacks atom on the pool context."
