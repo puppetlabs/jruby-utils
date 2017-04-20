@@ -5,7 +5,7 @@ Clojure.
 
 [![Build Status](https://travis-ci.org/puppetlabs/jruby-utils.svg)](https://travis-ci.org/puppetlabs/jruby-utils)
 
-# Usage
+## Usage
 
 This is a brief overview of the functionality of this library; TODO add more docs.
 
@@ -36,6 +36,21 @@ that no borrows can take place) while you execute some logic.
 In most TK apps where you want to work with JRuby instances, you will want to
 call `create-pool` in the `init` lifecycle of your service, and then call
 `jruby-core/flush-pool-for-shutdown!` in the `stop` lifecycle function.
+
+## Running tests
+
+Clojure unit tests can be run with either a 1.7-based JRuby or 9k-based
+JRuby version.  To run tests with a 1.7-based JRuby, just run:
+
+~~~sh
+lein test
+~~~
+
+To run tests with a 9k-based JRuby, run:
+
+~~~sh
+lein with-profile +jruby9k test
+~~~
 
 ## License
 
