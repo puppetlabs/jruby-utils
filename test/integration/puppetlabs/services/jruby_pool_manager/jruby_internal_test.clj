@@ -2,7 +2,8 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
-            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas])
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
+            [puppetlabs.trapperkeeper.testutils.logging :as logutils])
   (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
            (org.jruby RubyInstanceConfig$CompileMode CompatVersion)
            (clojure.lang ExceptionInfo)))
@@ -27,11 +28,12 @@
                  (jruby-internal/get-compile-mode :foo)))))
 
 (deftest ^:integration settings-plumbed-into-jruby-container
-  (testing "setting plumbed into jruby container for"
+  (testing "settings plumbed into jruby container"
     (let [pool (JRubyPool. 1)
-          config (jruby-testutils/jruby-config
-                  {:compile-mode :jit
-                   :compat-version 2.0})
+          config (logutils/with-test-logging
+                  (jruby-testutils/jruby-config
+                   {:compile-mode :jit
+                    :compat-version 2.0}))
           instance (jruby-internal/create-pool-instance! pool 0 config #())
           container (:scripting-container instance)]
       (try

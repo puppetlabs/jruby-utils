@@ -14,6 +14,11 @@
             [puppetlabs.services.jruby-pool-manager.impl.jruby-pool-manager-core :as jruby-pool-manager-core]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]))
 
+(defn- initialize-jruby-config-with-logging-suppressed
+  [config]
+  (logutils/with-test-logging
+   (jruby-core/initialize-config config)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
 
@@ -25,7 +30,8 @@
                             (jruby-pool-manager-core/create-pool-context malformed-config)))))
   (let [minimal-config {:gem-home "/dev/null"
                         :ruby-load-path ["/dev/null"]}
-        config        (jruby-core/initialize-config minimal-config)]
+        config        (initialize-jruby-config-with-logging-suppressed
+                       minimal-config)]
     (testing "max-active-instances is set to default if not specified"
       (is (= (jruby-core/default-pool-size (ks/num-cpus)) (:max-active-instances config))))
     (testing "max-borrows-per-instance is set to 0 if not specified"
@@ -33,7 +39,7 @@
     (testing "max-borrows-per-instance is honored if specified"
       (is (= 5 (-> minimal-config
                    (assoc :max-borrows-per-instance 5)
-                   (jruby-core/initialize-config)
+                   (initialize-jruby-config-with-logging-suppressed)
                    :max-borrows-per-instance))))
     (testing "compile-mode is set to default if not specified"
       (is (= jruby-core/default-jruby-compile-mode
@@ -41,11 +47,11 @@
     (testing "compile-mode is honored if specified"
       (is (= :off (-> minimal-config
                       (assoc :compile-mode "off")
-                      (jruby-core/initialize-config)
+                      (initialize-jruby-config-with-logging-suppressed)
                       :compile-mode)))
       (is (= :jit (-> minimal-config
                       (assoc :compile-mode "jit")
-                      (jruby-core/initialize-config)
+                      (initialize-jruby-config-with-logging-suppressed)
                       :compile-mode))))
     (testing "compat-version is set to default if not specified"
       (is (= jruby-core/default-jruby-compat-version
@@ -53,39 +59,39 @@
     (testing "compat-version is honored if specified as a string"
       (is (= "1.9" (-> minimal-config
                        (assoc :compat-version "1.9")
-                       (jruby-core/initialize-config)
+                       (initialize-jruby-config-with-logging-suppressed)
                        :compat-version)))
       (is (= "2.0" (-> minimal-config
                        (assoc :compat-version "2.0")
-                       (jruby-core/initialize-config)
+                       (initialize-jruby-config-with-logging-suppressed)
                        :compat-version))))
     (testing "compat-version is honored if specified as a double"
       ;; depending on how the setting is laid down in a HOCON file, it seems feasible that it might
       ;; be a string or a double. We should tolerate either.
       (is (= "1.9" (-> minimal-config
                        (assoc :compat-version 1.9)
-                       (jruby-core/initialize-config)
+                       (initialize-jruby-config-with-logging-suppressed)
                        :compat-version)))
       (is (= "2.0" (-> minimal-config
                        (assoc :compat-version 2.0)
-                       (jruby-core/initialize-config)
+                       (initialize-jruby-config-with-logging-suppressed)
                        :compat-version))))
     (testing "compat-version is honored if specified as an integer"
       ;; HOCON might parse doubles as integers in some cases? so we should tolerate it as an integer
       ;; too
       (is (= "2.0" (-> minimal-config
                        (assoc :compat-version 2)
-                       (jruby-core/initialize-config)
+                       (initialize-jruby-config-with-logging-suppressed)
                        :compat-version))))
     (testing "gem-path is set to nil if not specified"
       (is (nil? (-> minimal-config
-                    jruby-core/initialize-config
+                    initialize-jruby-config-with-logging-suppressed
                     :gem-path))))
     (testing "gem-path is respected if specified"
       (is (= "/tmp/foo:/dev/null"
              (-> minimal-config
                  (assoc :gem-path "/tmp/foo:/dev/null")
-                 jruby-core/initialize-config
+                 initialize-jruby-config-with-logging-suppressed
                  :gem-path))))))
 
 (deftest test-jruby-core-funcs
