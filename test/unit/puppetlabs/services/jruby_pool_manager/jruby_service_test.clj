@@ -1,13 +1,11 @@
 (ns puppetlabs.services.jruby-pool-manager.jruby-service-test
   (:require [clojure.test :refer :all]
             [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
-            [puppetlabs.trapperkeeper.app :as app]
             [puppetlabs.trapperkeeper.core :as tk]
             [puppetlabs.trapperkeeper.services :as services]
             [clojure.stacktrace :as stacktrace]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
             [puppetlabs.trapperkeeper.testutils.logging :as logging]
-            [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
             [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
             [schema.test :as schema-test])
@@ -71,15 +69,12 @@
 
 (deftest test-pool-size
   (testing "The pool is created and the size is correctly reported"
-    (let [pool-size 2
-          config (jruby-test-config pool-size)]
-      (tk-bootstrap/with-app-with-config
-        app
+    (let [pool-size 2]
+      (jruby-testutils/with-pool-context
+        pool-context
         jruby-testutils/default-services
-        {}
-        (let [pool-manager-service (app/get-service app :PoolManagerService)
-              pool-context (pool-manager-protocol/create-pool pool-manager-service config)
-              pool (jruby-core/get-pool pool-context)
+        (jruby-test-config pool-size)
+        (let [pool (jruby-core/get-pool pool-context)
               all-the-instances (mapv (fn [_]
                                         (jruby-core/borrow-from-pool-with-timeout
                                          pool-context :test-pool-size []))
@@ -94,35 +89,32 @@
 
 (deftest test-with-jruby-instance
   (testing "the `with-jruby-instance macro`"
-    (tk-bootstrap/with-app-with-config
-     app
+    (jruby-testutils/with-pool-context
+     pool-context
      jruby-testutils/default-services
-     {}
-     (let [config (jruby-testutils/jruby-config {:max-active-instances 1})
-           pool-manager-service (app/get-service app :PoolManagerService)
-           pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
-       (jruby-core/with-jruby-instance
-        jruby-instance
-        pool-context
-        :test-with-jruby-instance
-        (is (instance? JRubyInstance jruby-instance))
-        (is (= 0 (jruby-core/free-instance-count (jruby-core/get-pool pool-context)))))
+     (jruby-testutils/jruby-config {:max-active-instances 1})
+     (jruby-core/with-jruby-instance
+      jruby-instance
+      pool-context
+      :test-with-jruby-instance
+      (is (instance? JRubyInstance jruby-instance))
+      (is (= 0 (jruby-core/free-instance-count (jruby-core/get-pool pool-context)))))
 
-       (is (= 1 (jruby-core/free-instance-count (jruby-core/get-pool pool-context))))
-       ;; borrow and return one more time: we're using `with-jruby-instance`
-       ;; here even though it looks a bit strange, because that is what this
-       ;; test is intended to cover.
-       (jruby-core/with-jruby-instance
-        jruby-instance
-        pool-context
-        :test-with-jruby-instance)
-       (let [jruby (jruby-core/borrow-from-pool-with-timeout
-                    pool-context :test-with-jruby-instance [])]
-         ;; the counter gets incremented when the instance is returned to the
-         ;; pool, so right now it should be at 2 since we've called
-         ;; `with-jruby-instance` twice.
-         (is (= 2 (:borrow-count (jruby-core/get-instance-state jruby))))
-         (jruby-core/return-to-pool jruby :test-with-jruby-instance []))))))
+     (is (= 1 (jruby-core/free-instance-count (jruby-core/get-pool pool-context))))
+     ;; borrow and return one more time: we're using `with-jruby-instance`
+     ;; here even though it looks a bit strange, because that is what this
+     ;; test is intended to cover.
+     (jruby-core/with-jruby-instance
+      jruby-instance
+      pool-context
+      :test-with-jruby-instance)
+     (let [jruby (jruby-core/borrow-from-pool-with-timeout
+                  pool-context :test-with-jruby-instance [])]
+       ;; the counter gets incremented when the instance is returned to the
+       ;; pool, so right now it should be at 2 since we've called
+       ;; `with-jruby-instance` twice.
+       (is (= 2 (:borrow-count (jruby-core/get-instance-state jruby))))
+       (jruby-core/return-to-pool jruby :test-with-jruby-instance [])))))
 
 (deftest test-jruby-events
   (testing "jruby service sends event notifications"
@@ -147,64 +139,58 @@
                        (reset! returned {:sequence (swap! counter inc)
                                          :reason reason
                                          :instance instance})))]
-      (tk-bootstrap/with-app-with-config
-        app
+      (jruby-testutils/with-pool-context
+        pool-context
         jruby-testutils/default-services
-        {}
-        (let [config (jruby-test-config 1)
-              pool-manager-service (app/get-service app :PoolManagerService)
-              pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
-          (jruby-core/register-event-handler pool-context callback)
-          ;; We're making an empty call to `with-jruby-instance` here, because
-          ;; we want to trigger a borrow/return via the same code path that
-          ;; would be used in production.
-          (jruby-core/with-jruby-instance
-            jruby-instance
-            pool-context
-            :test-jruby-events)
-          (is (= {:sequence 1 :reason :test-jruby-events}
-                (dissoc @requested :event)))
-          (is (= {:sequence 2 :reason :test-jruby-events}
-                (dissoc @borrowed :instance :requested-event)))
-          (is (jruby-schemas/jruby-instance? (:instance @borrowed)))
-          (is (identical? (:event @requested) (:requested-event @borrowed)))
-          (is (= {:sequence 3 :reason :test-jruby-events}
-                (dissoc @returned :instance)))
-          (is (= (:instance @borrowed) (:instance @returned)))
-          (jruby-core/with-jruby-instance
-            jruby-instance
-            pool-context
-            :test-jruby-events)
-          (is (= 4 (:sequence @requested)))
-          (is (= 5 (:sequence @borrowed)))
-          (is (= 6 (:sequence @returned))))))))
+        (jruby-test-config 1)
+        (jruby-core/register-event-handler pool-context callback)
+        ;; We're making an empty call to `with-jruby-instance` here, because
+        ;; we want to trigger a borrow/return via the same code path that
+        ;; would be used in production.
+        (jruby-core/with-jruby-instance
+         jruby-instance
+         pool-context
+         :test-jruby-events)
+        (is (= {:sequence 1 :reason :test-jruby-events}
+               (dissoc @requested :event)))
+        (is (= {:sequence 2 :reason :test-jruby-events}
+               (dissoc @borrowed :instance :requested-event)))
+        (is (jruby-schemas/jruby-instance? (:instance @borrowed)))
+        (is (identical? (:event @requested) (:requested-event @borrowed)))
+        (is (= {:sequence 3 :reason :test-jruby-events}
+               (dissoc @returned :instance)))
+        (is (= (:instance @borrowed) (:instance @returned)))
+        (jruby-core/with-jruby-instance
+         jruby-instance
+         pool-context
+         :test-jruby-events)
+        (is (= 4 (:sequence @requested)))
+        (is (= 5 (:sequence @borrowed)))
+        (is (= 6 (:sequence @returned)))))))
 
 (deftest test-borrow-timeout-configuration
   (testing "configured :borrow-timeout is honored by the borrow-instance-with-timeout function"
     (let [timeout   250
-          pool-size 1
-          config (jruby-testutils/jruby-config {:max-active-instances pool-size
-                                                :borrow-timeout timeout})]
-      (tk-bootstrap/with-app-with-config
-       app
+          pool-size 1]
+      (jruby-testutils/with-pool-context
+       pool-context
        jruby-testutils/default-services
-       {}
-       (let [pool-manager-service (app/get-service app :PoolManagerService)
-             pool-context (pool-manager-protocol/create-pool pool-manager-service config)]
-         (let [jrubies (jruby-testutils/drain-pool pool-context pool-size)]
-           (is (= 1 (count jrubies)))
-           (is (every? jruby-schemas/jruby-instance? jrubies))
-           (let [test-start-in-millis (System/currentTimeMillis)]
-             (is (nil?
-                  (jruby-core/borrow-from-pool-with-timeout
-                   pool-context
-                   :test-borrow-timeout-configuration
-                   [])))
-             (is (>= (- (System/currentTimeMillis) test-start-in-millis) timeout))
-             (is (= (:borrow-timeout (:config pool-context)) timeout)))
-           ; Test cleanup. This instance needs to be returned so that the stop can complete.
-           (doseq [inst jrubies]
-             (jruby-core/return-to-pool inst :test [])))))))
+       (jruby-testutils/jruby-config {:max-active-instances pool-size
+                                      :borrow-timeout timeout})
+       (let [jrubies (jruby-testutils/drain-pool pool-context pool-size)]
+         (is (= 1 (count jrubies)))
+         (is (every? jruby-schemas/jruby-instance? jrubies))
+         (let [test-start-in-millis (System/currentTimeMillis)]
+           (is (nil?
+                (jruby-core/borrow-from-pool-with-timeout
+                 pool-context
+                 :test-borrow-timeout-configuration
+                 [])))
+           (is (>= (- (System/currentTimeMillis) test-start-in-millis) timeout))
+           (is (= (:borrow-timeout (:config pool-context)) timeout)))
+         ; Test cleanup. This instance needs to be returned so that the stop can complete.
+         (doseq [inst jrubies]
+           (jruby-core/return-to-pool inst :test []))))))
 
   (testing (str ":borrow-timeout defaults to " jruby-core/default-borrow-timeout " milliseconds")
     (let [initial-config {:ruby-load-path ["foo"]
