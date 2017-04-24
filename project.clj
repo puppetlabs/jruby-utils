@@ -41,7 +41,9 @@
 
   :profiles {:dev {:dependencies  [[puppetlabs/kitchensink :classifier "test" :scope "test"]
                                    [puppetlabs/trapperkeeper :classifier "test" :scope "test"]]
-                   :jvm-opts ["-Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger"]}
+                   :jvm-opts ["-Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger"
+                              "-Xms1G"
+                              "-Xmx2G"]}
              :testutils {:source-paths ^:replace ["test/unit" "test/integration"]}
              :jruby9k {:dependencies [[puppetlabs/jruby-deps "9.1.8.0-1"]]}}
 
