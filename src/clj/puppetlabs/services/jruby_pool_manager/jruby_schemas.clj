@@ -3,7 +3,8 @@
   (:import (clojure.lang Atom Agent IFn PersistentArrayMap PersistentHashMap)
            (com.puppetlabs.jruby_utils.pool LockablePool)
            (org.jruby Main Main$Status RubyInstanceConfig)
-           (com.puppetlabs.jruby_utils.jruby ScriptingContainer)))
+           (com.puppetlabs.jruby_utils.jruby ScriptingContainer InternalScriptingContainer)
+           (org.jruby.runtime Constants)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -33,11 +34,17 @@
   "Schema defining the supported values for the JRuby CompileMode setting."
   (apply schema/enum supported-jruby-compile-modes))
 
+(def using-jruby-9k?
+  (let [jruby-version Constants/VERSION]
+    (= "9." (subs jruby-version 0 2))))
+
 (def supported-jruby-compat-versions
-  #{"1.9" "2.0"})
+  (if using-jruby-9k?
+    #{Constants/RUBY_VERSION}
+    #{"1.9" "2.0"}))
 
 (def SupportedJRubyCompatVersions
-  "Schema defining the supported compatability versions for the JRuby CompatVersions setting"
+  "Schema defining the supported compatibility versions for the JRuby CompatVersions setting"
   (apply schema/enum supported-jruby-compat-versions))
 
 (def LifecycleFns

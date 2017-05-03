@@ -40,7 +40,8 @@
   :classifiers [["test" :testutils]]
 
   :profiles {:dev {:dependencies  [[puppetlabs/kitchensink :classifier "test" :scope "test"]
-                                   [puppetlabs/trapperkeeper :classifier "test" :scope "test"]]
+                                   [puppetlabs/trapperkeeper :classifier "test" :scope "test"]
+                                   [org.tcrawley/dynapath]]
                    :jvm-opts ["-Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger"
                               "-Xms1G"
                               "-Xmx2G"]}

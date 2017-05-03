@@ -42,11 +42,7 @@
   (case compat-version
     "1.9" (CompatVersion/RUBY1_9)
     "2.0" (CompatVersion/RUBY2_0)
-    (throw (IllegalArgumentException.
-            (format "%s %s"
-                    (i18n/trs "compat-version is set to `{0}`, which is not an allowed option."
-                              compat-version)
-                    (i18n/trs "The available compat-versions are `1.9` and `2.0`"))))))
+    nil))
 
 (schema/defn ^:always-validate init-jruby :- jruby-schemas/ConfigurableJRuby
   "Applies configuration to a JRuby... thing.  See comments in `ConfigurableJRuby`
@@ -57,8 +53,9 @@
         initialize-scripting-container-fn (:initialize-scripting-container lifecycle)]
     (doto jruby
       (.setLoadPaths ruby-load-path)
-      (.setCompatVersion (get-compat-version compat-version))
       (.setCompileMode (get-compile-mode compile-mode)))
+    (when-let [compat-version (get-compat-version compat-version)]
+      (.setCompatVersion jruby compat-version))
     (initialize-scripting-container-fn jruby config)))
 
 (schema/defn ^:always-validate empty-scripting-container :- ScriptingContainer
