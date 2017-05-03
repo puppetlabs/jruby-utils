@@ -1,3 +1,15 @@
+### 0.9.0 - 2017-05-03
+
+This is a feature release.
+
+* [SERVER-1630](https://tickets.puppetlabs.com/browse/SERVER-1630) Added
+  support for exercising JRuby 9k.  jruby-utils continues to depend upon
+  JRuby 1.7.26 but jruby-utils consumers can now successfully override
+  the 1.7.26 dependency with JRuby 9k-based dependencies.  JRuby dependencies
+  are now derived from single upstream Maven artifact, puppetlabs/jruby-deps.
+  A jruby9k profile was added for executing the jruby-utils tests under
+  JRuby 9k.
+
 ### 0.8.0 - 2017-03-01
 
 This is a minor feature and bugfix release.
