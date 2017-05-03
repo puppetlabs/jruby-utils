@@ -1,12 +1,13 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR Puppet <docs@puppet.com>
-# This file is distributed under the same license as the puppetlabs.jruby_utils package.
+# This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.jruby_utils \n"
+"X-Git-Ref: 31d4ac9db3875d0a477d3abdb53048a0179f997b\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -25,6 +26,7 @@ msgstr ""
 msgid "Priming JRubyInstance {0} of {1}"
 msgstr ""
 
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
 msgid "Finished creating JRubyInstance {0} of {1}"
 msgstr ""
@@ -83,14 +85,6 @@ msgid "Flush request received; flushing old JRuby instances."
 msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
-msgid "compat-version is set to `{0}`, which is not an allowed option."
-msgstr ""
-
-#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
-msgid "The available compat-versions are `1.9` and `2.0`"
-msgstr ""
-
-#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
 msgid "Cleaned up old JRubyInstance with id {0}."
 msgstr ""
 
@@ -117,9 +111,25 @@ msgid ""
 msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
+msgid ""
+"Setting 'compat-version' for JRuby 9k is deprecated and will be removed in a "
+"future release."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
+msgid "compat-version is set to `{0}`, which is not a supported version."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
+msgid "Version `{0}` will be used instead."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
+#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
 msgid "Acquiring lock on JRubyPool..."
 msgstr ""
 
+#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
 #: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
 msgid "Lock acquired"
 msgstr ""
