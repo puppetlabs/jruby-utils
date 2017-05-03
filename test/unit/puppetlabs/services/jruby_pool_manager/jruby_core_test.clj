@@ -2,8 +2,10 @@
   (:require [clojure.test :refer :all]
             [schema.test :as schema-test]
             [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
-            [puppetlabs.trapperkeeper.testutils.logging :as logutils])
-  (:import (java.io ByteArrayOutputStream PrintStream ByteArrayInputStream)))
+            [puppetlabs.trapperkeeper.testutils.logging :as logutils]
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas])
+  (:import (java.io ByteArrayOutputStream PrintStream ByteArrayInputStream)
+           (org.jruby.runtime Constants)))
 
 (use-fixtures :once schema-test/validate-schemas)
 
@@ -120,3 +122,38 @@
             exit-code (.getStatus return)]
         (is (= 0 exit-code))
         (is (re-find #"bar" out))))))
+
+(deftest default-jruby-compat-version-test
+  (testing "default jruby compat version is correct for current JRuby"
+    (is (= (if jruby-schemas/using-jruby-9k?
+             Constants/RUBY_VERSION
+             "1.9")
+           jruby-core/default-jruby-compat-version))))
+
+(deftest get-compat-version-for-jruby-config
+  (testing "For get-compat-version-for-jruby-config"
+    (testing "deprecation warning logged if compat version not configurable"
+      (logutils/with-test-logging
+       (is (= "2.3.1" (jruby-core/get-compat-version-for-jruby-config
+                       "2.3.1" "2.3.1" #{"2.3.1"})))
+       (is (logged? #"Setting compat-version for JRuby 9k is deprecated" :warn))))
+    (testing "when unsupported version specified"
+      (logutils/with-test-logging
+       (testing "supported version returned"
+         (is (= "2.3.1" (jruby-core/get-compat-version-for-jruby-config
+                         "1.9" "2.3.1" #{"2.3.1"}))))
+       (testing "warning is logged"
+         (is (logged?
+              #"compat-version is set to `1.9`, which is not a supported version. Version `2.3.1` will be used instead"
+              :warn)))))
+    (testing "supported version is returned"
+      (is (= "2.0" (jruby-core/get-compat-version-for-jruby-config
+                    "2.0" "1.9" #{"1.9" "2.0"}))))
+    (testing "stringified form of supported version is returned"
+      (is (= "2.0" (jruby-core/get-compat-version-for-jruby-config
+                    2.0 "1.9" #{"1.9" "2.0"}))))
+    (testing "default version returned if no version specified"
+      (is (= "1.9" (jruby-core/get-compat-version-for-jruby-config
+                    nil
+                    "1.9"
+                    #{"1.9" "2.0"}))))))

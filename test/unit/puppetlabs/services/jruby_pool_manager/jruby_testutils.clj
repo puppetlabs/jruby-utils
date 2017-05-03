@@ -6,7 +6,10 @@
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.services :as tk-service]
             [clojure.tools.logging :as log]
-            [schema.core :as schema])
+            [schema.core :as schema]
+            [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
+            [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-pool-manager-core :as jruby-pool-manager-core])
   (:import (clojure.lang IFn)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -121,3 +124,25 @@
 (schema/defn wait-for-pool-to-be-locked :- schema/Bool
   [pool :- jruby-schemas/pool-queue-type]
   (wait-for-predicate #(.isLocked pool)))
+
+(defmacro with-pool-context
+  [pool-context services config & body]
+  `(tk-bootstrap/with-app-with-config
+    app#
+    ~services
+    {}
+    (let [pool-manager-service# (tk-app/get-service app# :PoolManagerService)
+          ~pool-context (pool-manager-protocol/create-pool
+                         pool-manager-service# ~config)]
+      (try
+        ~@body
+        (finally
+          (jruby-core/flush-pool-for-shutdown! ~pool-context))))))
+
+(defmacro with-scripting-container
+  [container config & body]
+  `(let [~container (jruby-internal/create-scripting-container ~config)]
+     (try
+       ~@body
+       (finally
+         (.terminate ~container)))))

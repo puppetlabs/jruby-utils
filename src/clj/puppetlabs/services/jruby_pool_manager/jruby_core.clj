@@ -13,7 +13,9 @@
             [puppetlabs.i18n.core :as i18n])
   (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance)
            (clojure.lang IFn)
-           (java.util.concurrent TimeUnit)))
+           (java.util.concurrent TimeUnit)
+           (org.jruby RubyInstanceConfig)
+           (org.jruby.runtime Constants)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Constants
@@ -24,7 +26,9 @@
 
 (def default-jruby-compat-version
   "Default value for JRuby's 'CompatVersion' setting."
-  "1.9")
+  (if (contains? jruby-schemas/supported-jruby-compat-versions "1.9")
+    "1.9"
+    (first jruby-schemas/supported-jruby-compat-versions)))
 
 (def default-borrow-timeout
   "Default timeout when borrowing instances from the JRuby pool in
@@ -162,14 +166,38 @@
           (integer? compat-version) double
           :true str))
 
+(schema/defn ^:always-validate get-compat-version-for-jruby-config
+  [compat-version-from-user-config :- schema/Any
+   default-compat-version :- schema/Str
+   supported-compat-versions :- #{schema/Str}]
+  (let [parsed-compat-version (parse-compat-version
+                               (or compat-version-from-user-config
+                                   default-compat-version))]
+    (when (and compat-version-from-user-config
+               (= 1 (count supported-compat-versions)))
+      (log/warn
+       (i18n/trs "Setting 'compat-version' for JRuby 9k is deprecated and will be removed in a future release.")))
+    (if (contains? supported-compat-versions parsed-compat-version)
+      parsed-compat-version
+      (do
+        (log/warnf
+         "%s %s"
+         (i18n/trs "compat-version is set to `{0}`, which is not a supported version."
+                   parsed-compat-version)
+         (i18n/trs "Version `{0}` will be used instead." default-compat-version))
+        default-compat-version))))
+
 (schema/defn ^:always-validate
   initialize-config :- jruby-schemas/JRubyConfig
   "Initialize keys with default settings if they are not given a value.
   The config is validated after these defaults are set."
-  [config :- {schema/Keyword schema/Any}]
+  [{:keys [compat-version] :as config} :- {schema/Keyword schema/Any}]
   (-> config
       (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
-      (update-in [:compat-version] #(parse-compat-version (or % default-jruby-compat-version)))
+      (assoc :compat-version (get-compat-version-for-jruby-config
+                              compat-version
+                              default-jruby-compat-version
+                              jruby-schemas/supported-jruby-compat-versions))
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:flush-timeout] #(or % default-flush-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))

@@ -21,18 +21,7 @@
                  [prismatic/schema]
                  [slingshot]
 
-                 [org.jruby/jruby-core "1.7.26"
-                  :exclusions [com.github.jnr/jffi com.github.jnr/jnr-x86asm]]
-                 ;; jffi and jnr-x86asm are explicit dependencies because,
-                 ;; in JRuby's poms, they are defined using version ranges,
-                 ;; and :pedantic? :abort won't tolerate this.
-                 [com.github.jnr/jffi "1.2.12"]
-                 [com.github.jnr/jffi "1.2.12" :classifier "native"]
-                 [com.github.jnr/jnr-x86asm "1.0.2"]
-                 ;; NOTE: jruby-stdlib packages some unexpected things inside
-                 ;; of its jar; please read the detailed notes above the
-                 ;; 'uberjar-exclusions' example toward the end of this file.
-                 [org.jruby/jruby-stdlib "1.7.26"]
+                 [puppetlabs/jruby-deps "1.7.26-1"]
 
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
@@ -51,9 +40,13 @@
   :classifiers [["test" :testutils]]
 
   :profiles {:dev {:dependencies  [[puppetlabs/kitchensink :classifier "test" :scope "test"]
-                                   [puppetlabs/trapperkeeper :classifier "test" :scope "test"]]
-                   :jvm-opts ["-Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger"]}
-             :testutils {:source-paths ^:replace ["test/unit" "test/integration"]}}
+                                   [puppetlabs/trapperkeeper :classifier "test" :scope "test"]
+                                   [org.tcrawley/dynapath]]
+                   :jvm-opts ["-Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger"
+                              "-Xms1G"
+                              "-Xmx2G"]}
+             :testutils {:source-paths ^:replace ["test/unit" "test/integration"]}
+             :jruby9k {:dependencies [[puppetlabs/jruby-deps "9.1.8.0-1"]]}}
 
   :plugins [[lein-parent "0.3.1"]
             [puppetlabs/i18n "0.7.1"]])
