@@ -21,7 +21,7 @@
                  [prismatic/schema]
                  [slingshot]
 
-                 [puppetlabs/jruby-deps "1.7.26-1"]
+                 [puppetlabs/jruby-deps "1.7.26-2"]
 
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
@@ -46,7 +46,7 @@
                               "-Xms1G"
                               "-Xmx2G"]}
              :testutils {:source-paths ^:replace ["test/unit" "test/integration"]}
-             :jruby9k {:dependencies [[puppetlabs/jruby-deps "9.1.8.0-1"]]}}
+             :jruby9k {:dependencies [[puppetlabs/jruby-deps "9.1.9.0-1"]]}}
 
   :plugins [[lein-parent "0.3.1"]
             [puppetlabs/i18n "0.7.1"]])
