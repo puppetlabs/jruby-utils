@@ -114,11 +114,7 @@ public class InternalScriptingContainer
         // created for the class loader since that is more likely intended to be
         // persistent.
         if (urlPath.startsWith(classLoaderTempDir)) {
-            File urlPathAsFile = new File(urlPath);
-            if (!urlPathAsFile.delete()) {
-                LOGGER.warn("Unable to delete jar on container termination: {}",
-                        urlPathAsFile);
-            }
+            new File(urlPath).delete();
         }
     }
 
