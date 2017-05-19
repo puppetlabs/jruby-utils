@@ -1,3 +1,12 @@
+### 0.9.1 - 2017-05-19
+
+This is a minor release.
+
+* Remove warning for jar deletion failure. Changes in upstream JRuby will
+  remove some of the temporary jars that are copied at runtime, so the logging
+  for our cleanup of these jars is not necessary.
+* jruby-deps version bumps - JRuby 9k to 9.1.9.0-1 and JRuby 1.7 to 1.7.26-2.
+
 ### 0.9.0 - 2017-05-03
 
 This is a feature release.
