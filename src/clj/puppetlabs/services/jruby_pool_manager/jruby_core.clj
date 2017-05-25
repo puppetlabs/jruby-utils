@@ -346,3 +346,23 @@
        ~@body
        (finally
          (unlock-pool pool# ~reason event-callbacks#)))))
+
+(def jruby-version-info
+  "Default version info string for jruby"
+  ;; For JRuby 9k, the only available getVersionString method takes no parameter
+  ;; whereas for JRuby 1.7.x the only available getVersionString method takes
+  ;; a CompatVersion as a parameter.  Use reflection to invoke the appropriate
+  ;; method.
+  (if jruby-schemas/using-jruby-9k?
+    (.invoke (.getDeclaredMethod
+              OutputStrings
+              "getVersionString"
+              nil)
+             nil
+             nil)
+    (.invoke (.getDeclaredMethod
+              OutputStrings
+              "getVersionString"
+              (into-array [CompatVersion]))
+             nil
+             (into-array [jruby-internal/default-jruby-compat-version]))))
