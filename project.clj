@@ -21,7 +21,7 @@
                  [prismatic/schema]
                  [slingshot]
 
-                 [puppetlabs/jruby-deps "1.7.26-2"]
+                 [puppetlabs/jruby-deps "1.7.27-1"]
 
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
