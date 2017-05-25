@@ -29,11 +29,7 @@
   (let [minimal-config {:gem-home "/dev/null"
                         :ruby-load-path ["/dev/null"]}
         config        (initialize-jruby-config-with-logging-suppressed
-                       minimal-config)
-        expected-version-fn (fn [version]
-                              (if (= (count jruby-schemas/supported-jruby-compat-versions) 1)
-                                jruby-core/default-jruby-compat-version
-                                version))]
+                       minimal-config)]
     (testing "max-active-instances is set to default if not specified"
       (is (= (jruby-core/default-pool-size (ks/num-cpus)) (:max-active-instances config))))
     (testing "max-borrows-per-instance is set to 0 if not specified"
@@ -55,41 +51,6 @@
                       (assoc :compile-mode "jit")
                       (initialize-jruby-config-with-logging-suppressed)
                       :compile-mode))))
-    (testing "compat-version is set to default if not specified"
-      (is (= jruby-core/default-jruby-compat-version
-             (:compat-version config))))
-    (testing "compat-version is honored if specified as a string"
-      (is (= (expected-version-fn "1.9")
-             (-> minimal-config
-                 (assoc :compat-version "1.9")
-                 (initialize-jruby-config-with-logging-suppressed)
-                 :compat-version)))
-      (is (= (expected-version-fn "2.0")
-             (-> minimal-config
-                 (assoc :compat-version "2.0")
-                 (initialize-jruby-config-with-logging-suppressed)
-                 :compat-version))))
-    (testing "compat-version is honored if specified as a double"
-      ;; depending on how the setting is laid down in a HOCON file, it seems feasible that it might
-      ;; be a string or a double. We should tolerate either.
-      (is (= (expected-version-fn "1.9")
-             (-> minimal-config
-                 (assoc :compat-version 1.9)
-                 (initialize-jruby-config-with-logging-suppressed)
-                 :compat-version)))
-      (is (= (expected-version-fn "2.0")
-             (-> minimal-config
-                 (assoc :compat-version 2.0)
-                 (initialize-jruby-config-with-logging-suppressed)
-                 :compat-version))))
-    (testing "compat-version is honored if specified as an integer"
-      ;; HOCON might parse doubles as integers in some cases? so we should tolerate it as an integer
-      ;; too
-      (is (= (expected-version-fn "2.0")
-             (-> minimal-config
-                 (assoc :compat-version 2)
-                 (initialize-jruby-config-with-logging-suppressed)
-                 :compat-version))))
     (testing "gem-path is set to nil if not specified"
       (is (nil? (-> minimal-config
                     initialize-jruby-config-with-logging-suppressed
