@@ -1,3 +1,30 @@
+### 0.10.0 - 2017-05-26
+
+This is a breaking maintenance / minor feature release.
+
+Maintenance:
+
+* Bump JRuby 1.7 dependencies to 1.7.27.
+
+Breaking changes:
+
+* Support for configuring the Ruby language `compat-version`, including the
+  related functions, has been removed in this release.
+  
+  The `compat-version` was only previously functional for JRuby 1.7.x
+  releases since each JRuby 9k release only supports a single language
+  version.  JRuby 1.7.27 effectively breaks the ability to use Ruby language
+  version 2.0, however, due to a regression - see:
+  https://github.com/jruby/jruby/issues/4613 - which is unlikely to be fixed
+  in the future since the JRuby 1.7.x series has been declared EOL.  For
+  Ruby language 2+ support, users will now have to use jruby-utils with a 
+  jruby-deps 9.x.x.x version dependency.
+
+Features:
+
+* Added a `jruby-version-info` function for getting the version string that
+  JRuby reports at the command line. 
+
 ### 0.9.1 - 2017-05-19
 
 This is a minor release.
