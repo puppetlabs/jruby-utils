@@ -38,15 +38,6 @@
   (let [jruby-version Constants/VERSION]
     (= "9." (subs jruby-version 0 2))))
 
-(def supported-jruby-compat-versions
-  (if using-jruby-9k?
-    #{Constants/RUBY_VERSION}
-    #{"1.9" "2.0"}))
-
-(def SupportedJRubyCompatVersions
-  "Schema defining the supported compatibility versions for the JRuby CompatVersions setting"
-  (apply schema/enum supported-jruby-compat-versions))
-
 (def LifecycleFns
   {:initialize-pool-instance IFn
    :cleanup IFn
@@ -76,7 +67,6 @@
    :gem-home schema/Str
    :gem-path (schema/maybe schema/Str)
    :compile-mode SupportedJRubyCompileModes
-   :compat-version SupportedJRubyCompatVersions
    :borrow-timeout schema/Int
    :flush-timeout schema/Int
    :max-active-instances schema/Int

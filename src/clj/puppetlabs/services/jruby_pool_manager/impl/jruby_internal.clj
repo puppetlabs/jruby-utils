@@ -16,6 +16,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private
 
+(def default-jruby-1-7-compat-version
+  "Default value for JRuby's 'CompatVersion' setting.  This value is only
+  meaningful for JRuby 1.7.  For JRuby 9k, this will return `nil` because
+  JRuby 9k effectively doesn't support configurable language compatibility
+  versions."
+  (when-not jruby-schemas/using-jruby-9k? CompatVersion/RUBY1_9))
+
 (schema/defn ^:always-validate initialize-gem-path :- {schema/Keyword schema/Any}
   [{:keys [gem-path gem-home] :as jruby-config} :- {schema/Keyword schema/Any}]
   (if gem-path
@@ -35,26 +42,17 @@
     :force RubyInstanceConfig$CompileMode/FORCE
     :off RubyInstanceConfig$CompileMode/OFF))
 
-(schema/defn ^:always-validate get-compat-version
-  "Get the JRuby compatibility version to use for all ruby components, e.g. the
-  master service and CLI tools."
-  [compat-version :- jruby-schemas/SupportedJRubyCompatVersions]
-  (case compat-version
-    "1.9" (CompatVersion/RUBY1_9)
-    "2.0" (CompatVersion/RUBY2_0)
-    nil))
-
 (schema/defn ^:always-validate init-jruby :- jruby-schemas/ConfigurableJRuby
   "Applies configuration to a JRuby... thing.  See comments in `ConfigurableJRuby`
   schema for more details."
   [jruby :- jruby-schemas/ConfigurableJRuby
    config :- jruby-schemas/JRubyConfig]
-  (let [{:keys [ruby-load-path compile-mode lifecycle compat-version]} config
+  (let [{:keys [ruby-load-path compile-mode lifecycle]} config
         initialize-scripting-container-fn (:initialize-scripting-container lifecycle)]
     (doto jruby
       (.setLoadPaths ruby-load-path)
       (.setCompileMode (get-compile-mode compile-mode)))
-    (when-let [compat-version (get-compat-version compat-version)]
+    (when-let [compat-version default-jruby-1-7-compat-version]
       (.setCompatVersion jruby compat-version))
     (initialize-scripting-container-fn jruby config)))
 

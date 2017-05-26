@@ -28,35 +28,19 @@
     (is (thrown? ExceptionInfo
                  (jruby-internal/get-compile-mode :foo)))))
 
-(deftest ^:integration settings-plumbed-into-jruby-container
+(deftest settings-plumbed-into-jruby-container
   (testing "settings plumbed into jruby container"
     (let [pool (JRubyPool. 1)
           config (logutils/with-test-logging
                   (jruby-testutils/jruby-config
-                   {:compile-mode :jit
-                    :compat-version 2.0}))
+                   {:compile-mode :jit}))
           instance (jruby-internal/create-pool-instance! pool 0 config #())
           container (:scripting-container instance)]
       (try
         (is (= RubyInstanceConfig$CompileMode/JIT
             (.getCompileMode container)))
-        (is (.is2_0 (.getCompatVersion container)))
+        (when-not jruby-schemas/using-jruby-9k?
+          (is (= CompatVersion/RUBY1_9 (.getCompatVersion container))
+              "Unexpected default compat version configured for JRuby 1.7 container"))
         (finally
           (.terminate container))))))
-
-(deftest get-compat-version-test
-  (testing "returns correct compat version for SupportedJrubyCompatVersions enum"
-    (when (contains? jruby-schemas/supported-jruby-compat-versions "1.9")
-      (is (= CompatVersion/RUBY1_9 (jruby-internal/get-compat-version "1.9"))))
-    (when (contains? jruby-schemas/supported-jruby-compat-versions "2.0")
-      (is (= CompatVersion/RUBY2_0 (jruby-internal/get-compat-version "2.0"))))
-    (when-not (contains? jruby-schemas/supported-jruby-compat-versions
-                         jruby-core/default-jruby-compat-version)
-      (is (nil? (jruby-internal/get-compat-version
-                 jruby-core/default-jruby-compat-version)))))
-  (testing "throws an exception if mode is nil"
-    (is (thrown? ExceptionInfo
-                 (jruby-internal/get-compat-version nil))))
-  (testing "throws an exception for values not in enum"
-    (is (thrown? ExceptionInfo
-                 (jruby-internal/get-compat-version "foo")))))
