@@ -39,7 +39,8 @@
       (try
         (is (= RubyInstanceConfig$CompileMode/JIT
             (.getCompileMode container)))
-        (if jruby-schemas/using-jruby-9k?
-          (is (.is1_9 (.getCompatVersion container))))
+        (when-not jruby-schemas/using-jruby-9k?
+          (is (= CompatVersion/RUBY1_9 (.getCompatVersion container))
+              "Unexpected default compat version configured for JRuby 1.7 container"))
         (finally
           (.terminate container))))))
