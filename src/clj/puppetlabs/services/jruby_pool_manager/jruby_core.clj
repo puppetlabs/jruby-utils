@@ -365,4 +365,4 @@
               "getVersionString"
               (into-array [CompatVersion]))
              nil
-             (into-array [jruby-internal/default-jruby-compat-version]))))
+             (into-array [jruby-internal/default-jruby-1-7-compat-version]))))

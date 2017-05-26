@@ -16,7 +16,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private
 
-(def default-jruby-compat-version
+(def default-jruby-1-7-compat-version
   "Default value for JRuby's 'CompatVersion' setting.  This value is only
   meaningful for JRuby 1.7.  For JRuby 9k, this will return `nil` because
   JRuby 9k effectively doesn't support configurable language compatibility
@@ -52,7 +52,7 @@
     (doto jruby
       (.setLoadPaths ruby-load-path)
       (.setCompileMode (get-compile-mode compile-mode)))
-    (when-let [compat-version default-jruby-compat-version]
+    (when-let [compat-version default-jruby-1-7-compat-version]
       (.setCompatVersion jruby compat-version))
     (initialize-scripting-container-fn jruby config)))
 
