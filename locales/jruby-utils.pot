@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.jruby_utils \n"
-"X-Git-Ref: 31d4ac9db3875d0a477d3abdb53048a0179f997b\n"
+"X-Git-Ref: c5d079db27ea1bf7f07ce8d9b05b9e56fb2c3538\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -108,20 +108,6 @@ msgstr ""
 msgid ""
 "Flushing JRubyInstance {0} because it has exceeded the maximum number of "
 "borrows ({1})"
-msgstr ""
-
-#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
-msgid ""
-"Setting 'compat-version' for JRuby 9k is deprecated and will be removed in a "
-"future release."
-msgstr ""
-
-#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
-msgid "compat-version is set to `{0}`, which is not a supported version."
-msgstr ""
-
-#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
-msgid "Version `{0}` will be used instead."
 msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
