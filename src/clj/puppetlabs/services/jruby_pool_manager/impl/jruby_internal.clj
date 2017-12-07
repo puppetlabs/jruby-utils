@@ -2,16 +2,20 @@
   (:require [schema.core :as schema]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
             [clojure.tools.logging :as log]
-            [puppetlabs.i18n.core :as i18n])
+            [puppetlabs.i18n.core :as i18n]
+            [clojure.java.io :as io]
+            [me.raynes.fs :as fs])
   (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
            (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance PoisonPill
                                                                  ShutdownPoisonPill)
-           (org.jruby CompatVersion Main RubyInstanceConfig RubyInstanceConfig$CompileMode)
+           (org.jruby CompatVersion Main RubyInstanceConfig RubyInstanceConfig$CompileMode RubyInstanceConfig$ProfilingMode)
            (org.jruby.embed LocalContextScope)
            (java.util.concurrent TimeUnit)
            (clojure.lang IFn)
            (com.puppetlabs.jruby_utils.jruby InternalScriptingContainer
-                                             ScriptingContainer)))
+                                             ScriptingContainer)
+           (org.jruby.runtime.profile.builtin ProfileOutput)
+           (java.io File)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private
@@ -42,18 +46,38 @@
     :force RubyInstanceConfig$CompileMode/FORCE
     :off RubyInstanceConfig$CompileMode/OFF))
 
+(schema/defn ^:always-validate get-profiling-mode :- RubyInstanceConfig$ProfilingMode
+  [config-profiling-mode :- jruby-schemas/SupportedJRubyProfilingModes]
+  (case config-profiling-mode
+    :api RubyInstanceConfig$ProfilingMode/API
+    :flat RubyInstanceConfig$ProfilingMode/FLAT
+    :graph RubyInstanceConfig$ProfilingMode/GRAPH
+    :html RubyInstanceConfig$ProfilingMode/HTML
+    :json RubyInstanceConfig$ProfilingMode/JSON
+    :off RubyInstanceConfig$ProfilingMode/OFF
+    :service RubyInstanceConfig$ProfilingMode/SERVICE))
+
 (schema/defn ^:always-validate init-jruby :- jruby-schemas/ConfigurableJRuby
   "Applies configuration to a JRuby... thing.  See comments in `ConfigurableJRuby`
   schema for more details."
   [jruby :- jruby-schemas/ConfigurableJRuby
    config :- jruby-schemas/JRubyConfig]
-  (let [{:keys [ruby-load-path compile-mode lifecycle]} config
+  (let [{:keys [ruby-load-path compile-mode lifecycle profiling-mode profiler-output-file]} config
         initialize-scripting-container-fn (:initialize-scripting-container lifecycle)]
     (doto jruby
       (.setLoadPaths ruby-load-path)
       (.setCompileMode (get-compile-mode compile-mode)))
     (when-let [compat-version default-jruby-1-7-compat-version]
       (.setCompatVersion jruby compat-version))
+    (when (and profiler-output-file (not= :off profiling-mode))
+      (let [current-time-string (clj-time.format/unparse (clj-time.format/formatters :basic-date-time-no-ms) (clj-time.core/now))
+            real-profiler-output-file (io/as-file (str profiler-output-file "-" current-time-string))]
+        (doto jruby
+          (.setProfileOutput (ProfileOutput. ^File real-profiler-output-file))
+          (.setProfilingMode (get-profiling-mode profiling-mode)))
+        (log/info
+         (i18n/trs "Writing jruby profiling output to ''{0}''" real-profiler-output-file))))
+
     (initialize-scripting-container-fn jruby config)))
 
 (schema/defn ^:always-validate empty-scripting-container :- ScriptingContainer

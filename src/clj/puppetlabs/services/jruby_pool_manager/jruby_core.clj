@@ -10,7 +10,8 @@
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [slingshot.slingshot :as sling]
-            [puppetlabs.i18n.core :as i18n])
+            [puppetlabs.i18n.core :as i18n]
+            [me.raynes.fs :as fs])
   (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance)
            (clojure.lang IFn)
            (java.util.concurrent TimeUnit)
@@ -23,6 +24,10 @@
 
 (def default-jruby-compile-mode
   "Default value for JRuby's 'CompileMode' setting."
+  :off)
+
+(def default-jruby-profiling-mode
+  "Default value for JRuby's 'ProfilerMode' setting."
   :off)
 
 (def default-borrow-timeout
@@ -162,6 +167,8 @@
   [config :- {schema/Keyword schema/Any}]
   (-> config
       (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
+      (update-in [:profiling-mode] #(keyword (or % default-jruby-profiling-mode)))
+      (update-in [:profiler-output-file] #(or % (fs/absolute (fs/temp-name "jruby-profiler"))))
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:flush-timeout] #(or % default-flush-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
