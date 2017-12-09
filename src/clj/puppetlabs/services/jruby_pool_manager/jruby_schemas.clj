@@ -34,12 +34,9 @@
   "Schema defining the supported values for the JRuby CompileMode setting."
   (apply schema/enum supported-jruby-compile-modes))
 
-(def supported-jruby-profiling-modes
-  #{:api :flat :graph :html :json :off :service})
-
 (def SupportedJRubyProfilingModes
   "Schema defining the supported values for the JRuby ProfilingMode setting."
-  (apply schema/enum supported-jruby-profiling-modes))
+  (schema/enum :api :flat :graph :html :json :off :service))
 
 (def using-jruby-9k?
   (let [jruby-version Constants/VERSION]
@@ -71,12 +68,12 @@
     * :environment-vars - A map of environment variables and their values to be
         passed through to the JRuby scripting container and visible to any Ruby code.
 
-    * ::profiling-mode - The value to use for JRuby's ProfilerMode setting. Legal
+    * :profiling-mode - The value to use for JRuby's ProfilerMode setting. Legal
         values are `:api`, `:flat`, `:graph`, `:html`, `:json`, `:off`, and
         `:service`. Defaults to `:off`.
 
     * :profiler-output-file - A target file to direct profiler output to. If
-        not set defaults to a random file relative to the working directory
+        not set, defaults to a random file relative to the working directory
         of the service."
   {:ruby-load-path [schema/Str]
    :gem-home schema/Str

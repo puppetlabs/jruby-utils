@@ -26,10 +26,6 @@
   "Default value for JRuby's 'CompileMode' setting."
   :off)
 
-(def default-jruby-profiling-mode
-  "Default value for JRuby's 'ProfilerMode' setting."
-  :off)
-
 (def default-borrow-timeout
   "Default timeout when borrowing instances from the JRuby pool in
    milliseconds. Current value is 1200000ms, or 20 minutes."
@@ -167,8 +163,8 @@
   [config :- {schema/Keyword schema/Any}]
   (-> config
       (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
-      (update-in [:profiling-mode] #(keyword (or % default-jruby-profiling-mode)))
-      (update-in [:profiler-output-file] #(or % (fs/absolute (fs/temp-name "jruby-profiler"))))
+      (update-in [:profiling-mode] #(keyword (or % :off)))
+      (update-in [:profiler-output-file] #(or % (str (fs/absolute (fs/temp-name "jruby-profiler")))))
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:flush-timeout] #(or % default-flush-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))

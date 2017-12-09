@@ -1,10 +1,13 @@
 (ns puppetlabs.services.jruby-pool-manager.impl.jruby-internal
-  (:require [schema.core :as schema]
-            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
-            [clojure.tools.logging :as log]
-            [puppetlabs.i18n.core :as i18n]
+  (:require [clj-time.core :as time-core]
+            [clj-time.format :as time-format]
             [clojure.java.io :as io]
-            [me.raynes.fs :as fs])
+            [clojure.string :as cstring]
+            [clojure.tools.logging :as log]
+            [me.raynes.fs :as fs]
+            [puppetlabs.i18n.core :as i18n]
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
+            [schema.core :as schema])
   (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
            (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance PoisonPill
                                                                  ShutdownPoisonPill)
@@ -48,14 +51,23 @@
 
 (schema/defn ^:always-validate get-profiling-mode :- RubyInstanceConfig$ProfilingMode
   [config-profiling-mode :- jruby-schemas/SupportedJRubyProfilingModes]
-  (case config-profiling-mode
-    :api RubyInstanceConfig$ProfilingMode/API
-    :flat RubyInstanceConfig$ProfilingMode/FLAT
-    :graph RubyInstanceConfig$ProfilingMode/GRAPH
-    :html RubyInstanceConfig$ProfilingMode/HTML
-    :json RubyInstanceConfig$ProfilingMode/JSON
-    :off RubyInstanceConfig$ProfilingMode/OFF
-    :service RubyInstanceConfig$ProfilingMode/SERVICE))
+  (RubyInstanceConfig$ProfilingMode/valueOf (cstring/upper-case (name config-profiling-mode))))
+
+(schema/defn ^:always-validate setup-profiling
+  "Takes a jruby and sets profiling mode and profiler output, appending the
+  current time to the filename for uniqueness and notifying the user via log
+  message of the profile file name."
+  [jruby :- jruby-schemas/ConfigurableJRuby
+   profiler-output-file :- schema/Str
+   profiling-mode :- schema/Keyword]
+  (when (and profiler-output-file (not= :off profiling-mode))
+    (let [current-time-string (time-format/unparse (time-format/formatters :basic-date-time-no-ms) (time-core/now))
+          real-profiler-output-file (io/as-file (str profiler-output-file "-" current-time-string))]
+      (doto jruby
+        (.setProfileOutput (ProfileOutput. ^File real-profiler-output-file))
+        (.setProfilingMode (get-profiling-mode profiling-mode)))
+      (log/info
+       (i18n/trs "Writing jruby profiling output to ''{0}''" real-profiler-output-file)))))
 
 (schema/defn ^:always-validate init-jruby :- jruby-schemas/ConfigurableJRuby
   "Applies configuration to a JRuby... thing.  See comments in `ConfigurableJRuby`
@@ -69,15 +81,7 @@
       (.setCompileMode (get-compile-mode compile-mode)))
     (when-let [compat-version default-jruby-1-7-compat-version]
       (.setCompatVersion jruby compat-version))
-    (when (and profiler-output-file (not= :off profiling-mode))
-      (let [current-time-string (clj-time.format/unparse (clj-time.format/formatters :basic-date-time-no-ms) (clj-time.core/now))
-            real-profiler-output-file (io/as-file (str profiler-output-file "-" current-time-string))]
-        (doto jruby
-          (.setProfileOutput (ProfileOutput. ^File real-profiler-output-file))
-          (.setProfilingMode (get-profiling-mode profiling-mode)))
-        (log/info
-         (i18n/trs "Writing jruby profiling output to ''{0}''" real-profiler-output-file))))
-
+    (setup-profiling jruby profiler-output-file profiling-mode)
     (initialize-scripting-container-fn jruby config)))
 
 (schema/defn ^:always-validate empty-scripting-container :- ScriptingContainer
