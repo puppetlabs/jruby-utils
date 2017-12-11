@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.jruby_utils \n"
-"X-Git-Ref: c5d079db27ea1bf7f07ce8d9b05b9e56fb2c3538\n"
+"X-Git-Ref: 492cbaa062229f5a6927c5b1ab9655b0622906e0\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -26,7 +26,6 @@ msgstr ""
 msgid "Priming JRubyInstance {0} of {1}"
 msgstr ""
 
-#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
 msgid "Finished creating JRubyInstance {0} of {1}"
 msgstr ""
@@ -85,6 +84,10 @@ msgid "Flush request received; flushing old JRuby instances."
 msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
+msgid "Writing jruby profiling output to ''{0}''"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
 msgid "Cleaned up old JRubyInstance with id {0}."
 msgstr ""
 
@@ -111,11 +114,9 @@ msgid ""
 msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
-#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
 msgid "Acquiring lock on JRubyPool..."
 msgstr ""
 
-#: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
 #: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
 msgid "Lock acquired"
 msgstr ""
