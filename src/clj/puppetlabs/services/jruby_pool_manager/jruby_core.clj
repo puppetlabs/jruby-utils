@@ -10,12 +10,12 @@
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [slingshot.slingshot :as sling]
-            [puppetlabs.i18n.core :as i18n])
+            [puppetlabs.i18n.core :as i18n]
+            [me.raynes.fs :as fs])
   (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance)
            (clojure.lang IFn)
            (java.util.concurrent TimeUnit)
-           (org.jruby RubyInstanceConfig CompatVersion)
-           (org.jruby.runtime Constants)
+           (org.jruby CompatVersion)
            (org.jruby.util.cli OutputStrings)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -162,6 +162,8 @@
   [config :- {schema/Keyword schema/Any}]
   (-> config
       (update-in [:compile-mode] #(keyword (or % default-jruby-compile-mode)))
+      (update-in [:profiling-mode] #(keyword (or % :off)))
+      (update-in [:profiler-output-file] #(or % (str (fs/absolute (fs/temp-name "jruby-profiler")))))
       (update-in [:borrow-timeout] #(or % default-borrow-timeout))
       (update-in [:flush-timeout] #(or % default-flush-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))

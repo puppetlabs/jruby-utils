@@ -3,7 +3,7 @@
   (:import (clojure.lang Atom Agent IFn PersistentArrayMap PersistentHashMap)
            (com.puppetlabs.jruby_utils.pool LockablePool)
            (org.jruby Main Main$Status RubyInstanceConfig)
-           (com.puppetlabs.jruby_utils.jruby ScriptingContainer InternalScriptingContainer)
+           (com.puppetlabs.jruby_utils.jruby ScriptingContainer)
            (org.jruby.runtime Constants)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -34,6 +34,10 @@
   "Schema defining the supported values for the JRuby CompileMode setting."
   (apply schema/enum supported-jruby-compile-modes))
 
+(def SupportedJRubyProfilingModes
+  "Schema defining the supported values for the JRuby ProfilingMode setting."
+  (schema/enum :api :flat :graph :html :json :off :service))
+
 (def using-jruby-9k?
   (let [jruby-version Constants/VERSION]
     (= "9." (subs jruby-version 0 2))))
@@ -62,7 +66,15 @@
         will be pooled.
 
     * :environment-vars - A map of environment variables and their values to be
-        passed through to the JRuby scripting container and visible to any Ruby code."
+        passed through to the JRuby scripting container and visible to any Ruby code.
+
+    * :profiling-mode - The value to use for JRuby's ProfilerMode setting. Legal
+        values are `:api`, `:flat`, `:graph`, `:html`, `:json`, `:off`, and
+        `:service`. Defaults to `:off`.
+
+    * :profiler-output-file - A target file to direct profiler output to. If
+        not set, defaults to a random file relative to the working directory
+        of the service."
   {:ruby-load-path [schema/Str]
    :gem-home schema/Str
    :gem-path (schema/maybe schema/Str)
@@ -72,7 +84,9 @@
    :max-active-instances schema/Int
    :max-borrows-per-instance schema/Int
    :lifecycle LifecycleFns
-   :environment-vars {schema/Keyword schema/Str}})
+   :environment-vars {schema/Keyword schema/Str}
+   :profiling-mode SupportedJRubyProfilingModes
+   :profiler-output-file schema/Str})
 
 (def JRubyPoolAgent
   "An agent configured for use in managing JRuby pools"

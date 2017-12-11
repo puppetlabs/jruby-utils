@@ -4,9 +4,11 @@
             [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
             [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
-            [puppetlabs.trapperkeeper.testutils.logging :as logutils])
+            [puppetlabs.trapperkeeper.testutils.logging :as logutils]
+            [puppetlabs.kitchensink.core :as ks]
+            [me.raynes.fs :as fs])
   (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
-           (org.jruby RubyInstanceConfig$CompileMode CompatVersion)
+           (org.jruby RubyInstanceConfig$CompileMode CompatVersion RubyInstanceConfig$ProfilingMode)
            (clojure.lang ExceptionInfo)))
 
 (deftest get-compile-mode-test
@@ -31,16 +33,26 @@
 (deftest settings-plumbed-into-jruby-container
   (testing "settings plumbed into jruby container"
     (let [pool (JRubyPool. 1)
+          profiler-file (str (ks/temp-file-name "foo"))
           config (logutils/with-test-logging
                   (jruby-testutils/jruby-config
-                   {:compile-mode :jit}))
+                   {:compile-mode :jit
+                    :profiler-output-file profiler-file
+                    :profiling-mode :flat}))
           instance (jruby-internal/create-pool-instance! pool 0 config #())
           container (:scripting-container instance)]
       (try
         (is (= RubyInstanceConfig$CompileMode/JIT
             (.getCompileMode container)))
+        (is (= RubyInstanceConfig$ProfilingMode/FLAT
+               (.getProfilingMode container)))
         (when-not jruby-schemas/using-jruby-9k?
           (is (= CompatVersion/RUBY1_9 (.getCompatVersion container))
               "Unexpected default compat version configured for JRuby 1.7 container"))
         (finally
-          (.terminate container))))))
+          (.terminate container)))
+      ;; Because we add the current datetime to the filename we need to glob for it here.
+      (let [real-profiler-file (first
+                                (fs/glob (fs/parent profiler-file)
+                                         (str (fs/base-name profiler-file) "*")))]
+        (is (not-empty (slurp real-profiler-file)))))))
