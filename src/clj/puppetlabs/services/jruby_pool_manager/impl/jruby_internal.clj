@@ -2,7 +2,7 @@
   (:require [clj-time.core :as time-core]
             [clj-time.format :as time-format]
             [clojure.java.io :as io]
-            [clojure.string :as cstring]
+            [clojure.string :refer [upper-case]]
             [clojure.tools.logging :as log]
             [me.raynes.fs :as fs]
             [puppetlabs.i18n.core :as i18n]
@@ -51,7 +51,7 @@
 
 (schema/defn ^:always-validate get-profiling-mode :- RubyInstanceConfig$ProfilingMode
   [config-profiling-mode :- jruby-schemas/SupportedJRubyProfilingModes]
-  (RubyInstanceConfig$ProfilingMode/valueOf (cstring/upper-case (name config-profiling-mode))))
+  (RubyInstanceConfig$ProfilingMode/valueOf (upper-case (name config-profiling-mode))))
 
 (schema/defn ^:always-validate setup-profiling
   "Takes a jruby and sets profiling mode and profiler output, appending the
