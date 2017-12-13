@@ -87,21 +87,21 @@
         (is (re-find #"\bjson\b" out))))
     (testing "irb"
       (let [m (capture-out
-                (with-stdin-str "puts %{HELLO}"
+                (with-stdin-str "puts %{HELLO}\n"
                   (jruby-core/cli-run! min-config "irb" ["-f"])))
             {:keys [return out]} m
             exit-code (.getStatus return)]
         (is (= 0 exit-code))
         (is (re-find #"\nHELLO\n" out)))
       (let [m (capture-out
-                (with-stdin-str "Kernel.exit(42)"
+                (with-stdin-str "Kernel.exit(42)\n"
                   (jruby-core/cli-run! min-config "irb" ["-f"])))
             {:keys [return _]} m
             exit-code (.getStatus return)]
         (is (= 42 exit-code))))
     (testing "irb with -r foo"
       (let [m (capture-out
-                (with-stdin-str "puts %{#{foo}}"
+                (with-stdin-str "puts %{#{foo}}\n"
                   (jruby-core/cli-run! min-config "irb" ["-r" "foo" "-f"])))
             {:keys [return out]} m
             exit-code (.getStatus return)]
