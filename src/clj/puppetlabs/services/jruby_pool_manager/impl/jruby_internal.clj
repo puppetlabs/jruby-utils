@@ -62,7 +62,7 @@
    profiling-mode :- schema/Keyword]
   (when (and profiler-output-file (not= :off profiling-mode))
     (let [current-time-string (time-format/unparse (time-format/formatters :basic-date-time-no-ms) (time-core/now))
-          real-profiler-output-file (io/as-file (str profiler-output-file "-" current-time-string))]
+          real-profiler-output-file (io/as-file (str profiler-output-file "-" (.hashCode jruby) "-" current-time-string))]
       (doto jruby
         (.setProfileOutput (ProfileOutput. ^File real-profiler-output-file))
         (.setProfilingMode (get-profiling-mode profiling-mode)))
