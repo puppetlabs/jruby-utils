@@ -32,7 +32,7 @@
 
 (deftest settings-plumbed-into-jruby-container
   (testing "settings plumbed into jruby container"
-    (let [pool (JRubyPool. 1)
+    (let [pool (JRubyPool. 2)
           profiler-file (str (ks/temp-file-name "foo"))
           config (logutils/with-test-logging
                   (jruby-testutils/jruby-config
@@ -40,7 +40,9 @@
                     :profiler-output-file profiler-file
                     :profiling-mode :flat}))
           instance (jruby-internal/create-pool-instance! pool 0 config #())
-          container (:scripting-container instance)]
+          instance-two (jruby-internal/create-pool-instance! pool 1 config #())
+          container (:scripting-container instance)
+          container-two (:scripting-container instance-two)]
       (try
         (is (= RubyInstanceConfig$CompileMode/JIT
             (.getCompileMode container)))
@@ -50,9 +52,13 @@
           (is (= CompatVersion/RUBY1_9 (.getCompatVersion container))
               "Unexpected default compat version configured for JRuby 1.7 container"))
         (finally
-          (.terminate container)))
-      ;; Because we add the current datetime to the filename we need to glob for it here.
-      (let [real-profiler-file (first
-                                (fs/glob (fs/parent profiler-file)
-                                         (str (fs/base-name profiler-file) "*")))]
+          (.terminate container)
+          (.terminate container-two)))
+      ;; Because we add the current datetime and scripting container
+      ;; hashcode to the filename we need to glob for it here.
+      (let [profiler-files (fs/glob (fs/parent profiler-file)
+                                    (str (fs/base-name profiler-file) "*"))
+            real-profiler-file (first
+                                profiler-files)]
+        (is (= 2 (count profiler-files)))
         (is (not-empty (slurp real-profiler-file)))))))
