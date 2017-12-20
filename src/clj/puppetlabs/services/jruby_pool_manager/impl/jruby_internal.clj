@@ -144,30 +144,56 @@
                          (:id instance)))))
 
 (schema/defn ^:always-validate
+  initial-borrows-value :- (schema/maybe schema/Int)
+  [id :- schema/Int
+   total-instances :- schema/Int
+   total-borrows :- schema/Int
+   initial-jruby? :- schema/Bool]
+  (when initial-jruby?
+    (let [which-step (inc (mod id total-instances))
+          step-size (quot total-borrows total-instances)]
+      ;; If total-instances is larger than total-borrows then step-size will be 0
+      (if (= 0 step-size)
+        nil
+        (* step-size which-step)))))
+
+(schema/defn ^:always-validate
   create-pool-instance! :- JRubyInstance
   "Creates a new JRubyInstance and adds it to the pool."
-  [pool :- jruby-schemas/pool-queue-type
-   id :- schema/Int
-   config :- jruby-schemas/JRubyConfig
-   flush-instance-fn :- IFn]
-  (let [{:keys [ruby-load-path lifecycle]} config
-        initialize-pool-instance-fn (:initialize-pool-instance lifecycle)]
-    (when-not ruby-load-path
-      (throw (Exception.
-              (i18n/trs "JRuby service missing config value 'ruby-load-path'"))))
-    (log/infof (i18n/trs "Creating JRubyInstance with id {0}." id))
-    (let [scripting-container (create-scripting-container
-                               config)]
-      (let [instance (jruby-schemas/map->JRubyInstance
-                      {:scripting-container scripting-container
-                       :id id
-                       :internal {:pool pool
-                                  :max-borrows (:max-borrows-per-instance config)
-                                  :flush-instance-fn flush-instance-fn
-                                  :state (atom {:borrow-count 0})}})
-            modified-instance (initialize-pool-instance-fn instance)]
-        (.register pool modified-instance)
-        modified-instance))))
+  ([pool :- jruby-schemas/pool-queue-type
+    id :- schema/Int
+    config :- jruby-schemas/JRubyConfig
+    flush-instance-fn :- IFn]
+    (create-pool-instance! pool id config flush-instance-fn false))
+  ([pool :- jruby-schemas/pool-queue-type
+    id :- schema/Int
+    config :- jruby-schemas/JRubyConfig
+    flush-instance-fn :- IFn
+    initial-jruby? :- schema/Bool]
+    (let [{:keys [ruby-load-path lifecycle
+                  max-active-instances max-borrows-per-instance]} config
+          initialize-pool-instance-fn (:initialize-pool-instance lifecycle)
+          initial-borrows (initial-borrows-value id
+                                                 max-active-instances
+                                                 max-borrows-per-instance
+                                                 initial-jruby?)]
+      (when-not ruby-load-path
+        (throw (Exception.
+                 (i18n/trs "JRuby service missing config value 'ruby-load-path'"))))
+      (log/infof (i18n/trs "Creating JRubyInstance with id {0}." id))
+      (let [scripting-container (create-scripting-container
+                                  config)]
+        (let [instance (jruby-schemas/map->JRubyInstance
+                         {:scripting-container scripting-container
+                          :id id
+                          :internal {:pool pool
+                                     :max-borrows max-borrows-per-instance
+                                     :initial-borrows initial-borrows
+                                     :flush-instance-fn flush-instance-fn
+                                     :state (atom {:borrow-count 0})}})
+              modified-instance (initialize-pool-instance-fn instance)]
+          (.register pool modified-instance)
+          modified-instance)))))
 
 (schema/defn ^:always-validate
   get-pool-state-container :- jruby-schemas/PoolStateContainer
@@ -270,14 +296,15 @@
   (when (jruby-schemas/jruby-instance? instance)
     (let [new-state (swap! (get-instance-state-container instance)
                            update-in [:borrow-count] inc)
-          {:keys [max-borrows flush-instance-fn pool]} (:internal instance)]
-      (if (and (pos? max-borrows)
-               (>= (:borrow-count new-state) max-borrows))
+          {:keys [initial-borrows max-borrows flush-instance-fn pool]} (:internal instance)
+          borrow-limit (or initial-borrows max-borrows)]
+      (if (and (pos? borrow-limit)
+               (>= (:borrow-count new-state) borrow-limit))
         (do
           (log/infof
-           (i18n/trs "Flushing JRubyInstance {0} because it has exceeded the maximum number of borrows ({1})"
+           (i18n/trs "Flushing JRubyInstance {0} because it has exceeded its borrow limit of ({1})"
                      (:id instance)
-                     max-borrows))
+                     borrow-limit))
           (flush-instance-fn instance))
         (.releaseItem pool instance)))))
 
