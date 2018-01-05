@@ -196,6 +196,7 @@
      jruby-testutils/default-services
      (jruby-testutils/jruby-config {:max-active-instances 4
                                     :max-borrows-per-instance 10
+                                    :splay-instance-flush false
                                     :borrow-timeout
                                     test-borrow-timeout})
      (let [pool (jruby-core/get-pool pool-context)]

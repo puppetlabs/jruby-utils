@@ -48,7 +48,8 @@
 (schema/defn ^:always-validate
   prime-pool!
   "Sequentially fill the pool with new JRubyInstances.  NOTE: this
-  function should never be called except by the modify-instance-agent."
+  function should never be called except by the modify-instance-agent
+  to create a pool's initial jruby instances."
   [{:keys [config] :as pool-context} :- jruby-schemas/PoolContext]
   (let [pool (jruby-internal/get-pool pool-context)]
     (log/debug
@@ -62,7 +63,8 @@
             (log/debugf (i18n/trs "Priming JRubyInstance {0} of {1}"
                                   id count))
             (jruby-internal/create-pool-instance! pool id config
-                                                  (partial send-flush-instance! pool-context))
+                                                  (partial send-flush-instance! pool-context)
+                                                  (:splay-instance-flush config))
             (log/infof (i18n/trs "Finished creating JRubyInstance {0} of {1}"
                                  id count)))))
       (catch Exception e
@@ -154,7 +156,8 @@
         (jruby-internal/cleanup-pool-instance! old-instance cleanup-fn)
         (when refill?
           (jruby-internal/create-pool-instance! pool new-id config
-                                                (partial send-flush-instance! pool-context))
+                                                (partial send-flush-instance! pool-context)
+                                                (:splay-instance-flush config))
           (log/infof (i18n/trs "Finished creating JRubyInstance {0} of {1}"
                                new-id pool-size)))
         (catch Exception e

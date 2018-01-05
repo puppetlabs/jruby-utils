@@ -168,6 +168,7 @@
       (update-in [:flush-timeout] #(or % default-flush-timeout))
       (update-in [:max-active-instances] #(or % (default-pool-size (ks/num-cpus))))
       (update-in [:max-borrows-per-instance] #(or % 0))
+      (update-in [:splay-instance-flush] #(if (nil? %) true %))
       (update-in [:environment-vars] #(or % {}))
       (update-in [:lifecycle] initialize-lifecycle-fns)
       jruby-internal/initialize-gem-path))

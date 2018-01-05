@@ -65,6 +65,8 @@
     * :max-active-instances - The maximum number of JRubyInstances that
         will be pooled.
 
+    * :splay-instance-flush - Whether or not to splay flushing of instances
+
     * :environment-vars - A map of environment variables and their values to be
         passed through to the JRuby scripting container and visible to any Ruby code.
 
@@ -83,6 +85,7 @@
    :flush-timeout schema/Int
    :max-active-instances schema/Int
    :max-borrows-per-instance schema/Int
+   :splay-instance-flush schema/Bool
    :lifecycle LifecycleFns
    :environment-vars {schema/Keyword schema/Str}
    :profiling-mode SupportedJRubyProfilingModes
@@ -129,6 +132,7 @@
 (def JRubyPuppetInstanceInternal
   {:flush-instance-fn IFn
    :pool pool-queue-type
+   :initial-borrows (schema/maybe schema/Int)
    :max-borrows schema/Int
    :state JRubyInstanceStateContainer})
 

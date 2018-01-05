@@ -1,5 +1,6 @@
 (ns puppetlabs.services.jruby-pool-manager.jruby-pool-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.set :as set]
+            [clojure.test :refer :all]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
             [puppetlabs.services.jruby-pool-manager.impl.jruby-agents :as jruby-agents]
@@ -218,6 +219,51 @@
   ([max-borrows max-instances]
    (jruby-testutils/jruby-config {:max-active-instances max-instances
                                   :max-borrows-per-instance max-borrows})))
+
+(deftest splay-jruby-instance-flushing
+  (testing "Disabled JRuby instance splaying -"
+    (jruby-testutils/with-pool-context
+      pool-context
+      jruby-testutils/default-services
+      (jruby-testutils/jruby-config {:max-active-instances 5
+                                     :max-borrows-per-instance 3
+                                     :splay-instance-flush false})
+      (let [first-ids (jruby-testutils/drain-and-refill pool-context)
+            second-ids (jruby-testutils/drain-and-refill pool-context)
+            ;; All jruby instances should be recycled after this refill
+            ;; but the ids will be of old instances that were drained
+            third-ids (jruby-testutils/drain-and-refill pool-context)]
+        (testing "Does not flush any instances prior to max borrows"
+          (is (= first-ids second-ids third-ids)))
+        (let [fourth-ids (jruby-testutils/drain-and-refill pool-context)]
+          (testing "All instances flushed after max borrows"
+            (is (empty? (set/intersection fourth-ids third-ids))))))))
+  (testing "Splayed JRuby instance flushing -"
+    (jruby-testutils/with-pool-context
+     pool-context
+     jruby-testutils/default-services
+      ;; with three instances, each with three max borrows, we should recycle
+      ;; an instance every cycle of draining. The first instance to be
+      ;; recycled will do so after the first drain, its replacement should
+      ;; then stay until the fourth drain/refill.
+     (jruby-test-config 3 3)
+     (let [first-ids (jruby-testutils/drain-and-refill pool-context)
+           second-ids (jruby-testutils/drain-and-refill pool-context)
+           third-ids (jruby-testutils/drain-and-refill pool-context)
+           fourth-ids (jruby-testutils/drain-and-refill pool-context)
+           fifth-ids (jruby-testutils/drain-and-refill pool-context)
+           original-instances-surviving-first-drain (set/intersection first-ids second-ids)
+           new-instance-after-first-drain (set/difference second-ids first-ids)
+           original-instances-surviving-second-drain (set/intersection first-ids third-ids)
+           original-instances-surviving-third-drain (set/intersection first-ids fourth-ids)]
+       (testing "Initial instances are flushed each splay interval"
+         (is (= 2 (count original-instances-surviving-first-drain)))
+         (is (= 1 (count original-instances-surviving-second-drain)))
+         (is (= 0 (count original-instances-surviving-third-drain))))
+       (testing "New instances are flushed at max-borrows"
+         (is (not-empty (set/intersection new-instance-after-first-drain third-ids)))
+         (is (not-empty (set/intersection new-instance-after-first-drain fourth-ids)))
+         (is (empty? (set/intersection new-instance-after-first-drain fifth-ids))))))))
 
 (deftest flush-jruby-after-max-borrows
   (testing "JRubyInstance is not flushed if it has not exceeded max borrows"
