@@ -145,6 +145,9 @@
 
 (schema/defn ^:always-validate
   initial-borrows-value :- (schema/maybe schema/Int)
+  "Determines how many borrows before instance of given id should be flushed
+  in order to best splay it. Returns nil if not applicable (either not
+  `initial-jruby?` or there are more instances than max-borrows)."
   [id :- schema/Int
    total-instances :- schema/Int
    total-borrows :- schema/Int
