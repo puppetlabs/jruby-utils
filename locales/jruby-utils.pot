@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.jruby_utils \n"
-"X-Git-Ref: 492cbaa062229f5a6927c5b1ab9655b0622906e0\n"
+"X-Git-Ref: 6669893b02b3c6eb28083bd7c271f3380bebbf6d\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -109,8 +109,7 @@ msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
 msgid ""
-"Flushing JRubyInstance {0} because it has exceeded the maximum number of "
-"borrows ({1})"
+"Flushing JRubyInstance {0} because it has exceeded its borrow limit of ({1})"
 msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
