@@ -57,6 +57,17 @@
   (doseq [instance instance-list]
     (jruby-core/return-to-pool instance :test [])))
 
+(schema/defn ^:always-validate
+  drain-and-refill :- #{schema/Int}
+  "Borrow all instances from a pool and then hand them back. Return a set
+  (order is not important) of the instance ids borrowed/returned"
+  [pool-context :- jruby-schemas/PoolContext]
+  (let [instance-count (get-in pool-context [:config :max-active-instances])
+        instances (drain-pool pool-context instance-count)
+        ids (into #{} (map :id instances))]
+    (fill-drained-pool instances)
+    ids))
+
 (defn reduce-over-jrubies!
   "Utility function; takes a JRuby pool and size, and a function f from integer
   to string.  For each JRubyInstance in the pool, f will be called, passing in
