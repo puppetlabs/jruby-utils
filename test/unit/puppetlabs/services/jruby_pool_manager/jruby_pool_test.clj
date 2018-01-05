@@ -261,8 +261,8 @@
          (is (= 1 (count original-instances-surviving-second-drain)))
          (is (= 0 (count original-instances-surviving-third-drain))))
        (testing "New instances are flushed at max-borrows"
-         (is (seq (set/intersection new-instance-after-first-drain third-ids)))
-         (is (seq (set/intersection new-instance-after-first-drain fourth-ids)))
+         (is (not-empty (set/intersection new-instance-after-first-drain third-ids)))
+         (is (not-empty (set/intersection new-instance-after-first-drain fourth-ids)))
          (is (empty? (set/intersection new-instance-after-first-drain fifth-ids))))))))
 
 (deftest flush-jruby-after-max-borrows

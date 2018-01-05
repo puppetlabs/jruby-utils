@@ -155,7 +155,11 @@
   (when initial-jruby?
     (let [which-step (inc (mod id total-instances))
           step-size (quot total-borrows total-instances)]
-      ;; If total-instances is larger than total-borrows then step-size will be 0
+      ;; If total-instances is larger than total-borrows then step-size will
+      ;; be 0. For example, if a user has configured their pool with 4 JRuby
+      ;; instances but a max-requests-per-instance of 1. Users shouldn't need
+      ;; splaying if they are never re-using JRuby instances, or if they are
+      ;; re-using them fewer times than the number of JRubies in the pool.
       (when-not (= 0 step-size)
         (* step-size which-step)))))
 
