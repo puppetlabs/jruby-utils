@@ -153,8 +153,7 @@
     (let [which-step (inc (mod id total-instances))
           step-size (quot total-borrows total-instances)]
       ;; If total-instances is larger than total-borrows then step-size will be 0
-      (if (= 0 step-size)
-        nil
+      (when-not (= 0 step-size)
         (* step-size which-step)))))
 
 (schema/defn ^:always-validate
