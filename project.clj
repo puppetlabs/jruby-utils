@@ -1,11 +1,11 @@
-(defproject puppetlabs/jruby-utils "0.11.3-SNAPSHOT"
+(defproject puppetlabs/jruby-utils "1.0.0-SNAPSHOT"
   :description "A library for working with JRuby"
   :url "https://github.com/puppetlabs/jruby-utils"
   :license {:name "Apache License, Version 2.0"
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
 
   :min-lein-version "2.7.1"
-  :parent-project {:coords [puppetlabs/clj-parent "0.4.3"]
+  :parent-project {:coords [puppetlabs/clj-parent "1.5.1"]
                    :inherit [:managed-dependencies]}
 
   :pedantic? :abort

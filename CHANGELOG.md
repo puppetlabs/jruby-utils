@@ -1,3 +1,23 @@
+### 1.0.0 - 2018-01-09
+
+* (SERVER-2060) Splay JRuby instance flushing
+
+### 0.11.2 - 2017-12-14
+
+* (SERVER-1780) Insert hashCode into profiler file name
+
+### 0.11.1 - 2017-12-12
+
+* (SERVER-1874) Update to jruby 9.1.15.0
+
+### 0.11.0 - 2017-12-11
+
+This is a feature release
+
+* (SERVER-1821) Bump JRuby 9k dep to 9.1.9.0-2 for ffi memory leak fix
+* (SERVER-1840) Bump to JRuby 9.1.11.0-1
+* (SERVER-1780) Enable jruby profiling for ScriptingContainers
+
 ### 0.10.0 - 2017-05-26
 
 This is a breaking maintenance / minor feature release.
