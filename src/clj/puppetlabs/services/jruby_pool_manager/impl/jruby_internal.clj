@@ -69,6 +69,26 @@
       (log/info
        (i18n/trs "Writing jruby profiling output to ''{0}''" real-profiler-output-file)))))
 
+(schema/defn ^:always-validate set-ruby-encoding :- jruby-schemas/ConfigurableJRuby
+  "Sets the K code, source encoding, and external encoding of the JRuby instance to
+  the supplied encoding."
+  [kcode :- KCode
+   jruby :- jruby-schemas/ConfigurableJRuby]
+  (let [encoding-string (str (.getEncoding kcode))]
+    ;; RubyInstanceConfig exposes the encoding setters directly, while the
+    ;; ScriptingContainer does not.
+    (if (instance? RubyInstanceConfig jruby)
+      (doto jruby
+        (.setKCode kcode)
+        (.setSourceEncoding encoding-string)
+        (.setExternalEncoding encoding-string))
+      (let [config (.getRubyInstanceConfig (.getProvider jruby))]
+        (doto config
+          (.setKCode kcode)
+          (.setSourceEncoding encoding-string)
+          (.setExternalEncoding encoding-string)))))
+  jruby)
+
 (schema/defn ^:always-validate init-jruby :- jruby-schemas/ConfigurableJRuby
   "Applies configuration to a JRuby... thing.  See comments in `ConfigurableJRuby`
   schema for more details."
@@ -79,6 +99,7 @@
     (doto jruby
       (.setLoadPaths ruby-load-path)
       (.setCompileMode (get-compile-mode compile-mode)))
+    (set-ruby-encoding KCode/UTF8 jruby)
     (when-let [compat-version default-jruby-1-7-compat-version]
       (.setCompatVersion jruby compat-version))
     (setup-profiling jruby profiler-output-file profiling-mode)
