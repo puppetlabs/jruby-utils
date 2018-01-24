@@ -8,17 +8,18 @@
             [puppetlabs.i18n.core :as i18n]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
             [schema.core :as schema])
-  (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
-           (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance PoisonPill
-                                                                 ShutdownPoisonPill)
-           (org.jruby CompatVersion Main RubyInstanceConfig RubyInstanceConfig$CompileMode RubyInstanceConfig$ProfilingMode)
-           (org.jruby.embed LocalContextScope)
-           (java.util.concurrent TimeUnit)
-           (clojure.lang IFn)
+  (:import (clojure.lang IFn)
+           (com.puppetlabs.jruby_utils.pool JRubyPool)
            (com.puppetlabs.jruby_utils.jruby InternalScriptingContainer
                                              ScriptingContainer)
+           (java.io File)
+           (java.util.concurrent TimeUnit)
+           (org.jruby CompatVersion Main RubyInstanceConfig RubyInstanceConfig$CompileMode RubyInstanceConfig$ProfilingMode)
+           (org.jruby.embed LocalContextScope)
            (org.jruby.runtime.profile.builtin ProfileOutput)
-           (java.io File)))
+           (org.jruby.util KCode)
+           (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance PoisonPill
+                                                                 ShutdownPoisonPill)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private
@@ -69,6 +70,24 @@
       (log/info
        (i18n/trs "Writing jruby profiling output to ''{0}''" real-profiler-output-file)))))
 
+(schema/defn ^:always-validate set-config-encoding :- RubyInstanceConfig
+  "Sets the K code, source encoding, and external encoding of the JRuby config to
+  the supplied encoding."
+  [kcode :- KCode
+   jruby :- RubyInstanceConfig]
+  (let [encoding-string (str (.getEncoding kcode))]
+    (doto jruby
+      (.setKCode kcode)
+      (.setSourceEncoding encoding-string)
+      (.setExternalEncoding encoding-string))))
+
+(schema/defn ^:always-validate set-ruby-encoding :- jruby-schemas/ConfigurableJRuby
+  [kcode :- KCode
+   jruby :- jruby-schemas/ConfigurableJRuby]
+  (if (instance? RubyInstanceConfig jruby)
+    (set-config-encoding kcode jruby)
+    (set-config-encoding kcode (.getRubyInstanceConfig (.getProvider jruby)))))
+
 (schema/defn ^:always-validate init-jruby :- jruby-schemas/ConfigurableJRuby
   "Applies configuration to a JRuby... thing.  See comments in `ConfigurableJRuby`
   schema for more details."
@@ -79,6 +98,7 @@
     (doto jruby
       (.setLoadPaths ruby-load-path)
       (.setCompileMode (get-compile-mode compile-mode)))
+    (set-ruby-encoding KCode/UTF8 jruby)
     (when-let [compat-version default-jruby-1-7-compat-version]
       (.setCompatVersion jruby compat-version))
     (setup-profiling jruby profiler-output-file profiling-mode)
