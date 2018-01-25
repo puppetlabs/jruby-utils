@@ -1,3 +1,33 @@
+### 0.12.0 - 2018-01-25
+
+This is a minor release.
+
+* Change the encoding settings on the JRuby scripting container to use UTF-8
+  for parsing source files, external encoding, and KCode. This resolves a bug
+  with mismatched encodings that can sometimes appear when interpolating
+  translated strings into non-translated ones.
+
+### 0.11.2 12-14-2017
+
+This is a patch release.
+
+* Insert hashCode into profiler output file name, to ensure that new files
+  don't clobber each other.
+
+### 0.11.1 12-12-2017
+
+This is a patch release.
+
+* Update JRuby 9K to 9.1.15.0
+
+### 0.11.0 12-11-2017
+
+This is a feature release.
+
+* Update JRuby 9K to 9.1.11.0
+
+* Enable JRuby profiling
+
 ### 0.10.0 - 2017-05-26
 
 This is a breaking maintenance / minor feature release.
