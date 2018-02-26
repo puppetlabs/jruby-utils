@@ -22,8 +22,11 @@
 ;;; Constants
 
 (def default-jruby-compile-mode
-  "Default value for JRuby's 'CompileMode' setting."
-  :off)
+  "Default value for JRuby's 'CompileMode' setting. For 1.7 we default to off,
+  but for 9k we turn jit on by default."
+  (if jruby-schemas/using-jruby-9k?
+    :jit
+    :off))
 
 (def default-borrow-timeout
   "Default timeout when borrowing instances from the JRuby pool in
