@@ -3,7 +3,6 @@
             [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils]
             [puppetlabs.kitchensink.core :as ks]
             [me.raynes.fs :as fs])
