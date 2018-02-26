@@ -4,8 +4,7 @@
             [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas])
-  (:import (java.io ByteArrayOutputStream PrintStream ByteArrayInputStream)
-           (org.jruby.runtime Constants)))
+  (:import (java.io ByteArrayOutputStream PrintStream ByteArrayInputStream)))
 
 (use-fixtures :once schema-test/validate-schemas)
 

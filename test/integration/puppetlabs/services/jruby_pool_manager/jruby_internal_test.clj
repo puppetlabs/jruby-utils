@@ -3,7 +3,6 @@
             [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
-            [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils]
             [puppetlabs.kitchensink.core :as ks]
             [me.raynes.fs :as fs])
@@ -62,3 +61,19 @@
                                 profiler-files)]
         (is (= 2 (count profiler-files)))
         (is (not-empty (slurp real-profiler-file)))))))
+
+(deftest default-compile-mode
+  (testing "default compile-mode changes based on jruby version"
+    (let [pool (JRubyPool. 1)
+          config (logutils/with-test-logging
+                  (jruby-testutils/jruby-config {}))
+          instance (jruby-internal/create-pool-instance! pool 0 config #())
+          container (:scripting-container instance)]
+      (try
+        (if jruby-schemas/using-jruby-9k?
+          (is (= RubyInstanceConfig$CompileMode/JIT
+                 (.getCompileMode container)))
+          (is (= RubyInstanceConfig$CompileMode/OFF
+                 (.getCompileMode container))))
+        (finally
+          (.terminate container))))))
