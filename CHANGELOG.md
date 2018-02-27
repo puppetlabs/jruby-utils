@@ -1,3 +1,9 @@
+### 1.1.0 - 2018-02-27
+
+* (SERVER-2130) Default to jit compile-mode for jruby 9k
+* (SERVER-2081) Set KCode, source encoding and external encoding to ensure
+  source files are parsed as UTF-8 by default in jruby 1.7
+
 ### 1.0.0 - 2018-01-09
 
 * (SERVER-2060) Splay JRuby instance flushing
