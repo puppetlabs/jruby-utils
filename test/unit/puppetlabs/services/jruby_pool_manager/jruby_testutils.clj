@@ -4,12 +4,10 @@
             [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby-pool-manager.jruby-pool-manager-service :as pool-manager]
             [puppetlabs.trapperkeeper.app :as tk-app]
-            [puppetlabs.trapperkeeper.services :as tk-service]
             [clojure.tools.logging :as log]
             [schema.core :as schema]
             [puppetlabs.services.protocols.pool-manager :as pool-manager-protocol]
-            [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap]
-            [puppetlabs.services.jruby-pool-manager.impl.jruby-pool-manager-core :as jruby-pool-manager-core])
+            [puppetlabs.trapperkeeper.testutils.bootstrap :as tk-bootstrap])
   (:import (clojure.lang IFn)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -17,7 +15,6 @@
 
 (def ruby-load-path [])
 (def gem-home "./target/jruby-gem-home")
-(def compile-mode :off)
 
 (def default-services
   [pool-manager/jruby-pool-manager-service])
@@ -42,9 +39,6 @@
             :gem-home gem-home
             :borrow-timeout 300000}
            options))))
-
-(def default-flush-fn
-  identity)
 
 (defn drain-pool
   "Drains the JRuby pool and returns each instance in a vector."
