@@ -8,11 +8,25 @@
 
 * (SERVER-2060) Splay JRuby instance flushing
 
+### 0.12.0 - 2018-01-25
+
+This is a minor release.
+
+* (SERVER-2081) Change the encoding settings on the JRuby scripting container
+  to use UTF-8 for parsing source files, external encoding, and KCode. This
+  resolves a bug with mismatched encodings that can sometimes appear when
+  interpolating translated strings into non-translated ones.
+
 ### 0.11.2 - 2017-12-14
 
-* (SERVER-1780) Insert hashCode into profiler file name
+This is a patch release.
+
+* (SERVER-1780) Insert hashCode into profiler output file name, to ensure
+  that new files don't clobber each other.
 
 ### 0.11.1 - 2017-12-12
+
+This is a patch release.
 
 * (SERVER-1874) Update to jruby 9.1.15.0
 
