@@ -22,11 +22,9 @@
 ;;; Constants
 
 (def default-jruby-compile-mode
-  "Default value for JRuby's 'CompileMode' setting. For 1.7 we default to off,
-  but for 9k we turn jit on by default."
-  (if jruby-schemas/using-jruby-9k?
-    :jit
-    :off))
+  "Default for JRuby's CompileMode setting. Defaults to JIT for Jruby
+   9k."
+    :jit)
 
 (def default-borrow-timeout
   "Default timeout when borrowing instances from the JRuby pool in
@@ -355,20 +353,4 @@
 
 (def jruby-version-info
   "Default version info string for jruby"
-  ;; For JRuby 9k, the only available getVersionString method takes no parameter
-  ;; whereas for JRuby 1.7.x the only available getVersionString method takes
-  ;; a CompatVersion as a parameter.  Use reflection to invoke the appropriate
-  ;; method.
-  (if jruby-schemas/using-jruby-9k?
-    (.invoke (.getDeclaredMethod
-              OutputStrings
-              "getVersionString"
-              nil)
-             nil
-             nil)
-    (.invoke (.getDeclaredMethod
-              OutputStrings
-              "getVersionString"
-              (into-array [CompatVersion]))
-             nil
-             (into-array [jruby-internal/default-jruby-1-7-compat-version]))))
+  (OutputStrings/getVersionString))

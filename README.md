@@ -39,17 +39,10 @@ call `create-pool` in the `init` lifecycle of your service, and then call
 
 ## Running tests
 
-Clojure unit tests can be run with either a 1.7-based JRuby or 9k-based
-JRuby version.  To run tests with a 1.7-based JRuby, just run:
+To run the clojure unit tests, use:
 
 ~~~sh
 lein test
-~~~
-
-To run tests with a 9k-based JRuby, run:
-
-~~~sh
-lein with-profile +jruby9k test
 ~~~
 
 ## License

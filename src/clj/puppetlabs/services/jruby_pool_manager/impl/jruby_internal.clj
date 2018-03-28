@@ -24,13 +24,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private
 
-(def default-jruby-1-7-compat-version
-  "Default value for JRuby's 'CompatVersion' setting.  This value is only
-  meaningful for JRuby 1.7.  For JRuby 9k, this will return `nil` because
-  JRuby 9k effectively doesn't support configurable language compatibility
-  versions."
-  (when-not jruby-schemas/using-jruby-9k? CompatVersion/RUBY1_9))
-
 (schema/defn ^:always-validate initialize-gem-path :- {schema/Keyword schema/Any}
   [{:keys [gem-path gem-home] :as jruby-config} :- {schema/Keyword schema/Any}]
   (if gem-path
@@ -99,8 +92,6 @@
       (.setLoadPaths ruby-load-path)
       (.setCompileMode (get-compile-mode compile-mode)))
     (set-ruby-encoding KCode/UTF8 jruby)
-    (when-let [compat-version default-jruby-1-7-compat-version]
-      (.setCompatVersion jruby compat-version))
     (setup-profiling jruby profiler-output-file profiling-mode)
     (initialize-scripting-container-fn jruby config)))
 
