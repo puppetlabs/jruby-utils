@@ -1,3 +1,10 @@
+### 2.0.0 - 2018-03-28
+
+This is a breaking maintenance release.
+
+* (SERVER-2160) Remove logic for JRuby 1.7 vs 9k, assuming 9k always
+* Bump JRuby version to 9.1.16.0-1
+
 ### 1.1.0 - 2018-02-27
 
 * (SERVER-2130) Default to jit compile-mode for jruby 9k
