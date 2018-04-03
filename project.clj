@@ -1,4 +1,4 @@
-(defproject puppetlabs/jruby-utils "1.1.1-SNAPSHOT"
+(defproject puppetlabs/jruby-utils "2.0.0-SNAPSHOT"
   :description "A library for working with JRuby"
   :url "https://github.com/puppetlabs/jruby-utils"
   :license {:name "Apache License, Version 2.0"
@@ -21,7 +21,7 @@
                  [prismatic/schema]
                  [slingshot]
 
-                 [puppetlabs/jruby-deps "1.7.27-1"]
+                 [puppetlabs/jruby-deps "9.1.16.0-1"]
 
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
@@ -45,8 +45,7 @@
                    :jvm-opts ["-Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger"
                               "-Xms1G"
                               "-Xmx2G"]}
-             :testutils {:source-paths ^:replace ["test/unit" "test/integration"]}
-             :jruby9k {:dependencies [[puppetlabs/jruby-deps "9.1.15.0-2"]]}}
+             :testutils {:source-paths ^:replace ["test/unit" "test/integration"]}}
 
   :plugins [[lein-parent "0.3.1"]
             [puppetlabs/i18n "0.7.1"]])

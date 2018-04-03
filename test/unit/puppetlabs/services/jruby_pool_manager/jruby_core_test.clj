@@ -123,7 +123,4 @@
         (is (re-find #"bar" out))))))
 
 (deftest jruby-version-info-test
-  (let [pattern (if jruby-schemas/using-jruby-9k?
-                  #"jruby 9."
-                  #"jruby 1.7.")]
-    (is (re-find pattern jruby-core/jruby-version-info))))
+    (is (re-find #"jruby 9." jruby-core/jruby-version-info)))

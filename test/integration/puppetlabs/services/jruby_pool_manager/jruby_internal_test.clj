@@ -47,9 +47,6 @@
             (.getCompileMode container)))
         (is (= RubyInstanceConfig$ProfilingMode/FLAT
                (.getProfilingMode container)))
-        (when-not jruby-schemas/using-jruby-9k?
-          (is (= CompatVersion/RUBY1_9 (.getCompatVersion container))
-              "Unexpected default compat version configured for JRuby 1.7 container"))
         (finally
           (.terminate container)
           (.terminate container-two)))
@@ -70,10 +67,7 @@
           instance (jruby-internal/create-pool-instance! pool 0 config #())
           container (:scripting-container instance)]
       (try
-        (if jruby-schemas/using-jruby-9k?
-          (is (= RubyInstanceConfig$CompileMode/JIT
-                 (.getCompileMode container)))
-          (is (= RubyInstanceConfig$CompileMode/OFF
-                 (.getCompileMode container))))
+        (is (= RubyInstanceConfig$CompileMode/JIT
+               (.getCompileMode container)))
         (finally
           (.terminate container))))))

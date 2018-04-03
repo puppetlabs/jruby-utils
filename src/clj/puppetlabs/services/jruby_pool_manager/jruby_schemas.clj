@@ -38,10 +38,6 @@
   "Schema defining the supported values for the JRuby ProfilingMode setting."
   (schema/enum :api :flat :graph :html :json :off :service))
 
-(def using-jruby-9k?
-  (let [jruby-version Constants/VERSION]
-    (= "9." (subs jruby-version 0 2))))
-
 (def LifecycleFns
   {:initialize-pool-instance IFn
    :cleanup IFn
