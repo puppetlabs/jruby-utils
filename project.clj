@@ -1,4 +1,4 @@
-(defproject puppetlabs/jruby-utils "2.0.1-SNAPSHOT"
+(defproject puppetlabs/jruby-utils "2.1.0-SNAPSHOT"
   :description "A library for working with JRuby"
   :url "https://github.com/puppetlabs/jruby-utils"
   :license {:name "Apache License, Version 2.0"
@@ -21,7 +21,7 @@
                  [prismatic/schema]
                  [slingshot]
 
-                 [puppetlabs/jruby-deps "9.1.16.0-1"]
+                 [puppetlabs/jruby-deps "9.2.0.0-1"]
 
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
