@@ -5,7 +5,7 @@
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
 
   :min-lein-version "2.8.1"
-  :parent-project {:coords [puppetlabs/clj-parent "1.5.1"]
+  :parent-project {:coords [puppetlabs/clj-parent "2.4.0"]
                    :inherit [:managed-dependencies]}
 
   :pedantic? :abort
@@ -16,6 +16,7 @@
 
   :dependencies [[org.clojure/clojure]
                  [org.clojure/tools.logging]
+                 [org.clojure/tools.nrepl "0.2.13"]
 
                  [me.raynes/fs]
                  [prismatic/schema]
