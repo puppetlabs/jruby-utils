@@ -1,11 +1,11 @@
-(defproject puppetlabs/jruby-utils "2.0.1-SNAPSHOT"
+(defproject puppetlabs/jruby-utils "2.1.0-SNAPSHOT"
   :description "A library for working with JRuby"
   :url "https://github.com/puppetlabs/jruby-utils"
   :license {:name "Apache License, Version 2.0"
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
 
-  :min-lein-version "2.7.1"
-  :parent-project {:coords [puppetlabs/clj-parent "1.5.1"]
+  :min-lein-version "2.8.1"
+  :parent-project {:coords [puppetlabs/clj-parent "2.4.0"]
                    :inherit [:managed-dependencies]}
 
   :pedantic? :abort
@@ -16,12 +16,13 @@
 
   :dependencies [[org.clojure/clojure]
                  [org.clojure/tools.logging]
+                 [org.clojure/tools.nrepl "0.2.13"]
 
                  [me.raynes/fs]
                  [prismatic/schema]
                  [slingshot]
 
-                 [puppetlabs/jruby-deps "9.1.16.0-1"]
+                 [puppetlabs/jruby-deps "9.2.0.0-1"]
 
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
