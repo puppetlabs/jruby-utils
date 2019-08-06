@@ -23,7 +23,7 @@
     (testing "warn with a string and objects"
       (logutils/with-test-logging
        (.warn logger "a {} {} warning" (into-array Object ["strongly" "worded"]))
-       (is (logged? "a {} {} warning" :warn))))
+       (is (logged? "a strongly worded warning" :warn))))
     (testing "warn with an exception"
       (logutils/with-test-logging
        (.warn logger (Exception. exception-message))
@@ -40,7 +40,7 @@
     (testing "error with a string and objects"
       (logutils/with-test-logging
        (.error logger "a {} {} error" (into-array Object ["strongly" "worded"]))
-       (is (logged? "a {} {} error" :error))))
+       (is (logged? "a strongly worded error" :error))))
     (testing "error with an exception"
       (logutils/with-test-logging
        (.error logger (Exception. exception-message))
@@ -59,7 +59,7 @@
        (.info logger
               "some {} {} info"
               (into-array Object ["strongly" "worded"]))
-       (is (logged? "some {} {} info" :info))))
+       (is (logged? "some strongly worded info" :info))))
     (testing "info with an exception"
       (logutils/with-test-logging
        (.info logger (Exception. exception-message))
@@ -78,7 +78,7 @@
        (.debug logger
                "some {} {} debug"
                (into-array Object ["strongly" "worded"]))
-       (is (logged? "some {} {} debug" :debug))))
+       (is (logged? "some strongly worded debug" :debug))))
     (testing "info with an exception"
       (logutils/with-test-logging
        (.debug logger (Exception. exception-message))
