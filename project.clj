@@ -47,5 +47,5 @@
                               "-Xmx2G"]}
              :testutils {:source-paths ^:replace ["test/unit" "test/integration"]}}
 
-  :plugins [[lein-parent "0.3.1"]
-            [puppetlabs/i18n "0.7.1"]])
+  :plugins [[lein-parent "0.3.7"]
+            [puppetlabs/i18n "0.8.0" :hooks false]])
