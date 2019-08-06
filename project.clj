@@ -4,8 +4,8 @@
   :license {:name "Apache License, Version 2.0"
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
 
-  :min-lein-version "2.8.1"
-  :parent-project {:coords [puppetlabs/clj-parent "2.4.0"]
+  :min-lein-version "2.9.1"
+  :parent-project {:coords [puppetlabs/clj-parent "3.1.1"]
                    :inherit [:managed-dependencies]}
 
   :pedantic? :abort
@@ -16,17 +16,19 @@
 
   :dependencies [[org.clojure/clojure]
                  [org.clojure/tools.logging]
-                 [org.clojure/tools.nrepl "0.2.13"]
 
                  [me.raynes/fs]
                  [prismatic/schema]
                  [slingshot]
 
-                 [puppetlabs/jruby-deps "9.2.0.0-1"]
+                 [org.yaml/snakeyaml "1.23"]
+                 [puppetlabs/jruby-deps "9.2.7.0-1"]
 
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
                  [puppetlabs/trapperkeeper]
+                 ;; TK brings in circleci/clj-yaml that isn't compatible with Java 11
+                 [circleci/clj-yaml "0.6.0"]
                  [puppetlabs/ring-middleware]]
 
   :deploy-repositories [["releases" {:url "https://clojars.org/repo"
@@ -48,5 +50,5 @@
                               "-Xmx2G"]}
              :testutils {:source-paths ^:replace ["test/unit" "test/integration"]}}
 
-  :plugins [[lein-parent "0.3.1"]
-            [puppetlabs/i18n "0.7.1"]])
+  :plugins [[lein-parent "0.3.7"]
+            [puppetlabs/i18n "0.8.0" :hooks false]])
