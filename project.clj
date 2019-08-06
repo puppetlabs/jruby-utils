@@ -21,7 +21,8 @@
                  [prismatic/schema]
                  [slingshot]
 
-                 [puppetlabs/jruby-deps "9.2.0.0-1"]
+                 [org.yaml/snakeyaml "1.23"]
+                 [puppetlabs/jruby-deps "9.2.7.0-1"]
 
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
