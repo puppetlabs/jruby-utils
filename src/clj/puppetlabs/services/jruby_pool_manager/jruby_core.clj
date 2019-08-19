@@ -291,7 +291,7 @@
     (if url
       (cli-ruby! config
         (concat ["-e" (format "load '%s'" url) "--"] args))
-      (log/errorf (i18n/trs "command {0} could not be found in {1}"
+      (log/error (i18n/trs "command {0} could not be found in {1}"
                             command bin-dir)))))
 
 (defmacro with-jruby-instance
