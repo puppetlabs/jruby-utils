@@ -181,6 +181,16 @@
   (swap! (get-in pool-context [:internal :event-callbacks]) conj callback-fn))
 
 (schema/defn ^:always-validate
+  get-jruby-thread-dump
+  "Get thread dumps from JRuby instances in the pool."
+  [pool-context :- jruby-schemas/PoolContext]
+  (reduce (fn [result instance]
+            (assoc result (:id instance)
+                          (jruby-internal/get-instance-thread-dump instance)))
+          {}
+          (registered-instances pool-context)))
+
+(schema/defn ^:always-validate
   borrow-from-pool :- jruby-schemas/JRubyInstanceOrPill
   "Borrows a JRuby interpreter from the pool. If there are no instances
   left in the pool then this function will block until there is one available."
