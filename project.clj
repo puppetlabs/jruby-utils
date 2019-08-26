@@ -22,7 +22,7 @@
                  [slingshot]
 
                  [org.yaml/snakeyaml "1.23"]
-                 [puppetlabs/jruby-deps "9.2.7.0-1"]
+                 [puppetlabs/jruby-deps "9.2.8.0-1"]
 
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
