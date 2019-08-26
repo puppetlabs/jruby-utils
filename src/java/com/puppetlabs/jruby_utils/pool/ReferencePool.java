@@ -68,7 +68,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
     private final Set<E> registeredElements = new CopyOnWriteArraySet<>();
 
     // The JRuby instance that this pool hands out references to
-    private E instance;
+    private volatile E instance;
 
     // How many times the JRuby instance can be borrowed at once
     private int maxBorrowCount;
@@ -159,7 +159,11 @@ public final class ReferencePool<E> implements LockablePool<E> {
                     item = pill;
                 } else if (isPoolLockHeldByAnotherThread(currentThread)) {
                     poolNotLocked.await();
+                } else if (instance == null) {
+                    // No instance initialized yet
+                    queueNotEmpty.await();
                 } else if (this.borrowCount.get() >= this.maxBorrowCount) {
+                    // Max borrow count reached, wait for one to be returned
                     queueNotEmpty.await();
                 } else if (this.instance != null) {
                     item = this.instance;
@@ -202,7 +206,15 @@ public final class ReferencePool<E> implements LockablePool<E> {
                     }
                     remainingMaxTimeToWait =
                             poolNotLocked.awaitNanos(remainingMaxTimeToWait);
+                } else if (this.instance == null) {
+                    // No instance initialized yet
+                    if (remainingMaxTimeToWait <= 0) {
+                        break;
+                    }
+                    remainingMaxTimeToWait =
+                            queueNotEmpty.awaitNanos(remainingMaxTimeToWait);
                 } else if (this.borrowCount.get() >= this.maxBorrowCount) {
+                    // Max borrow count reached, wait for one to be returned
                     if (remainingMaxTimeToWait <= 0) {
                         break;
                     }
@@ -270,27 +282,31 @@ public final class ReferencePool<E> implements LockablePool<E> {
     }
 
     /**
-     * Clears the registered instance. Waits until all held references
-     * have been returned, because references to unregistered instances
-     * cannot be released.
-     * TODO: DO WE NEED AN IMPLEMENTATION HERE OR IS THERE NO POINT?
+     * If there have been no borrows of the JRuby instance, remove our references
+     * to it. If it has been borrowed, keep the references so any last minute releases
+     * will succeed.
+     *
+     * Note that this method is only currently used when shutting down after an error
+     * occurs during initialization, so the chances of borrows having happened already
+     * is very slim.
      */
     @Override
     public void clear() {
-//        final ReentrantLock lock = this.queueLock;
-//        lock.lock();
-//        try {
-//          registeredElements.clear();
-//          instance = null;
-//        } finally {
-//            lock.unlock();
-//        }
+        final ReentrantLock lock = this.queueLock;
+        lock.lock();
+        try {
+            if (borrowCount.get() == 0) {
+                registeredElements.clear();
+                instance = null;
+            }
+        } finally {
+            lock.unlock();
+        }
     }
 
-    // How many refs need to be released for the pool to be full again.
     @Override
     public int remainingCapacity() {
-        return this.borrowCount.get();
+        return instance == null ? 1 : 0;
     }
 
     @Override

@@ -9,7 +9,7 @@
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
             [schema.core :as schema])
   (:import (clojure.lang IFn)
-           (com.puppetlabs.jruby_utils.pool JRubyPool)
+           (com.puppetlabs.jruby_utils.pool JRubyPool ReferencePool)
            (com.puppetlabs.jruby_utils.jruby InternalScriptingContainer
                                              ScriptingContainer)
            (java.io File)
@@ -35,6 +35,14 @@
   [size]
   {:post [(instance? jruby-schemas/pool-queue-type %)]}
   (JRubyPool. size))
+
+(defn instantiate-reference-pool
+  "Instantiate a new pool object to be used as the JRuby reference pool.
+  In this model, a single JRuby instance will be created that can be simultaneously
+  borrowed up to the specified number of times."
+  [maxBorrowCount]
+  {:post [(instance? jruby-schemas/pool-queue-type %)]}
+  (ReferencePool. maxBorrowCount))
 
 (schema/defn ^:always-validate get-compile-mode :- RubyInstanceConfig$CompileMode
   [config-compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
@@ -134,6 +142,14 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
+
+(schema/defn ^:always-validate
+  create-reference-pool-from-config :- jruby-schemas/PoolState
+  "Create a new pool of handles to a JRuby instance, based on
+  the config input."
+  [{maxBorrows :max-concurrent-thread-count} :- jruby-schemas/JRubyConfig]
+  {:pool (instantiate-reference-pool maxBorrows)
+   :size 1})
 
 (schema/defn ^:always-validate
   create-pool-from-config :- jruby-schemas/PoolState

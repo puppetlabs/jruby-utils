@@ -645,10 +645,8 @@
       (is (= 0 (.. pool getRegisteredElements size))))))
 
 (deftest pool-remaining-capacity
-  (testing "remaining capacity in pool correct per instances in the queue"
-    (let [pool (create-populated-pool 5)]
-      (is (= 0 (.remainingCapacity pool)))
-      (let [instances (borrow-n-instances pool 2)]
-        (is (= 2 (.remainingCapacity pool)))
-        (return-instances pool instances)
-        (is (= 0 (.remainingCapacity pool)))))))
+  (testing "remaining capacity in pool correct per instances registered"
+    (let [empty-pool (create-empty-pool)
+          pool (create-populated-pool 5)]
+      (is (= 1 (.remainingCapacity empty-pool)))
+      (is (= 0 (.remainingCapacity pool))))))

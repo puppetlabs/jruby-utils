@@ -36,6 +36,12 @@
   Current value is 1200000ms, or 20 minutes."
   1200000)
 
+(def default-max-concurrent-threads
+  "Default number of threads that can be run through a JRuby instance
+  when in multithreaded mode. This default value is based on Jetty's
+  minimum size for its thread pool."
+  8)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Functions
 
@@ -172,6 +178,8 @@
       (update-in [:splay-instance-flush] #(if (nil? %) true %))
       (update-in [:environment-vars] #(or % {}))
       (update-in [:lifecycle] initialize-lifecycle-fns)
+      (update-in [:multithreaded] #(if (nil? %) false %))
+      (update-in [:max-concurrent-thread-count] #(or % default-max-concurrent-threads))
       jruby-internal/initialize-gem-path))
 
 (schema/defn register-event-handler

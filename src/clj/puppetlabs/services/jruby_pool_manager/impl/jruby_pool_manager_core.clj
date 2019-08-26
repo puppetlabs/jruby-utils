@@ -9,10 +9,13 @@
   "Creates a new JRuby pool context with an empty pool. Once the JRuby
   pool object has been created, it will need to be filled using `prime-pool!`."
   [config :- jruby-schemas/JRubyConfig]
-  (let [shutdown-on-error-fn (get-in config [:lifecycle :shutdown-on-error])]
+  (let [shutdown-on-error-fn (get-in config [:lifecycle :shutdown-on-error])
+        pool-state (if (:multithreaded config)
+                     (atom (jruby-internal/create-reference-pool-from-config config))
+                     (atom (jruby-internal/create-pool-from-config config)))]
     {:config config
      :internal {:modify-instance-agent (jruby-agents/pool-agent shutdown-on-error-fn)
-                :pool-state (atom (jruby-internal/create-pool-from-config config))
+                :pool-state pool-state
                 :event-callbacks (atom [])}}))
 
 (schema/defn ^:always-validate
