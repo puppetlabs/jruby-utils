@@ -122,6 +122,8 @@ public final class ReferencePool<E> implements LockablePool<E> {
 
             instance = e;
             registeredElements.add(e);
+            // No borrows of the newly registered instance
+            borrowCount.set(0);
 
             signalPoolNotEmpty();
         } finally {
@@ -136,6 +138,8 @@ public final class ReferencePool<E> implements LockablePool<E> {
         try {
             instance = null;
             registeredElements.remove(e);
+            borrowCount.set(0);
+
             signalIfLockCanProceed();
         } finally {
             lock.unlock();
@@ -269,17 +273,18 @@ public final class ReferencePool<E> implements LockablePool<E> {
      * Clears the registered instance. Waits until all held references
      * have been returned, because references to unregistered instances
      * cannot be released.
+     * TODO: DO WE NEED AN IMPLEMENTATION HERE OR IS THERE NO POINT?
      */
     @Override
     public void clear() {
-        final ReentrantLock lock = this.queueLock;
-        lock.lock();
-        try {
-          registeredElements.clear();
-          instance = null;
-        } finally {
-            lock.unlock();
-        }
+//        final ReentrantLock lock = this.queueLock;
+//        lock.lock();
+//        try {
+//          registeredElements.clear();
+//          instance = null;
+//        } finally {
+//            lock.unlock();
+//        }
     }
 
     // How many refs need to be released for the pool to be full again.

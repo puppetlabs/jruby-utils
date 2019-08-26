@@ -516,8 +516,8 @@
                            (.borrowItemWithTimeout pool
                                                    1
                                                    TimeUnit/SECONDS))
-          borrow2 @borrow-thread-started-2?
-          borrow3 @borrow-thread-started-3?
+          _ @borrow-thread-started-2?
+          _ @borrow-thread-started-3?
           unlock? (promise)
           lock-thread-started? (promise)
           lock-thread (future
@@ -632,20 +632,17 @@
                  (.getMessage exception))))))))
 
 (deftest pool-clear-test
-  (testing (str "pool clear removes all elements from queue and only matching"
-                "registered elements")
-    (let [pool (create-populated-pool 3)
+  (testing (str "pool clear deletes the JRuby instance when there are no borrows")
+    (let [pool (create-populated-pool 2)
           instance (.borrowItem pool)]
-      (is (= 2 (.size pool)))
+      (is (= 1 (.size pool)))
       (is (= 1 (.. pool getRegisteredElements size)))
       (.clear pool)
-      (is (= 3 (.size pool)))
-      (let [registered-elements (.getRegisteredElements pool)]
-        (is (= 1 (.size registered-elements)))
-        (is (identical? instance (-> registered-elements
-                                     (.iterator)
-                                     iterator-seq
-                                     first)))))))
+      (is (= 1 (.size pool)))
+      (is (= 1 (.. pool getRegisteredElements size)))
+      (.releaseItem pool instance)
+      (.clear pool)
+      (is (= 0 (.. pool getRegisteredElements size))))))
 
 (deftest pool-remaining-capacity
   (testing "remaining capacity in pool correct per instances in the queue"
