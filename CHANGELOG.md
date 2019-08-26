@@ -1,3 +1,17 @@
+### 2.1.3 - 2019-08-26
+
+* Update JRuby to 9.2.8.0
+
+### 2.1.1 - 2019-08-06
+
+* Update JRuby to 9.2.7.0
+
+### 2.1.0 - 2018-11-02
+
+* Update JRuby to 9.2.0.0
+* Drop JDK7
+* Add JDK11
+
 ### 2.0.0 - 2018-03-28
 
 This is a breaking maintenance release.
