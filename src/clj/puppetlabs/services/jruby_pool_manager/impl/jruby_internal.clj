@@ -147,7 +147,7 @@
   create-reference-pool-from-config :- jruby-schemas/PoolState
   "Create a new pool of handles to a JRuby instance, based on
   the config input."
-  [{maxBorrows :max-concurrent-thread-count} :- jruby-schemas/JRubyConfig]
+  [{maxBorrows :max-active-instances} :- jruby-schemas/JRubyConfig]
   {:pool (instantiate-reference-pool maxBorrows)
    :size 1})
 
