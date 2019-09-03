@@ -60,12 +60,12 @@
       (let [count (.remainingCapacity pool)]
         (dotimes [i count]
           (let [id (inc i)]
-            (log/debugf (i18n/trs "Priming JRubyInstance {0} of {1}"
+            (log/debug (i18n/trs "Priming JRubyInstance {0} of {1}"
                                   id count))
             (jruby-internal/create-pool-instance! pool id config
                                                   (partial send-flush-instance! pool-context)
                                                   (:splay-instance-flush config))
-            (log/infof (i18n/trs "Finished creating JRubyInstance {0} of {1}"
+            (log/info (i18n/trs "Finished creating JRubyInstance {0} of {1}"
                                  id count)))))
       (catch Exception e
         (.clear pool)
@@ -158,7 +158,7 @@
           (jruby-internal/create-pool-instance! pool new-id config
                                                 (partial send-flush-instance! pool-context)
                                                 (:splay-instance-flush config))
-          (log/infof (i18n/trs "Finished creating JRubyInstance {0} of {1}"
+          (log/info (i18n/trs "Finished creating JRubyInstance {0} of {1}"
                                new-id pool-size)))
         (catch Exception e
           (.clear pool)

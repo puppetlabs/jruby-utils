@@ -151,7 +151,7 @@
     (.unregister pool instance)
     (cleanup-fn instance)
     (.terminate scripting-container)
-    (log/infof (i18n/trs "Cleaned up old JRubyInstance with id {0}."
+    (log/info (i18n/trs "Cleaned up old JRubyInstance with id {0}."
                          (:id instance)))))
 
 (schema/defn ^:always-validate
@@ -197,7 +197,7 @@
       (when-not ruby-load-path
         (throw (Exception.
                  (i18n/trs "JRuby service missing config value 'ruby-load-path'"))))
-      (log/infof (i18n/trs "Creating JRubyInstance with id {0}." id))
+      (log/info (i18n/trs "Creating JRubyInstance with id {0}." id))
       (let [scripting-container (create-scripting-container
                                   config)]
         (let [instance (jruby-schemas/map->JRubyInstance
@@ -318,7 +318,7 @@
       (if (and (pos? borrow-limit)
                (>= (:borrow-count new-state) borrow-limit))
         (do
-          (log/infof
+          (log/info
            (i18n/trs "Flushing JRubyInstance {0} because it has exceeded its borrow limit of ({1})"
                      (:id instance)
                      borrow-limit))
