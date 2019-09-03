@@ -40,6 +40,13 @@
             :borrow-timeout 300000}
            options))))
 
+(schema/defn ^:always-validate
+ jruby-config-for-ref-pool :- jruby-schemas/JRubyConfig
+  ([]
+   (jruby-config {:multithreaded true}))
+  ([options]
+   (jruby-config (merge options {:multithreaded true}))))
+
 (defn drain-pool
   "Drains the JRuby pool and returns each instance in a vector."
   [pool-context size]

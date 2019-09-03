@@ -15,7 +15,6 @@
   (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance)
            (clojure.lang IFn)
            (java.util.concurrent TimeUnit)
-           (org.jruby CompatVersion)
            (org.jruby.util.cli OutputStrings)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

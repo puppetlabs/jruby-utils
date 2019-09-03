@@ -315,7 +315,11 @@ public final class ReferencePool<E> implements LockablePool<E> {
         final ReentrantLock lock = this.queueLock;
         lock.lock();
         try {
-            size = this.maxBorrowCount - this.borrowCount.get();
+            if (instance == null) {
+                size = 0;
+            } else {
+                size = this.maxBorrowCount - this.borrowCount.get();
+            }
         } finally {
             lock.unlock();
         }
