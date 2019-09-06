@@ -17,7 +17,7 @@
   next-instance-id :- schema/Int
   [id :- schema/Int
    pool-context :- jruby-schemas/PoolContext]
-  (let [pool-size (jruby-internal/get-pool-size pool-context)
+  (let [pool-size (jruby-internal/get-instance-count pool-context)
         next-id (+ id pool-size)]
     (if (> next-id Integer/MAX_VALUE)
       (mod next-id pool-size)
@@ -147,8 +147,8 @@
    old-instances :- [JRubyInstance]
    refill? :- schema/Bool]
   (let [pool (jruby-internal/get-pool pool-context)
-        pool-size (jruby-internal/get-pool-size pool-context)
-        new-instance-ids (map inc (range pool-size))
+        instance-count (jruby-internal/get-instance-count pool-context)
+        new-instance-ids (map inc (range instance-count))
         config (:config pool-context)
         cleanup-fn (get-in config [:lifecycle :cleanup])]
     (doseq [[old-instance new-id] (zipmap old-instances new-instance-ids)]
@@ -159,7 +159,7 @@
                                                 (partial send-flush-instance! pool-context)
                                                 (:splay-instance-flush config))
           (log/infof (i18n/trs "Finished creating JRubyInstance {0} of {1}"
-                               new-id pool-size)))
+                               new-id instance-count)))
         (catch Exception e
           (.clear pool)
           (jruby-internal/insert-poison-pill pool e)

@@ -197,13 +197,13 @@
     id :- schema/Int
     config :- jruby-schemas/JRubyConfig
     flush-instance-fn :- IFn]
-    (create-pool-instance! pool id config flush-instance-fn false))
+   (create-pool-instance! pool id config flush-instance-fn false))
   ([pool :- jruby-schemas/pool-queue-type
     id :- schema/Int
     config :- jruby-schemas/JRubyConfig
     flush-instance-fn :- IFn
     initial-jruby? :- schema/Bool]
-    (let [{:keys [ruby-load-path lifecycle
+   (let [{:keys [ruby-load-path lifecycle
                   max-active-instances max-borrows-per-instance]} config
           initialize-pool-instance-fn (:initialize-pool-instance lifecycle)
           initial-borrows (initial-borrows-value id
@@ -248,9 +248,21 @@
 
 (schema/defn ^:always-validate
   get-pool-size :- schema/Int
-  "Gets the size of the JRuby pool from the pool context."
+  "Gets the number of allowed simultaneous borrows of
+   the JRuby pool from the pool context. For the JRubyPool,
+   this is equivalent to the number of active instances.
+   For the ReferencePool, it is the number of references to
+   the instance that we are allowed to hand out at once."
   [context :- jruby-schemas/PoolContext]
   (get-in context [:config :max-active-instances]))
+
+(schema/defn ^:always-validate
+  get-instance-count :- schema/Int
+  "Gets the number of JRuby instances in the pool. For the
+  JRubyPool, this is equivalent to the number of allowed
+  simultaneous borrows. For the ReferencePool, it is always 1."
+  [context :- jruby-schemas/PoolContext]
+  (:size (get-pool-state context)))
 
 (schema/defn ^:always-validate
   get-flush-timeout :- schema/Int
