@@ -44,6 +44,21 @@
     (send jruby-agent agent-fn)))
 
 (declare send-flush-instance!)
+(declare flush-and-repopulate-pool!)
+
+;; When `multithreaded` is true, we are using the ReferencePool,
+;; which must block on all references being returned to the pool
+;; before it can be flushed, rather than just flushing an individual
+;; instance immediately like we do with the JRubyPool.
+(schema/defn flush-instance-fn :- IFn
+  [multithreaded :- schema/Bool
+   pool-context :- jruby-schemas/PoolContext]
+  (if multithreaded
+    (fn [instance]
+      (do
+        (jruby-internal/return-to-pool instance)
+        (flush-and-repopulate-pool! pool-context)))
+    (partial send-flush-instance! pool-context)))
 
 (schema/defn ^:always-validate
   prime-pool!
@@ -63,7 +78,9 @@
             (log/debugf (i18n/trs "Priming JRubyInstance {0} of {1}"
                                   id count))
             (jruby-internal/create-pool-instance! pool id config
-                                                  (partial send-flush-instance! pool-context)
+                                                  (flush-instance-fn
+                                                    (:multithreaded config)
+                                                    pool-context)
                                                   (:splay-instance-flush config))
             (log/infof (i18n/trs "Finished creating JRubyInstance {0} of {1}"
                                  id count)))))
@@ -88,7 +105,9 @@
         pool (jruby-internal/get-pool pool-context)]
     (jruby-internal/cleanup-pool-instance! instance cleanup-fn)
     (jruby-internal/create-pool-instance! pool new-id config
-                                          (partial send-flush-instance! pool-context))))
+                                          (flush-instance-fn
+                                            (:multithreaded config)
+                                            pool-context))))
 
 (schema/defn borrow-all-jrubies*
   "The core logic for borrow-all-jrubies. Should only be called from borrow-all-jrubies"
@@ -156,7 +175,9 @@
         (jruby-internal/cleanup-pool-instance! old-instance cleanup-fn)
         (when refill?
           (jruby-internal/create-pool-instance! pool new-id config
-                                                (partial send-flush-instance! pool-context)
+                                                (flush-instance-fn
+                                                  (:multithreaded config)
+                                                  pool-context)
                                                 (:splay-instance-flush config))
           (log/infof (i18n/trs "Finished creating JRubyInstance {0} of {1}"
                                new-id instance-count)))
