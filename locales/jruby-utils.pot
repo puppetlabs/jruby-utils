@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.jruby_utils \n"
-"X-Git-Ref: 6669893b02b3c6eb28083bd7c271f3380bebbf6d\n"
+"X-Git-Ref: 77f789b3e24c443f69f2414d38f007725d124a1c\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -110,6 +110,16 @@ msgstr ""
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
 msgid ""
 "Flushing JRubyInstance {0} because it has exceeded its borrow limit of ({1})"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
+msgid "Exception raised while generating thread dump"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
+msgid ""
+"JRuby management interface not enabled. Add ''-Djruby.management."
+"enabled=true'' to JAVA_ARGS to enable thread dumps."
 msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
