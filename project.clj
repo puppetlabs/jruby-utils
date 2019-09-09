@@ -15,6 +15,7 @@
   :test-paths ["test/unit" "test/integration"]
 
   :dependencies [[org.clojure/clojure]
+                 [org.clojure/java.jmx]
                  [org.clojure/tools.logging]
 
                  [me.raynes/fs]

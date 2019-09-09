@@ -1,14 +1,20 @@
 (ns puppetlabs.services.jruby-pool-manager.jruby-internal-test
   (:require [clojure.test :refer :all]
+            [clojure.java.jmx :as jmx]
             [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils]
             [puppetlabs.kitchensink.core :as ks]
             [me.raynes.fs :as fs])
-  (:import (com.puppetlabs.jruby_utils.pool JRubyPool)
+  (:import (java.io StringReader)
+           (com.puppetlabs.jruby_utils.pool JRubyPool)
            (org.jruby RubyInstanceConfig$CompileMode CompatVersion RubyInstanceConfig$ProfilingMode)
+           (org.jruby.util.cli Options)
            (clojure.lang ExceptionInfo)))
+
+;; Clear changes to JRuby management settings after each test.
+(use-fixtures :each (fn [f] (f) (.unforce Options/MANAGEMENT_ENABLED)))
 
 (deftest get-compile-mode-test
   (testing "returns correct compile modes for SupportedJRubyCompileModes enum"
@@ -71,3 +77,48 @@
                (.getCompileMode container)))
         (finally
           (.terminate container))))))
+
+(deftest jruby-thread-dump
+  (testing "returns an error when jruby.management.enabled is set to false"
+    (.force Options/MANAGEMENT_ENABLED "false")
+    (let [pool (JRubyPool. 1)
+          config (logutils/with-test-logging
+                  (jruby-testutils/jruby-config {}))
+          instance (jruby-internal/create-pool-instance! pool 0 config #())
+          result (jruby-internal/get-instance-thread-dump instance)]
+      (is (some? (:error result)))
+      (is (re-find #"JRuby management interface not enabled" (:error result)))))
+  (testing "returns a thread dump when jruby.management.enabled is set to true"
+    (.force Options/MANAGEMENT_ENABLED "true")
+    (let [pool (JRubyPool. 1)
+          config (logutils/with-test-logging
+                  (jruby-testutils/jruby-config {}))
+          instance (jruby-internal/create-pool-instance! pool 0 config #())
+          _ (-> (:scripting-container instance)
+                (.runScriptlet (StringReader.
+                                "def naptime
+                                  Kernel.sleep(1)
+                                end
+
+                                Thread.new {naptime}")
+                               "jruby-thread-dump.rb"))
+          result (jruby-internal/get-instance-thread-dump instance)]
+      (is (some? (:thread-dump result)))
+      (is (re-find #"naptime at jruby-thread-dump\.rb" (:thread-dump result)))))
+  (testing "returns an error if an exception is raised"
+    (.force Options/MANAGEMENT_ENABLED "true")
+    (let [pool (JRubyPool. 1)
+          config (logutils/with-test-logging
+                  (jruby-testutils/jruby-config {}))
+          instance (jruby-internal/create-pool-instance! pool 0 config #())
+          mbean-name (jruby-internal/jmx-bean-name instance "Runtime")
+          _ (jmx/unregister-mbean mbean-name)
+          failing-mbean (proxy [org.jruby.management.Runtime]
+                          [(jruby-internal/get-jruby-runtime instance)]
+                          (threadDump []
+                            (throw (Exception. "thread dump exception"))))
+          _ (jmx/register-mbean failing-mbean mbean-name)
+          result (logutils/with-test-logging
+                  (jruby-internal/get-instance-thread-dump instance))]
+      (is (some? (:error result)))
+      (is (re-find #"Exception raised while generating thread dump" (:error result))))))

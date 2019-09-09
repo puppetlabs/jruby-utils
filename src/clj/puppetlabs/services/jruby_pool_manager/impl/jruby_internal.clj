@@ -2,6 +2,7 @@
   (:require [clj-time.core :as time-core]
             [clj-time.format :as time-format]
             [clojure.java.io :as io]
+            [clojure.java.jmx :as jmx]
             [clojure.string :refer [upper-case]]
             [clojure.tools.logging :as log]
             [me.raynes.fs :as fs]
@@ -14,7 +15,7 @@
                                              ScriptingContainer)
            (java.io File)
            (java.util.concurrent TimeUnit)
-           (org.jruby CompatVersion Main RubyInstanceConfig RubyInstanceConfig$CompileMode RubyInstanceConfig$ProfilingMode)
+           (org.jruby CompatVersion Main Ruby RubyInstanceConfig RubyInstanceConfig$CompileMode RubyInstanceConfig$ProfilingMode)
            (org.jruby.embed LocalContextScope)
            (org.jruby.runtime.profile.builtin ProfileOutput)
            (org.jruby.util KCode)
@@ -131,6 +132,40 @@
   [pool :- jruby-schemas/pool-queue-type
    error :- Throwable]
   (.insertPill pool (PoisonPill. error)))
+
+(schema/defn ^:always-validate
+  get-jruby-runtime :- Ruby
+  "Get the org.jruby.Ruby instance associated with member of the pool."
+  [{:keys [scripting-container]} :- JRubyInstance]
+  (-> scripting-container
+      .getProvider
+      .getRuntime))
+
+(schema/defn ^:always-validate
+  management-enabled? :- schema/Bool
+  [instance :- JRubyInstance]
+  (-> (get-jruby-runtime instance)
+      .getInstanceConfig
+      .isManagementEnabled))
+
+(def
+  JRubyMBeanName
+  "Enumeration of available JMX MBeans for a JRubyInstance."
+  (schema/enum "Caches"
+               "Config"
+               "JITCompiler"
+               "ParserStats"
+               "Runtime"))
+
+(schema/defn ^:always-validate
+  jmx-bean-name :- schema/Str
+  "Get the fully-qualified name of a JMX MBean attached to a JRubyInstance."
+  [instance :- JRubyInstance
+   service-name :- JRubyMBeanName]
+  (-> (get-jruby-runtime instance)
+      .getBeanManager
+      .base
+      (str "service=" service-name)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -324,6 +359,20 @@
                      borrow-limit))
           (flush-instance-fn instance))
         (.releaseItem pool instance)))))
+
+(schema/defn ^:always-validate
+  get-instance-thread-dump
+  [instance :- JRubyInstance]
+  (if (management-enabled? instance)
+    (try
+      {:thread-dump (jmx/invoke (jmx-bean-name instance "Runtime")
+                                :threadDump)}
+      (catch Exception e
+        (let [system_error (i18n/trs "Exception raised while generating thread dump")
+              user_error (i18n/tru "Exception raised while generating thread dump")]
+          (log/error e system_error)
+          {:error (str user_error ": " (.toString e))})))
+    {:error (i18n/tru "JRuby management interface not enabled. Add ''-Djruby.management.enabled=true'' to JAVA_ARGS to enable thread dumps.")}))
 
 (schema/defn ^:always-validate new-main :- jruby-schemas/JRubyMain
   "Return a new JRubyMain instance which should only be used for CLI purposes,
