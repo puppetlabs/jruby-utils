@@ -107,7 +107,7 @@ public interface LockablePool<E> {
      * have been borrowed but not yet returned to the pool at the time this
      * method is called will remain registered.
      */
-    void clear();
+    void clear() throws InterruptedException;
 
     /**
      * Returns the number of elements that can be added into the pool.  Equal

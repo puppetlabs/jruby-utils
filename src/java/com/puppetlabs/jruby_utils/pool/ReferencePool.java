@@ -37,37 +37,33 @@ public final class ReferencePool<E> implements LockablePool<E> {
     // unavailable.
     //
     // See http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/687fd7c7986d/src/share/classes/java/util/concurrent/LinkedBlockingDeque.java#l157
-    //
-    // Because access to the underlying deque is synchronized within
-    // this class, the pool is backed by a non-synchronized JDK `LinkedList`.
 
-    // Lock which guards all accesses to the underlying queue and registered
-    // element set.  Constructed as "nonfair" for performance, like the
-    // lock that a `LinkedBlockingDeque` does.  Not clear that we need this
+    // Lock which guards all accesses to the underlying instance.
+    // Constructed as "nonfair" for performance, like the lock that a
+    // `LinkedBlockingDeque` does.  Not clear that we need this
     // to be a "fair" lock.
-    private final ReentrantLock queueLock = new ReentrantLock(false);
+    private final ReentrantLock borrowLock = new ReentrantLock(false);
 
-    // Condition signaled when all elements that have been registered have been
-    // returned to the queue or if a pill has been inserted.  Awaited when a
-    // lock has been requested but one or more registered elements has been
+    // Condition signaled when all borrowed references have been
+    // handed back or if a pill has been inserted.  Awaited when a
+    // lock has been requested but one or more references have been
     // borrowed from the pool.
-    private final Condition lockAvailable = queueLock.newCondition();
+    private final Condition lockAvailable = borrowLock.newCondition();
 
     // Condition signaled when an element has been added into the queue.
     // Awaited when a request has been made to borrow an item but no elements
     // currently exist in the queue.
-    private final Condition queueNotEmpty = queueLock.newCondition();
+    private final Condition borrowsAvailable = borrowLock.newCondition();
 
     // Condition signaled when the pool has been unlocked.  Awaited when a
-    // request has been made to borrow an item or lock the pool but the pool
+    // request has been made to borrow an reference or lock the pool but the pool
     // is currently locked.
-    private final Condition poolNotLocked = queueLock.newCondition();
+    private final Condition poolNotLocked = borrowLock.newCondition();
 
-    private final Condition instanceNotBorrowed = queueLock.newCondition();
-
-    // Holds a reference to all registered elements, which in this case should
-    // only be the single JRuby instance.
-    private final Set<E> registeredElements = new CopyOnWriteArraySet<>();
+    // Condition signaled when all borrowed references have been returned
+    // to the pool. Awaited when we are preparing to delete the instance
+    // and need to make sure it is not in use.
+    private final Condition instanceNotBorrowed = borrowLock.newCondition();
 
     // The JRuby instance that this pool hands out references to
     private volatile E instance;
@@ -78,9 +74,6 @@ public final class ReferencePool<E> implements LockablePool<E> {
     // Current number of references to the pool held out in the world.
     // Updates to this need to be visible to all threads.
     private volatile AtomicInteger currentBorrowCount;
-
-    //
-    private volatile AtomicInteger totalBorrows;
 
     // Thread which currently holds the pool lock.  null indicates that
     // there is no current pool lock holder.  Using the current Thread
@@ -117,7 +110,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
 
     @Override
     public void register(E e) {
-        final ReentrantLock lock = this.queueLock;
+        final ReentrantLock lock = this.borrowLock;
         lock.lock();
         try {
             if (instance != null) {
@@ -126,8 +119,6 @@ public final class ReferencePool<E> implements LockablePool<E> {
             }
 
             instance = e;
-            registeredElements.add(e);
-            // No borrows of the newly registered instance
             currentBorrowCount.set(0);
 
             signalPoolNotEmpty();
@@ -136,17 +127,24 @@ public final class ReferencePool<E> implements LockablePool<E> {
         }
     }
 
+    /**
+     * Unregisters the JRuby instance. Blocks waiting for all borrows of the
+     * instance to be returned before clearing it out. In this pool implementation,
+     * `clear` and `unregister` are aliases of one another, since clearing the pool
+     * is the same as clearing the on active instance.
+     *
+     * @param e the instance to clean up
+     * @throws InterruptedException
+     */
     @Override
     public void unregister(E e) throws InterruptedException {
-        final ReentrantLock lock = this.queueLock;
+        final ReentrantLock lock = this.borrowLock;
         lock.lock();
         try {
             if (currentBorrowCount.get() != 0) {
                 instanceNotBorrowed.await();
             }
             instance = null;
-            registeredElements.remove(e);
-            currentBorrowCount.set(0);
 
             signalIfLockCanProceed();
         } finally {
@@ -157,7 +155,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
     @Override
     public E borrowItem() throws InterruptedException {
         E item = null;
-        final ReentrantLock lock = this.queueLock;
+        final ReentrantLock lock = this.borrowLock;
         lock.lock();
         try {
             final Thread currentThread = Thread.currentThread();
@@ -169,10 +167,10 @@ public final class ReferencePool<E> implements LockablePool<E> {
                     poolNotLocked.await();
                 } else if (instance == null) {
                     // No instance initialized yet
-                    queueNotEmpty.await();
+                    borrowsAvailable.await();
                 } else if (this.currentBorrowCount.get() >= this.maxBorrowCount) {
                     // Max borrow count reached, wait for one to be returned
-                    queueNotEmpty.await();
+                    borrowsAvailable.await();
                 } else {
                     item = this.instance;
                     this.currentBorrowCount.getAndIncrement();
@@ -190,11 +188,11 @@ public final class ReferencePool<E> implements LockablePool<E> {
     public E borrowItemWithTimeout(long timeout, TimeUnit unit) throws
             InterruptedException {
         E item = null;
-        final ReentrantLock lock = this.queueLock;
+        final ReentrantLock lock = this.borrowLock;
         long remainingMaxTimeToWait = unit.toNanos(timeout);
 
-        // `queueLock.lockInterruptibly()` is called here as opposed to just
-        // `queueLock.queueLock` to follow the pattern that the JDK's
+        // `borrowLock.lockInterruptibly()` is called here as opposed to just
+        // `borrowLock.borrowLock` to follow the pattern that the JDK's
         // `LinkedBlockingDeque` does for a timed poll from a deque.  See:
         // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/687fd7c7986d/src/share/classes/java/util/concurrent/LinkedBlockingDeque.java#l516
         lock.lockInterruptibly();
@@ -221,14 +219,14 @@ public final class ReferencePool<E> implements LockablePool<E> {
                         break;
                     }
                     remainingMaxTimeToWait =
-                            queueNotEmpty.awaitNanos(remainingMaxTimeToWait);
+                            borrowsAvailable.awaitNanos(remainingMaxTimeToWait);
                 } else if (this.currentBorrowCount.get() >= this.maxBorrowCount) {
                     // Max borrow count reached, wait for one to be returned
                     if (remainingMaxTimeToWait <= 0) {
                         break;
                     }
                     remainingMaxTimeToWait =
-                            queueNotEmpty.awaitNanos(remainingMaxTimeToWait);
+                            borrowsAvailable.awaitNanos(remainingMaxTimeToWait);
                 } else if (instance != null) {
                     item = instance;
                     this.currentBorrowCount.getAndIncrement();
@@ -251,7 +249,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
      */
     @Override
     public void releaseItem(E e) {
-        final ReentrantLock lock = this.queueLock;
+        final ReentrantLock lock = this.borrowLock;
         lock.lock();
         try {
             if (e != this.pill) {
@@ -273,7 +271,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
     }
 
     private boolean isRegistered(E e) {
-        return this.registeredElements.contains(e);
+        return instance.equals(e);
     }
 
     /**
@@ -283,7 +281,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
      */
     @Override
     public void insertPill(E e) {
-        final ReentrantLock lock = this.queueLock;
+        final ReentrantLock lock = this.borrowLock;
         lock.lock();
         try {
             if (this.pill == null) {
@@ -296,26 +294,12 @@ public final class ReferencePool<E> implements LockablePool<E> {
     }
 
     /**
-     * If there have been no borrows of the JRuby instance, remove our references
-     * to it. If it has been borrowed, keep the references so any last minute releases
-     * will succeed.
-     *
-     * Note that this method is only currently used when shutting down after an error
-     * occurs during initialization, so the chances of borrows having happened already
-     * is very slim.
+     * Alias for unregister in this implementation. Blocks waiting for
+     * all references to be returned to the pool.
      */
     @Override
-    public void clear() {
-        final ReentrantLock lock = this.queueLock;
-        lock.lock();
-        try {
-            if (currentBorrowCount.get() == 0) {
-                registeredElements.clear();
-                instance = null;
-            }
-        } finally {
-            lock.unlock();
-        }
+    public void clear() throws InterruptedException {
+        unregister(instance);
     }
 
     @Override
@@ -326,7 +310,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
     @Override
     public int size() {
         int size;
-        final ReentrantLock lock = this.queueLock;
+        final ReentrantLock lock = this.borrowLock;
         lock.lock();
         try {
             if (instance == null) {
@@ -347,7 +331,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
      */
     @Override
     public void lock() throws InterruptedException {
-        final ReentrantLock lock = this.queueLock;
+        final ReentrantLock lock = this.borrowLock;
         lock.lock();
         try {
             String pillErrorMsg = "Lock can't be granted because a pill has been inserted";
@@ -382,11 +366,11 @@ public final class ReferencePool<E> implements LockablePool<E> {
 
     @Override
     public void lockWithTimeout(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException {
-        final ReentrantLock lock = this.queueLock;
+        final ReentrantLock lock = this.borrowLock;
         long remainingMaxTimeToWait = unit.toNanos(timeout);
 
-        // `queueLock.lockInterruptibly()` is called here as opposed to just
-        // `queueLock.queueLock` to follow the pattern that the JDK's
+        // `borrowLock.lockInterruptibly()` is called here as opposed to just
+        // `borrowLock.borrowLock` to follow the pattern that the JDK's
         // `LinkedBlockingDeque` does for a timed poll from a deque.  See:
         // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/687fd7c7986d/src/share/classes/java/util/concurrent/LinkedBlockingDeque.java#l516
         lock.lockInterruptibly();
@@ -434,7 +418,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
     @Override
     public boolean isLocked() {
         boolean locked;
-        final ReentrantLock lock = this.queueLock;
+        final ReentrantLock lock = this.borrowLock;
         lock.lock();
         try {
             locked = isPoolLockHeld();
@@ -446,7 +430,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
 
     @Override
     public void unlock() {
-        final ReentrantLock lock = this.queueLock;
+        final ReentrantLock lock = this.borrowLock;
         lock.lock();
         try {
             final Thread currentThread = Thread.currentThread();
@@ -472,7 +456,11 @@ public final class ReferencePool<E> implements LockablePool<E> {
     }
 
     public Set<E> getRegisteredElements() {
-      return registeredElements;
+      Set<E> registered = new CopyOnWriteArraySet<E>();
+      if (instance != null) {
+          registered.add(instance);
+      }
+      return registered;
     }
 
     private void freePoolLock() {
@@ -482,14 +470,14 @@ public final class ReferencePool<E> implements LockablePool<E> {
         // pool to be unlocked.
         poolNotLocked.signalAll();
         // Borrowers that are woken up when an instance is returned to the
-        // pool and the pool queueLock is held would then start waiting on a
-        // 'poolNotLocked' signal instead.  Re-signalling 'queueNotEmpty' here
-        // allows any borrowers still waiting on the 'queueNotEmpty' signal to be
+        // pool and the pool borrowLock is held would then start waiting on a
+        // 'poolNotLocked' signal instead.  Re-signalling 'borrowsAvailable' here
+        // allows any borrowers still waiting on the 'borrowsAvailable' signal to be
         // reawoken when the pool lock is released, compensating for any
-        // 'queueNotEmpty' signals that might have been essentially ignored from
+        // 'borrowsAvailable' signals that might have been essentially ignored from
         // when the pool lock was held.
         if (this.currentBorrowCount.get() < this.maxBorrowCount) {
-            queueNotEmpty.signalAll();
+            borrowsAvailable.signalAll();
         }
     }
 
@@ -504,14 +492,14 @@ public final class ReferencePool<E> implements LockablePool<E> {
         // a pool instance and any further waiters will be woken up by
         // subsequent posts of this signal when instances are added/returned to
         // the queue.
-        queueNotEmpty.signal();
+        borrowsAvailable.signal();
         signalIfLockCanProceed();
     }
 
     /**
      * Checks if threads waiting on the pool lock should be woken up.
-     * This will wake them up if either the number of available instances is
-     * equal to the maximum size of the pool, or if a pill has been inserted
+     * This will wake them up if either all borrowed references have
+     * been returned to the pool, or if a pill has been inserted
      */
     private void signalIfLockCanProceed() {
         // Could use 'signalAll' here instead of 'signal'.  Doesn't really
