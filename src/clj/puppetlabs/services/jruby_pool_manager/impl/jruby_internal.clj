@@ -223,7 +223,7 @@
                                      :max-borrows max-borrows-per-instance
                                      :initial-borrows initial-borrows
                                      :flush-instance-fn flush-instance-fn
-                                     :state (atom {:borrow-count 0})}})
+                                     :state (atom {:borrow-count 0 :flush-pending false})}})
               modified-instance (initialize-pool-instance-fn instance)]
           (.register pool modified-instance)
           modified-instance)))))

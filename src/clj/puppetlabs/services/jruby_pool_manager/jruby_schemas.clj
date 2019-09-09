@@ -118,7 +118,8 @@
 
 (def JRubyInstanceState
   "State metadata for an individual JRubyInstance"
-  {:borrow-count schema/Int})
+  {:borrow-count schema/Int
+   :flush-pending schema/Bool})
 
 (def JRubyInstanceStateContainer
   "An atom containing the current state of a given JRubyInstance."

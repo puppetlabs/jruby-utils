@@ -112,11 +112,11 @@
     (jruby-testutils/with-pool-context
       pool-context
       jruby-testutils/default-services
-      (jruby-testutils/jruby-config {:max-active-instances 4
-                                     :max-borrows-per-instance 10
-                                     :splay-instance-flush false
-                                     :borrow-timeout
-                                     test-borrow-timeout})
+      (jruby-testutils/jruby-config-for-ref-pool {:max-active-instances 4
+                                                  :max-borrows-per-instance 10
+                                                  :splay-instance-flush false
+                                                  :borrow-timeout
+                                                  test-borrow-timeout})
       (let [pool (jruby-core/get-pool pool-context)]
         ;; borrow the instance once and hold reference to it, to prevent
         ;; the flush operation from completing

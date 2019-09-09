@@ -46,6 +46,18 @@
 (declare send-flush-instance!)
 (declare flush-and-repopulate-pool!)
 
+(schema/defn flush-reference-pool
+  [pool-context instance]
+  (let [instance-state (jruby-internal/get-instance-state-container instance)
+        pool (jruby-internal/get-pool pool-context)
+        _ (.releaseItem pool instance)]
+    (when (not (:flush-pending instance-state))
+      ;; trigger a flush of the Jruby pool if one hasn't already
+      ;; been started
+      (do
+        (swap! instance-state update-in [:flush-pending] true)
+        (flush-and-repopulate-pool! pool-context)))))
+
 ;; When `multithreaded` is true, we are using the ReferencePool,
 ;; which must block on all references being returned to the pool
 ;; before it can be flushed, rather than just flushing an individual
@@ -54,10 +66,7 @@
   [multithreaded :- schema/Bool
    pool-context :- jruby-schemas/PoolContext]
   (if multithreaded
-    (fn [instance]
-      (do
-        (jruby-internal/return-to-pool instance)
-        (flush-and-repopulate-pool! pool-context)))
+    (partial flush-reference-pool pool-context)
     (partial send-flush-instance! pool-context)))
 
 (schema/defn ^:always-validate
