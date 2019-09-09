@@ -34,7 +34,7 @@
   "Instantiate a new queue object to use as the pool of free JRuby's."
   [size]
   {:post [(instance? jruby-schemas/pool-queue-type %)]}
-  (JRubyPool. size))
+  (ReferencePool. size))
 
 (defn instantiate-reference-pool
   "Instantiate a new pool object to be used as the JRuby reference pool.
