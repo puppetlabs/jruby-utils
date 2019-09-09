@@ -27,8 +27,11 @@ public interface LockablePool<E> {
      * {@link #getRegisteredElements()}.
      *
      * @param e the element to remove from the list of registered elements
+     * @throws InterruptedException if the calling thread is interrupted while
+     *                              it waits for all instances to be returned
+     *                              to the pool
      */
-    void unregister(E e);
+    void unregister(E e) throws InterruptedException;
 
     /**
      * Borrow an element from the pool.  This method will block until

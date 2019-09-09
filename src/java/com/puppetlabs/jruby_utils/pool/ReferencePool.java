@@ -63,6 +63,8 @@ public final class ReferencePool<E> implements LockablePool<E> {
     // is currently locked.
     private final Condition poolNotLocked = queueLock.newCondition();
 
+    private final Condition instanceNotBorrowed = queueLock.newCondition();
+
     // Holds a reference to all registered elements, which in this case should
     // only be the single JRuby instance.
     private final Set<E> registeredElements = new CopyOnWriteArraySet<>();
@@ -75,7 +77,10 @@ public final class ReferencePool<E> implements LockablePool<E> {
 
     // Current number of references to the pool held out in the world.
     // Updates to this need to be visible to all threads.
-    private volatile AtomicInteger borrowCount;
+    private volatile AtomicInteger currentBorrowCount;
+
+    //
+    private volatile AtomicInteger totalBorrows;
 
     // Thread which currently holds the pool lock.  null indicates that
     // there is no current pool lock holder.  Using the current Thread
@@ -107,7 +112,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
     public ReferencePool(int maxBorrows) {
         this.instance = null;
         this.maxBorrowCount = maxBorrows;
-        this.borrowCount = new AtomicInteger(0);
+        this.currentBorrowCount = new AtomicInteger(0);
     }
 
     @Override
@@ -123,7 +128,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
             instance = e;
             registeredElements.add(e);
             // No borrows of the newly registered instance
-            borrowCount.set(0);
+            currentBorrowCount.set(0);
 
             signalPoolNotEmpty();
         } finally {
@@ -132,13 +137,16 @@ public final class ReferencePool<E> implements LockablePool<E> {
     }
 
     @Override
-    public void unregister(E e) {
+    public void unregister(E e) throws InterruptedException {
         final ReentrantLock lock = this.queueLock;
         lock.lock();
         try {
+            if (currentBorrowCount.get() != 0) {
+                instanceNotBorrowed.await();
+            }
             instance = null;
             registeredElements.remove(e);
-            borrowCount.set(0);
+            currentBorrowCount.set(0);
 
             signalIfLockCanProceed();
         } finally {
@@ -162,12 +170,13 @@ public final class ReferencePool<E> implements LockablePool<E> {
                 } else if (instance == null) {
                     // No instance initialized yet
                     queueNotEmpty.await();
-                } else if (this.borrowCount.get() >= this.maxBorrowCount) {
+                } else if (this.currentBorrowCount.get() >= this.maxBorrowCount) {
                     // Max borrow count reached, wait for one to be returned
                     queueNotEmpty.await();
-                } else if (this.instance != null) {
+                } else {
                     item = this.instance;
-                    this.borrowCount.getAndIncrement();
+                    this.currentBorrowCount.getAndIncrement();
+                    LOGGER.info("Borrowing, count is " + currentBorrowCount.get());
                 }
             } while (item == null);
         } finally {
@@ -213,7 +222,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
                     }
                     remainingMaxTimeToWait =
                             queueNotEmpty.awaitNanos(remainingMaxTimeToWait);
-                } else if (this.borrowCount.get() >= this.maxBorrowCount) {
+                } else if (this.currentBorrowCount.get() >= this.maxBorrowCount) {
                     // Max borrow count reached, wait for one to be returned
                     if (remainingMaxTimeToWait <= 0) {
                         break;
@@ -222,7 +231,8 @@ public final class ReferencePool<E> implements LockablePool<E> {
                             queueNotEmpty.awaitNanos(remainingMaxTimeToWait);
                 } else if (instance != null) {
                     item = instance;
-                    this.borrowCount.getAndIncrement();
+                    this.currentBorrowCount.getAndIncrement();
+                    LOGGER.info("Borrowing, count is " + currentBorrowCount.get());
                 }
             } while (item == null);
         } finally {
@@ -250,8 +260,12 @@ public final class ReferencePool<E> implements LockablePool<E> {
                     throw new IllegalArgumentException(errorMsg);
                 }
 
-                this.borrowCount.getAndDecrement();
+                this.currentBorrowCount.getAndDecrement();
                 signalPoolNotEmpty();
+
+                if (currentBorrowCount.get() == 0) {
+                   instanceNotBorrowed.signal();
+                }
             }
         } finally {
             lock.unlock();
@@ -295,7 +309,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
         final ReentrantLock lock = this.queueLock;
         lock.lock();
         try {
-            if (borrowCount.get() == 0) {
+            if (currentBorrowCount.get() == 0) {
                 registeredElements.clear();
                 instance = null;
             }
@@ -318,7 +332,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
             if (instance == null) {
                 size = 0;
             } else {
-                size = this.maxBorrowCount - this.borrowCount.get();
+                size = this.maxBorrowCount - this.currentBorrowCount.get();
             }
         } finally {
             lock.unlock();
@@ -351,7 +365,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
             }
             try {
                 // Wait until all references have been returned to the pool
-                while (this.borrowCount.get() > 0) {
+                while (this.currentBorrowCount.get() > 0) {
                     lockAvailable.await();
                     if (this.pill != null) {
                         throw new InterruptedException(pillErrorMsg);
@@ -398,7 +412,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
 
             try {
                 // Wait until all references have been returned to the pool
-                while (this.borrowCount.get() > 0) {
+                while (this.currentBorrowCount.get() > 0) {
                     if (remainingMaxTimeToWait <= 0) {
                         throw new TimeoutException(timeoutErrorMsg);
                     }
@@ -474,7 +488,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
         // reawoken when the pool lock is released, compensating for any
         // 'queueNotEmpty' signals that might have been essentially ignored from
         // when the pool lock was held.
-        if (this.borrowCount.get() < this.maxBorrowCount) {
+        if (this.currentBorrowCount.get() < this.maxBorrowCount) {
             queueNotEmpty.signalAll();
         }
     }
@@ -505,7 +519,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
         // is active at a time - a caller of lock() that has just acquired
         // the pool lock but is waiting for the live queue to be completely
         // filled
-        if (instance != null || pill != null) {
+        if ((instance != null && currentBorrowCount.get() == 0) || pill != null) {
             lockAvailable.signal();
         }
     }
