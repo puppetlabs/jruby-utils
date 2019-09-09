@@ -91,25 +91,6 @@
   ;; over them and expecting a 'NameError' when we reference the constant by name.
   (every? false? (check-all-jrubies-for-constants pool-context num-instances)))
 
-(defn borrow-until-desired-borrow-count
-  [pool-context desired-borrow-count]
-  (let [max-borrow-wait-count 100000]
-    (loop [instance (jruby-core/borrow-from-pool-with-timeout
-                     pool-context
-                     :borrow-until-desired-borrow-count
-                     [])
-           loop-count 0]
-      (let [borrow-count (:borrow-count (jruby-core/get-instance-state instance))]
-        (jruby-core/return-to-pool instance :borrow-until-desired-borrow-count [])
-        (cond
-          (= (inc borrow-count) desired-borrow-count) true
-          (= loop-count max-borrow-wait-count) false
-          :else (recur (jruby-core/borrow-from-pool-with-timeout
-                        pool-context
-                        :borrow-until-desired-borrow-count
-                        [])
-                       (inc loop-count)))))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Tests
 
@@ -175,7 +156,7 @@
                            "('hold-instance-test-', './target')"))
        (try
          ; After this, the next borrow and return will trigger a flush
-         (borrow-until-desired-borrow-count pool-context 9)
+         (jruby-testutils/borrow-until-desired-borrow-count pool-context 9)
          (let [instance-to-flush (jruby-core/borrow-from-pool pool-context :instance-to-flush [])]
            (is (= 9 (:borrow-count (jruby-core/get-instance-state instance-to-flush))))
            (jruby-core/return-to-pool instance-to-flush :instance-to-flush []))
@@ -213,7 +194,7 @@
          ;; we are going to borrow and return a second instance until we get its
          ;; request count up to max-borrows - 1, so that we can use it to test
          ;; flushing behavior the next time we return it.
-         (is (true? (borrow-until-desired-borrow-count pool-context 9)))
+         (is (true? (jruby-testutils/borrow-until-desired-borrow-count pool-context 9)))
          ;; now we grab a reference to that instance and hold onto it for later.
          (let [instance2 (jruby-core/borrow-from-pool-with-timeout
                           pool-context

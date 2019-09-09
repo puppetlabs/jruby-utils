@@ -100,6 +100,25 @@
               num-jrubies)
       (Thread/yield))))
 
+(defn borrow-until-desired-borrow-count
+  [pool-context desired-borrow-count]
+  (let [max-borrow-wait-count 100000]
+    (loop [instance (jruby-core/borrow-from-pool-with-timeout
+                      pool-context
+                      :borrow-until-desired-borrow-count
+                      [])
+           loop-count 0]
+      (let [borrow-count (:borrow-count (jruby-core/get-instance-state instance))]
+        (jruby-core/return-to-pool instance :borrow-until-desired-borrow-count [])
+        (cond
+          (= (inc borrow-count) desired-borrow-count) true
+          (= loop-count max-borrow-wait-count) false
+          :else (recur (jruby-core/borrow-from-pool-with-timeout
+                         pool-context
+                         :borrow-until-desired-borrow-count
+                         [])
+                       (inc loop-count)))))))
+
 (defn timed-await
   [agent]
   (await-for 240000 agent))
