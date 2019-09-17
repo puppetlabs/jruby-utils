@@ -15,7 +15,6 @@
   (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance)
            (clojure.lang IFn)
            (java.util.concurrent TimeUnit)
-           (org.jruby CompatVersion)
            (org.jruby.util.cli OutputStrings)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -172,6 +171,7 @@
       (update-in [:splay-instance-flush] #(if (nil? %) true %))
       (update-in [:environment-vars] #(or % {}))
       (update-in [:lifecycle] initialize-lifecycle-fns)
+      (update-in [:multithreaded] #(if (nil? %) false %))
       jruby-internal/initialize-gem-path))
 
 (schema/defn register-event-handler

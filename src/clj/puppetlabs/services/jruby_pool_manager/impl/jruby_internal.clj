@@ -10,7 +10,7 @@
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
             [schema.core :as schema])
   (:import (clojure.lang IFn)
-           (com.puppetlabs.jruby_utils.pool JRubyPool)
+           (com.puppetlabs.jruby_utils.pool JRubyPool ReferencePool)
            (com.puppetlabs.jruby_utils.jruby InternalScriptingContainer
                                              ScriptingContainer)
            (java.io File)
@@ -36,6 +36,14 @@
   [size]
   {:post [(instance? jruby-schemas/pool-queue-type %)]}
   (JRubyPool. size))
+
+(defn instantiate-reference-pool
+  "Instantiate a new pool object to be used as the JRuby reference pool.
+  In this model, a single JRuby instance will be created that can be simultaneously
+  borrowed up to the specified number of times."
+  [maxBorrowCount]
+  {:post [(instance? jruby-schemas/pool-queue-type %)]}
+  (ReferencePool. maxBorrowCount))
 
 (schema/defn ^:always-validate get-compile-mode :- RubyInstanceConfig$CompileMode
   [config-compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
@@ -171,11 +179,21 @@
 ;;; Public
 
 (schema/defn ^:always-validate
+  create-reference-pool-from-config :- jruby-schemas/PoolState
+  "Create a new pool of handles to a JRuby instance, based on
+  the config input."
+  [{maxBorrows :max-active-instances} :- jruby-schemas/JRubyConfig]
+  {:pool (instantiate-reference-pool maxBorrows)
+   :size 1
+   :flush-pending false})
+
+(schema/defn ^:always-validate
   create-pool-from-config :- jruby-schemas/PoolState
   "Create a new PoolState based on the config input."
   [{size :max-active-instances} :- jruby-schemas/JRubyConfig]
   {:pool (instantiate-free-pool size)
-   :size size})
+   :size size
+   :flush-pending false})
 
 (schema/defn ^:always-validate
   cleanup-pool-instance!
@@ -216,13 +234,13 @@
     id :- schema/Int
     config :- jruby-schemas/JRubyConfig
     flush-instance-fn :- IFn]
-    (create-pool-instance! pool id config flush-instance-fn false))
+   (create-pool-instance! pool id config flush-instance-fn false))
   ([pool :- jruby-schemas/pool-queue-type
     id :- schema/Int
     config :- jruby-schemas/JRubyConfig
     flush-instance-fn :- IFn
     initial-jruby? :- schema/Bool]
-    (let [{:keys [ruby-load-path lifecycle
+   (let [{:keys [ruby-load-path lifecycle
                   max-active-instances max-borrows-per-instance]} config
           initialize-pool-instance-fn (:initialize-pool-instance lifecycle)
           initial-borrows (initial-borrows-value id
@@ -267,9 +285,21 @@
 
 (schema/defn ^:always-validate
   get-pool-size :- schema/Int
-  "Gets the size of the JRuby pool from the pool context."
+  "Gets the number of allowed simultaneous borrows of
+   the JRuby pool from the pool context. For the JRubyPool,
+   this is equivalent to the number of active instances.
+   For the ReferencePool, it is the number of references to
+   the instance that we are allowed to hand out at once."
   [context :- jruby-schemas/PoolContext]
   (get-in context [:config :max-active-instances]))
+
+(schema/defn ^:always-validate
+  get-instance-count :- schema/Int
+  "Gets the number of JRuby instances in the pool. For the
+  JRubyPool, this is equivalent to the number of allowed
+  simultaneous borrows. For the ReferencePool, it is always 1."
+  [context :- jruby-schemas/PoolContext]
+  (:size (get-pool-state context)))
 
 (schema/defn ^:always-validate
   get-flush-timeout :- schema/Int
