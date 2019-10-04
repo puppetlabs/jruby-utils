@@ -131,7 +131,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
      * Unregisters the JRuby instance. Blocks waiting for all borrows of the
      * instance to be returned before clearing it out. In this pool implementation,
      * `clear` and `unregister` are aliases of one another, since clearing the pool
-     * is the same as clearing the on active instance.
+     * is the same as clearing the one active instance.
      *
      * @param e the instance to clean up
      * @throws InterruptedException
@@ -294,12 +294,13 @@ public final class ReferencePool<E> implements LockablePool<E> {
     }
 
     /**
-     * Alias for unregister in this implementation. Blocks waiting for
-     * all references to be returned to the pool.
+     * Reduce max borrow count down to the number of currently borrowed instances.
+     * Used when shutting down to help prevent additional borrows of the instance,
+     * in preparation for unregistering it.
      */
     @Override
-    public void clear() throws InterruptedException {
-        unregister(instance);
+    public void clear() {
+        this.maxBorrowCount = this.currentBorrowCount.get();
     }
 
     @Override

@@ -31,11 +31,17 @@
     jruby-config
     (assoc jruby-config :gem-path nil)))
 
-(defn instantiate-free-pool
+(defn instantiate-instance-pool
   "Instantiate a new queue object to use as the pool of free JRuby's."
   [size]
   {:post [(instance? jruby-schemas/pool-queue-type %)]}
   (JRubyPool. size))
+
+(defn instantiate-reference-pool
+  "Instantiate a new queue object to use as the pool of free JRuby's."
+  [max-concurrent-borrows]
+  {:post [(instance? jruby-schemas/pool-queue-type %)]}
+  (JRubyPool. max-concurrent-borrows))
 
 (schema/defn ^:always-validate get-compile-mode :- RubyInstanceConfig$CompileMode
   [config-compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
@@ -173,9 +179,14 @@
 (schema/defn ^:always-validate
   create-pool-from-config :- jruby-schemas/PoolState
   "Create a new PoolState based on the config input."
-  [{size :max-active-instances} :- jruby-schemas/JRubyConfig]
-  {:pool (instantiate-free-pool size)
-   :size size})
+  [config :- jruby-schemas/JRubyConfig]
+  (let [multithreaded (:multithreaded config)
+        size (:max-active-instances config)]
+    (if multithreaded
+      {:pool (instantiate-reference-pool size)
+       :size 1}
+      {:pool (instantiate-instance-pool size)
+       :size size})))
 
 (schema/defn ^:always-validate
   cleanup-pool-instance!

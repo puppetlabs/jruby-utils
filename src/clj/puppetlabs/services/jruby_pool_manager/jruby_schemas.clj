@@ -3,8 +3,8 @@
   (:import (clojure.lang Atom Agent IFn PersistentArrayMap PersistentHashMap)
            (com.puppetlabs.jruby_utils.pool LockablePool)
            (org.jruby Main Main$Status RubyInstanceConfig)
-           (com.puppetlabs.jruby_utils.jruby ScriptingContainer)
-           (org.jruby.runtime Constants)))
+           (com.puppetlabs.jruby_utils.jruby ScriptingContainer)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -109,12 +109,23 @@
                      (nil? (schema/check PoolState @%)))
                'PoolStateContainer))
 
+(def PoolContextInternal
+  "The data structure that stores all JRuby pools"
+  {:modify-instance-agent JRubyPoolAgent
+   :pool-state PoolStateContainer
+   :event-callbacks Atom})
+
+(schema/defrecord ReferencePool
+  [config :- JRubyConfig
+   internal :- PoolContextInternal])
+
+(schema/defrecord InstancePool
+  [config :- JRubyConfig
+   internal :- PoolContextInternal])
+
 (def PoolContext
-  "The data structure that stores all JRuby pools and the original configuration."
-  {:config JRubyConfig
-   :internal {:modify-instance-agent JRubyPoolAgent
-              :pool-state PoolStateContainer
-              :event-callbacks Atom}})
+  (schema/pred #(or (instance? ReferencePool %)
+                    (instance? InstancePool %))))
 
 (def JRubyInstanceState
   "State metadata for an individual JRubyInstance"
