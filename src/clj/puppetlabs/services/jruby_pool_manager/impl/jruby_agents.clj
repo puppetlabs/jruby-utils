@@ -45,35 +45,41 @@
 
 (declare send-flush-instance!)
 
+(schema/defn add-instance
+  [{:keys [config] :as pool-context} :- jruby-schemas/PoolContext
+   id :- schema/Int]
+  (let [pool (jruby-internal/get-pool pool-context)]
+    (try
+      (log/debug (i18n/trs "Priming JRubyInstance {0} of {1}"
+                           id count))
+      (jruby-internal/create-pool-instance! pool id config
+                                            (partial send-flush-instance! pool-context)
+                                            (:splay-instance-flush config))
+      (log/info (i18n/trs "Finished creating JRubyInstance {0} of {1}"
+                          id count))
+      (catch Exception e
+        (.clear pool)
+        (jruby-internal/insert-poison-pill pool e)
+        (throw (IllegalStateException.
+                 (i18n/tru "There was a problem adding a JRubyInstance to the pool.")
+                 e))))))
+
+
 (schema/defn ^:always-validate
   prime-pool!
   "Sequentially fill the pool with new JRubyInstances.  NOTE: this
   function should never be called except by the modify-instance-agent
   to create a pool's initial jruby instances."
   [{:keys [config] :as pool-context} :- jruby-schemas/PoolContext]
-  (let [pool (jruby-internal/get-pool pool-context)]
-    (log/debug
-     (format "%s\n%s"
-             (i18n/trs "Initializing JRubyInstances with the following settings:")
-             (ks/pprint-to-string config)))
-    (try
-      (let [count (.remainingCapacity pool)]
-        (dotimes [i count]
-          (let [id (inc i)]
-            (log/debug (i18n/trs "Priming JRubyInstance {0} of {1}"
-                                  id count))
-            (jruby-internal/create-pool-instance! pool id config
-                                                  (partial send-flush-instance! pool-context)
-                                                  (:splay-instance-flush config))
-            (log/info (i18n/trs "Finished creating JRubyInstance {0} of {1}"
-                                 id count)))))
-      (catch Exception e
-        (.clear pool)
-        (jruby-internal/insert-poison-pill pool e)
+  (log/debug (format "%s\n%s"
+                     (i18n/trs "Initializing JRubyInstances with the following settings:")
+                     (ks/pprint-to-string config)))
+  (let [pool (jruby-internal/get-pool pool-context)
+        count (.remainingCapacity pool)]
+    (dotimes [i count]
+      (let [id (inc i)]
+        (add-instance pool-context id)))))
 
-        (throw (IllegalStateException.
-                (i18n/tru "There was a problem adding a JRubyInstance to the pool.")
-                e))))))
 
 (schema/defn ^:always-validate
   flush-instance!

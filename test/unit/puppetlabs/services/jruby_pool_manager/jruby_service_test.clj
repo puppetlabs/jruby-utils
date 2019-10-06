@@ -47,25 +47,25 @@
 
 (deftest test-error-during-init
   (testing
-   (str "If there is an exception while putting a JRubyInstance in "
+    (str "If there is an exception while putting a JRubyInstance in "
         "the pool the application should shut down.")
     (logging/with-test-logging
-     (let [got-expected-exception (atom false)]
-       (try
-         (tk-bootstrap/with-app-with-config
-          app
-          (conj jruby-testutils/default-services jruby-pooled-test-service)
-          (jruby-testutils/jruby-config
-           {:max-active-instances 1
-            :lifecycle {:initialize-pool-instance
-                        (fn [_] (throw (Exception. "42")))}})
-          (tk/run-app app))
-         (catch Exception e
-           (let [cause (stacktrace/root-cause e)]
-             (is (= (.getMessage cause) "42"))
-             (reset! got-expected-exception true))))
-       (is (true? @got-expected-exception)
-           "Did not get expected exception.")))))
+      (let [got-expected-exception (atom false)]
+        (try
+          (tk-bootstrap/with-app-with-config
+             app
+           (conj jruby-testutils/default-services jruby-pooled-test-service)
+           (jruby-testutils/jruby-config
+            {:max-active-instances 1
+             :lifecycle {:initialize-pool-instance
+                         (fn [_] (throw (Exception. "42")))}})
+           (tk/run-app app))
+          (catch Exception e
+            (let [cause (stacktrace/root-cause e)]
+              (is (= (.getMessage cause) "42"))
+              (reset! got-expected-exception true))))
+        (is (true? @got-expected-exception)
+            "Did not get expected exception.")))))
 
 (deftest test-pool-size
   (testing "The pool is created and the size is correctly reported"
@@ -195,5 +195,5 @@
   (testing (str ":borrow-timeout defaults to " jruby-core/default-borrow-timeout " milliseconds")
     (let [initial-config {:ruby-load-path ["foo"]
                           :gem-home "bar"}
-          config (jruby-core/initialize-config initial-config) ]
+          config (jruby-core/initialize-config initial-config)]
       (is (= (:borrow-timeout config) jruby-core/default-borrow-timeout)))))
