@@ -232,13 +232,6 @@
   (agent {:shutdown-on-error shutdown-on-error-fn}))
 
 (schema/defn ^:always-validate
-  send-prime-pool! :- jruby-schemas/JRubyPoolAgent
-  "Sends a request to the agent to prime the pool using the given pool context."
-  [pool-context :- jruby-schemas/PoolContext]
-  (let [modify-instance-agent (get-modify-instance-agent pool-context)]
-    (send-agent modify-instance-agent #(prime-pool! pool-context))))
-
-(schema/defn ^:always-validate
   flush-and-repopulate-pool!
   "Flush of the current JRuby pool. Blocks until all the instances have
   been borrowed from the pool, but does not wait for the instances
