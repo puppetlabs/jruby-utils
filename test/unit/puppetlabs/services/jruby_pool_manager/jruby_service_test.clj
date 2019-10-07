@@ -84,7 +84,7 @@
           (doseq [instance all-the-instances]
             (is (not (nil? instance))
                 "One of the JRubyInstances retrieved from the pool is nil")
-            (jruby-core/return-to-pool instance :test-pool-size []))
+            (jruby-core/return-to-pool pool-context instance :test-pool-size []))
           (is (= pool-size (jruby-core/free-instance-count pool))))))))
 
 (deftest test-with-jruby-instance
@@ -114,7 +114,7 @@
        ;; pool, so right now it should be at 2 since we've called
        ;; `with-jruby-instance` twice.
        (is (= 2 (:borrow-count (jruby-core/get-instance-state jruby))))
-       (jruby-core/return-to-pool jruby :test-with-jruby-instance [])))))
+       (jruby-core/return-to-pool pool-context jruby :test-with-jruby-instance [])))))
 
 (deftest test-jruby-events
   (testing "jruby service sends event notifications"
@@ -190,7 +190,7 @@
            (is (= (:borrow-timeout (:config pool-context)) timeout)))
          ; Test cleanup. This instance needs to be returned so that the stop can complete.
          (doseq [inst jrubies]
-           (jruby-core/return-to-pool inst :test []))))))
+           (jruby-core/return-to-pool pool-context inst :test []))))))
 
   (testing (str ":borrow-timeout defaults to " jruby-core/default-borrow-timeout " milliseconds")
     (let [initial-config {:ruby-load-path ["foo"]

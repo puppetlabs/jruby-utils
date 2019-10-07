@@ -47,4 +47,4 @@
          (is (every? #(instance? JRubyInstance %) jruby-list))
          (is (= 0 (.currentSize pool)))
          (finally
-           (jruby-testutils/fill-drained-pool jruby-list)))))))
+           (jruby-testutils/fill-drained-pool pool-context jruby-list)))))))

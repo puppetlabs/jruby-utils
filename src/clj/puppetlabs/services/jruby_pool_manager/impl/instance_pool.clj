@@ -32,7 +32,7 @@
       (.unlock pool)))
 
   (add-instance
-    [this instance])
+    [this id])
 
   (remove-instance
     [this instance])
@@ -41,4 +41,6 @@
     [this])
 
   (return
-    [this instance]))
+    [_ instance]
+    (jruby-internal/return-to-pool instance)))
+

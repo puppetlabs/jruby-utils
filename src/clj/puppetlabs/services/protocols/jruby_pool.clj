@@ -17,7 +17,7 @@
     [this])
 
   (add-instance
-    [this instance])
+    [this id])
 
   (remove-instance
     [this instance])

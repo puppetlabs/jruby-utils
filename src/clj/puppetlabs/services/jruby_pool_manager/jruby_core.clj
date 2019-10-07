@@ -228,11 +228,12 @@
 (schema/defn ^:always-validate
   return-to-pool
   "Return a borrowed pool instance to its free pool."
-  [instance :- jruby-schemas/JRubyInstanceOrPill
+  [pool-context :- jruby-schemas/PoolContext
+   instance :- jruby-schemas/JRubyInstanceOrPill
    reason :- schema/Any
    event-callbacks :- [IFn]]
   (jruby-events/instance-returned event-callbacks instance reason)
-  (jruby-internal/return-to-pool instance))
+  (pool-protocol/return pool-context instance))
 
 (schema/defn ^:always-validate
   flush-pool!
@@ -328,7 +329,7 @@
           {:kind ::jruby-timeout
            :msg (i18n/tru "Attempt to borrow a JRubyInstance from the pool timed out.")}))
        (when (jruby-schemas/shutdown-poison-pill? pool-instance#)
-         (return-to-pool pool-instance# ~reason event-callbacks#)
+         (return-to-pool ~pool-context pool-instance# ~reason event-callbacks#)
          (ringutils/throw-service-unavailable!
           (format "%s %s"
                   (i18n/tru "Attempted to borrow a JRubyInstance from the pool during a shutdown.")
@@ -337,7 +338,7 @@
          (try
            ~@body
            (finally
-             (return-to-pool pool-instance# ~reason event-callbacks#)))))))
+             (return-to-pool ~pool-context pool-instance# ~reason event-callbacks#)))))))
 
 (defmacro with-lock
   "Acquires a lock on the pool, executes the body, and releases the lock."

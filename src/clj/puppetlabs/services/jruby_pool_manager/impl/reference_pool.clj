@@ -6,11 +6,15 @@
 
 (extend-type ReferencePool
   pool-protocol/JRubyPool
+  (add-instance
+    ([this id]
+     (jruby-agents/add-instance this id)))
+
   (fill
     [this]
     (let [modify-instance-agent (jruby-agents/get-modify-instance-agent this)]
       (jruby-agents/send-agent modify-instance-agent
-                               #(jruby-agents/add-instance this 1))))
+                               #(pool-protocol/add-instance this 1))))
 
   (shutdown
     [this])

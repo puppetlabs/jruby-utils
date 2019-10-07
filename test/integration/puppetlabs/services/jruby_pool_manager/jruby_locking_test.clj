@@ -17,7 +17,7 @@
   @(future
     (if-let [instance (jruby-core/borrow-from-pool-with-timeout pool-context :test [])]
       (do
-        (jruby-core/return-to-pool instance :test [])
+        (jruby-core/return-to-pool pool-context instance :test [])
         true))))
 
 (deftest ^:integration with-lock-test
@@ -105,7 +105,7 @@
        (testing "lock not granted yet when instance still borrowed"
          (is (not (realized?
                    lock-acquired?))))
-       (jruby-core/return-to-pool instance :with-lock-and-borrow-contention-test [])
+       (jruby-core/return-to-pool pool-context instance :with-lock-and-borrow-contention-test [])
        @lock-acquired?
        (testing "cannot borrow from non-locking thread when locked"
          (is (not (can-borrow-from-different-thread? pool-context))))
@@ -152,6 +152,6 @@
                (is false))))
          (is (not (.isLocked pool)))
          (finally
-           (jruby-core/return-to-pool borrowed-instance
+           (jruby-core/return-to-pool pool-context borrowed-instance
                                       :lock-timeout-exceeded-test
                                       [])))))))

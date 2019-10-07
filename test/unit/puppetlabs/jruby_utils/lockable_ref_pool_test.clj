@@ -616,20 +616,6 @@
           (is (= "Lock can't be granted because a pill has been inserted"
                  (.getMessage exception))))))))
 
-(deftest pool-clear-test
-  (testing (str "clear blocks waiting for all references to be returned")
-    (let [pool (create-populated-pool 2)
-          instance (.borrowItem pool)
-          cleared? (promise)
-          _ (future
-              (.clear pool)
-              (deliver cleared? true))]
-      (is (= 1 (.currentSize pool)))
-      (is (= false (realized? cleared?)))
-      (.releaseItem pool instance)
-      (is (= true @cleared?))
-      (is (= 0 (.currentSize pool))))))
-
 (deftest pool-remaining-capacity
   (testing "remaining capacity in pool correct per instances registered"
     (let [empty-pool (create-empty-pool)

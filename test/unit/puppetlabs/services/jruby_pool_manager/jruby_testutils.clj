@@ -47,9 +47,9 @@
 
 (defn fill-drained-pool
   "Returns a list of JRubyInstances back to their pool."
-  [instance-list]
+  [pool-context instance-list]
   (doseq [instance instance-list]
-    (jruby-core/return-to-pool instance :test [])))
+    (jruby-core/return-to-pool pool-context instance :test [])))
 
 (schema/defn ^:always-validate
   drain-and-refill :- #{schema/Int}
@@ -59,7 +59,7 @@
   (let [instance-count (get-in pool-context [:config :max-active-instances])
         instances (drain-pool pool-context instance-count)
         ids (into #{} (map :id instances))]
-    (fill-drained-pool instances)
+    (fill-drained-pool pool-context instances)
     ids))
 
 (defn reduce-over-jrubies!
@@ -80,7 +80,7 @@
                       (conj acc result)))
                   []
                   (range size))]
-    (fill-drained-pool jrubies)
+    (fill-drained-pool pool-context jrubies)
     result))
 
 (defn wait-for-jrubies-from-pool-context
