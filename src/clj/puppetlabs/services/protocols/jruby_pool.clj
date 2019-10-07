@@ -10,6 +10,9 @@
   (lock
     [this])
 
+  (lock-with-timeout
+    [this timeout time-unit])
+
   (unlock
     [this])
 

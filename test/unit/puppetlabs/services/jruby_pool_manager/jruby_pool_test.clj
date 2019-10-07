@@ -8,7 +8,8 @@
             [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils]
             [puppetlabs.services.jruby-pool-manager.impl.jruby-pool-manager-core :as jruby-pool-manager-core]
-            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas])
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
+            [puppetlabs.services.protocols.jruby-pool :as pool-protocol])
   (:import (clojure.lang ExceptionInfo)
            (puppetlabs.services.jruby_pool_manager.jruby_schemas ShutdownPoisonPill)))
 
@@ -296,14 +297,13 @@
          (is (= 1 (count (jruby-core/registered-instances pool-context))))))
      (testing "Can lock pool after a flush via max borrows"
        (let [timeout 1
-             new-pool-context (assoc-in pool-context [:config :borrow-timeout] timeout)
-             pool (jruby-internal/get-pool new-pool-context)]
-         (.lock pool)
+             new-pool-context (assoc-in pool-context [:config :borrow-timeout] timeout)]
+         (pool-protocol/lock new-pool-context)
          (is (nil? @(future (jruby-core/borrow-from-pool-with-timeout
                              new-pool-context
                              :test
                              []))))
-         (.unlock pool)
+         (pool-protocol/unlock new-pool-context)
          (let [instance @(future (jruby-core/borrow-from-pool-with-timeout
                                   new-pool-context
                                   :test
