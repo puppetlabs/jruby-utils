@@ -45,6 +45,6 @@
        (try
          (is (= 4 (count jruby-list)))
          (is (every? #(instance? JRubyInstance %) jruby-list))
-         (is (= 0 (.size pool)))
+         (is (= 0 (.currentSize pool)))
          (finally
            (jruby-testutils/fill-drained-pool jruby-list)))))))

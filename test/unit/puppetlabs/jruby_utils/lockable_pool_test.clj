@@ -348,9 +348,9 @@
   (testing "releaseItem returns item to pool and allows pool to still be lockable"
     (let [pool (create-populated-pool 2)
           instance (.borrowItem pool)]
-      (is (= 1 (.size pool)))
+      (is (= 1 (.currentSize pool)))
       (.releaseItem pool instance)
-      (is (= 2 (.size pool)))
+      (is (= 2 (.currentSize pool)))
       (is (not (.isLocked pool)))
       (.lock pool)
       (is (.isLocked pool))
@@ -556,7 +556,7 @@
           pill (str "I'm just a pill, yes I'm only a pill")
           instance (.borrowItem pool)
           blocked-borrow (future (.borrowItem pool))]
-      (is (= 0 (.size pool)))
+      (is (= 0 (.currentSize pool)))
 
       ; Give future a chance to run and block
       (Thread/sleep 500)
@@ -637,10 +637,10 @@
                 "registered elements")
     (let [pool (create-populated-pool 3)
           instance (.borrowItem pool)]
-      (is (= 2 (.size pool)))
+      (is (= 2 (.currentSize pool)))
       (is (= 3 (.. pool getRegisteredElements size)))
       (.clear pool)
-      (is (= 0 (.size pool)))
+      (is (= 0 (.currentSize pool)))
       (let [registered-elements (.getRegisteredElements pool)]
         (is (= 1 (.size registered-elements)))
         (is (identical? instance (-> registered-elements

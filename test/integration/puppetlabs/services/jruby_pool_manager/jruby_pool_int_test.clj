@@ -144,11 +144,11 @@
            pool (:pool pool-state)]
        ;; wait for all jrubies to be added to the pool
        (jruby-testutils/wait-for-jrubies-from-pool-context pool-context)
-       (is (= 4 (.size (jruby-core/get-pool pool-context))))
+       (is (= 4 (.currentSize (jruby-core/get-pool pool-context))))
        (jruby-core/flush-pool-for-shutdown! pool-context)
 
        ;; flushing the pool should remove all JRubyInstances
-       (is (= 0 (.size pool)))
+       (is (= 0 (.currentSize pool)))
        ;; any borrows should now return shutdown poison pill
        (is (jruby-schemas/shutdown-poison-pill? (.borrowItem pool)))))))
 

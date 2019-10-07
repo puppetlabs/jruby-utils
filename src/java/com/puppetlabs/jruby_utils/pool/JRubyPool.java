@@ -296,7 +296,7 @@ public final class JRubyPool<E> implements LockablePool<E> {
     }
 
     @Override
-    public int size() {
+    public int currentSize() {
         int size;
         final ReentrantLock lock = this.queueLock;
         lock.lock();

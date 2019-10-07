@@ -120,7 +120,7 @@ public interface LockablePool<E> {
      * Returns the number of elements that have been registered with but not
      * borrowed from the pool.
      */
-    int size();
+    int currentSize();
 
    /**
     * Lock the pool. This method should make the following guarantees:

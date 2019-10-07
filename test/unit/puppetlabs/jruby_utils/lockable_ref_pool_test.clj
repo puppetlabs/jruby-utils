@@ -332,9 +332,9 @@
   (testing "releaseItem returns item to pool and allows pool to still be lockable"
     (let [pool (create-populated-pool 2)
           instance (.borrowItem pool)]
-      (is (= 1 (.size pool)))
+      (is (= 1 (.currentSize pool)))
       (.releaseItem pool instance)
-      (is (= 2 (.size pool)))
+      (is (= 2 (.currentSize pool)))
       (is (not (.isLocked pool)))
       (.lock pool)
       (is (.isLocked pool))
@@ -540,7 +540,7 @@
           pill (str "I'm just a pill, yes I'm only a pill")
           _ (.borrowItem pool)
           blocked-borrow (future (.borrowItem pool))]
-      (is (= 0 (.size pool)))
+      (is (= 0 (.currentSize pool)))
 
       ; Give future a chance to run and block
       (Thread/sleep 500)
@@ -624,11 +624,11 @@
           _ (future
               (.clear pool)
               (deliver cleared? true))]
-      (is (= 1 (.size pool)))
+      (is (= 1 (.currentSize pool)))
       (is (= false (realized? cleared?)))
       (.releaseItem pool instance)
       (is (= true @cleared?))
-      (is (= 0 (.size pool))))))
+      (is (= 0 (.currentSize pool))))))
 
 (deftest pool-remaining-capacity
   (testing "remaining capacity in pool correct per instances registered"
