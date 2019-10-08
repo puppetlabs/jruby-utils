@@ -34,12 +34,6 @@
     (let [pool (jruby-internal/get-pool this)]
       (.unlock pool)))
 
-  (add-instance
-    [this instance])
-
-  (remove-instance
-    [this instance])
-
   (borrow
     [this])
 

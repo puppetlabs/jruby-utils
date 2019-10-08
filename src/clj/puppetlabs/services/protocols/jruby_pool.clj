@@ -16,12 +16,6 @@
   (unlock
     [this])
 
-  (add-instance
-    [this id])
-
-  (remove-instance
-    [this instance])
-
   (borrow
     [this])
 
