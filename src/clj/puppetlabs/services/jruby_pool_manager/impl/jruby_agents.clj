@@ -53,7 +53,6 @@
       (log/debug (i18n/trs "Priming JRubyInstance {0} of {1}"
                            id count))
       (jruby-internal/create-pool-instance! pool id config
-                                            (partial send-flush-instance! pool-context)
                                             (:splay-instance-flush config))
       (log/info (i18n/trs "Finished creating JRubyInstance {0} of {1}"
                           id count))
@@ -63,7 +62,6 @@
         (throw (IllegalStateException.
                  (i18n/tru "There was a problem adding a JRubyInstance to the pool.")
                  e))))))
-
 
 (schema/defn ^:always-validate
   prime-pool!
@@ -93,8 +91,7 @@
   (let [cleanup-fn (get-in pool-context [:config :lifecycle :cleanup])
         pool (jruby-internal/get-pool pool-context)]
     (jruby-internal/cleanup-pool-instance! instance cleanup-fn)
-    (jruby-internal/create-pool-instance! pool new-id config
-                                          (partial send-flush-instance! pool-context))))
+    (jruby-internal/create-pool-instance! pool new-id config)))
 
 (schema/defn borrow-all-jrubies*
   "The core logic for borrow-all-jrubies. Should only be called from borrow-all-jrubies"
@@ -162,7 +159,6 @@
         (jruby-internal/cleanup-pool-instance! old-instance cleanup-fn)
         (when refill?
           (jruby-internal/create-pool-instance! pool new-id config
-                                                (partial send-flush-instance! pool-context)
                                                 (:splay-instance-flush config))
           (log/info (i18n/trs "Finished creating JRubyInstance {0} of {1}"
                                new-id pool-size)))
@@ -221,16 +217,6 @@
     @on-complete
     (log/debug (i18n/trs "Finished flush of JRuby pools for shutdown"))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Public
-
-(schema/defn ^:always-validate
-  pool-agent :- jruby-schemas/JRubyPoolAgent
-  "Given a shutdown-on-error function, create an agent suitable for use in managing
-  JRuby pools."
-  [shutdown-on-error-fn :- (schema/pred ifn?)]
-  (agent {:shutdown-on-error shutdown-on-error-fn}))
-
 (schema/defn ^:always-validate
   flush-and-repopulate-pool!
   "Flush of the current JRuby pool. Blocks until all the instances have
@@ -256,3 +242,13 @@
         modify-instance-agent (get-modify-instance-agent pool-context)
         id (next-instance-id (:id instance) pool-context)]
     (send-agent modify-instance-agent #(flush-instance! pool-context instance id config))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Public
+
+(schema/defn ^:always-validate
+  pool-agent :- jruby-schemas/JRubyPoolAgent
+  "Given a shutdown-on-error function, create an agent suitable for use in managing
+  JRuby pools."
+  [shutdown-on-error-fn :- (schema/pred ifn?)]
+  (agent {:shutdown-on-error shutdown-on-error-fn}))

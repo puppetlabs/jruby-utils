@@ -138,8 +138,7 @@
                'JRubyInstanceState))
 
 (def JRubyPuppetInstanceInternal
-  {:flush-instance-fn IFn
-   :pool pool-queue-type
+  {:pool pool-queue-type
    :initial-borrows (schema/maybe schema/Int)
    :max-borrows schema/Int
    :state JRubyInstanceStateContainer})
