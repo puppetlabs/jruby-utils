@@ -35,7 +35,9 @@
       (.unlock pool)))
 
   (borrow
-    [this])
+    [this]
+    (let [pool (jruby-internal/get-pool this)]
+      (.borrowItem pool)))
 
   (return
     [this instance]

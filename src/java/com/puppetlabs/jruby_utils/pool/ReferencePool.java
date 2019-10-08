@@ -174,7 +174,6 @@ public final class ReferencePool<E> implements LockablePool<E> {
                 } else {
                     item = this.instance;
                     this.currentBorrowCount.getAndIncrement();
-                    LOGGER.info("Borrowing, count is " + currentBorrowCount.get());
                 }
             } while (item == null);
         } finally {
@@ -230,7 +229,6 @@ public final class ReferencePool<E> implements LockablePool<E> {
                 } else if (instance != null) {
                     item = instance;
                     this.currentBorrowCount.getAndIncrement();
-                    LOGGER.info("Borrowing, count is " + currentBorrowCount.get());
                 }
             } while (item == null);
         } finally {

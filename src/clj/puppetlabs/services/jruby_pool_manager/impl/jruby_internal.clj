@@ -10,7 +10,7 @@
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
             [schema.core :as schema])
   (:import (clojure.lang IFn)
-           (com.puppetlabs.jruby_utils.pool JRubyPool)
+           (com.puppetlabs.jruby_utils.pool JRubyPool ReferencePool)
            (com.puppetlabs.jruby_utils.jruby InternalScriptingContainer
                                              ScriptingContainer)
            (java.io File)
@@ -41,7 +41,7 @@
   "Instantiate a new queue object to use as the pool of free JRuby's."
   [max-concurrent-borrows]
   {:post [(instance? jruby-schemas/pool-queue-type %)]}
-  (JRubyPool. max-concurrent-borrows))
+  (ReferencePool. max-concurrent-borrows))
 
 (schema/defn ^:always-validate get-compile-mode :- RubyInstanceConfig$CompileMode
   [config-compile-mode :- jruby-schemas/SupportedJRubyCompileModes]
@@ -277,7 +277,7 @@
   get-pool-size :- schema/Int
   "Gets the size of the JRuby pool from the pool context."
   [context :- jruby-schemas/PoolContext]
-  (get-in context [:config :max-active-instances]))
+  (:size (get-pool-state context)))
 
 (schema/defn ^:always-validate
   get-flush-timeout :- schema/Int
