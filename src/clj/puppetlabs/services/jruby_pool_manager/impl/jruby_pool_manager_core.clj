@@ -18,7 +18,7 @@
                   :pool-state            (atom (jruby-internal/create-pool-from-config config))
                   :event-callbacks       (atom [])}]
     (if (:multithreaded config)
-      (ReferencePool. config internal)
+      (ReferencePool. config internal (atom 0))
       (InstancePool. config internal))))
 
 (schema/defn ^:always-validate

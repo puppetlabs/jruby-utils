@@ -299,8 +299,8 @@ public final class ReferencePool<E> implements LockablePool<E> {
      * in preparation for unregistering it.
      */
     @Override
-    public void clear() {
-        this.maxBorrowCount = this.currentBorrowCount.get();
+    public void clear() throws InterruptedException {
+        unregister(this.instance);
     }
 
     @Override

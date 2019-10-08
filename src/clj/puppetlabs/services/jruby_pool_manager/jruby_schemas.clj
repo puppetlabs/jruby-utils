@@ -117,7 +117,8 @@
 
 (schema/defrecord ReferencePool
   [config :- JRubyConfig
-   internal :- PoolContextInternal])
+   internal :- PoolContextInternal
+   borrow-count :- Atom])
 
 (schema/defrecord InstancePool
   [config :- JRubyConfig

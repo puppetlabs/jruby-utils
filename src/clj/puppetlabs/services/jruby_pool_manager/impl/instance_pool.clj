@@ -52,5 +52,9 @@
                           (:id instance)
                           borrow-limit))
             (jruby-agents/send-flush-instance! this instance))
-          (.releaseItem pool instance))))))
+          (.releaseItem pool instance)))))
+
+  (flush-pool
+    [this]
+    (jruby-agents/flush-and-repopulate-pool! this)))
 

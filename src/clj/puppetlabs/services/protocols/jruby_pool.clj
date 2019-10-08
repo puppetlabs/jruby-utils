@@ -20,4 +20,7 @@
     [this])
 
   (return
-    [this instance]))
+    [this instance])
+
+  (flush-pool
+    [this]))
