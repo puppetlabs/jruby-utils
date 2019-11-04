@@ -1,4 +1,4 @@
-(defproject puppetlabs/jruby-utils "2.3.0"
+(defproject puppetlabs/jruby-utils "2.3.1-SNAPSHOT"
   :description "A library for working with JRuby"
   :url "https://github.com/puppetlabs/jruby-utils"
   :license {:name "Apache License, Version 2.0"
