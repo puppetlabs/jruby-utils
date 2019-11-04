@@ -1,3 +1,7 @@
+### 2.3.0 2019-11-04
+
+* Update JRuby to 9.2.8.0
+
 ### 2.2.0 2019-09-09
 
 * (SERVER-2193) Provide API for retrieving JRuby thread dumps
