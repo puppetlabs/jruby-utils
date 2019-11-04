@@ -1,6 +1,7 @@
 ### 2.3.0 2019-11-04
 
 * Update JRuby to 9.2.8.0
+* Update clj-parent managed deps to 4.x series
 
 ### 2.2.0 2019-09-09
 
