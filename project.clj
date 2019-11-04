@@ -1,11 +1,11 @@
-(defproject puppetlabs/jruby-utils "2.2.1-SNAPSHOT"
+(defproject puppetlabs/jruby-utils "2.3.0-SNAPSHOT"
   :description "A library for working with JRuby"
   :url "https://github.com/puppetlabs/jruby-utils"
   :license {:name "Apache License, Version 2.0"
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
 
   :min-lein-version "2.9.1"
-  :parent-project {:coords [puppetlabs/clj-parent "3.1.1"]
+  :parent-project {:coords [puppetlabs/clj-parent "4.2.6"]
                    :inherit [:managed-dependencies]}
 
   :pedantic? :abort
@@ -18,18 +18,16 @@
                  [org.clojure/java.jmx]
                  [org.clojure/tools.logging]
 
-                 [me.raynes/fs]
+                 [clj-commons/fs]
                  [prismatic/schema]
                  [slingshot]
 
                  [org.yaml/snakeyaml "1.23"]
-                 [puppetlabs/jruby-deps "9.2.8.0-1"]
+                 [puppetlabs/jruby-deps "9.2.9.0-1"]
 
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
                  [puppetlabs/trapperkeeper]
-                 ;; TK brings in circleci/clj-yaml that isn't compatible with Java 11
-                 [circleci/clj-yaml "0.6.0"]
                  [puppetlabs/ring-middleware]]
 
   :deploy-repositories [["releases" {:url "https://clojars.org/repo"
