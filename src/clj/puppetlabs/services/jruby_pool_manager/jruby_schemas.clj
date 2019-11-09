@@ -85,7 +85,8 @@
    :lifecycle LifecycleFns
    :environment-vars {schema/Keyword schema/Str}
    :profiling-mode SupportedJRubyProfilingModes
-   :profiler-output-file schema/Str})
+   :profiler-output-file schema/Str
+   :multithreaded schema/Bool})
 
 (def JRubyPoolAgent
   "An agent configured for use in managing JRuby pools"

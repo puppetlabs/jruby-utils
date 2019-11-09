@@ -172,6 +172,7 @@
       (update-in [:splay-instance-flush] #(if (nil? %) true %))
       (update-in [:environment-vars] #(or % {}))
       (update-in [:lifecycle] initialize-lifecycle-fns)
+      (update-in [:multithreaded] #(if (nil? %) false %))
       jruby-internal/initialize-gem-path))
 
 (schema/defn register-event-handler
