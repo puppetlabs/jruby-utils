@@ -2,7 +2,8 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
             [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
-            [puppetlabs.services.protocols.jruby-pool :as pool-protocol]))
+            [puppetlabs.services.protocols.jruby-pool :as pool-protocol])
+  (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas ShutdownPoisonPill)))
 
 (defn jruby-test-config
   ([max-borrows]
@@ -119,3 +120,19 @@
         (let [instance (jruby-core/borrow-from-pool pool-context :test [])]
           (is (= id (:id instance)))
           (jruby-core/return-to-pool pool-context instance :test []))))))
+
+(deftest return-pill-to-pool-test
+  (testing "Returning a pill to the pool does not throw"
+    ; Essentially this test is insurance to make sure we aren't doing anything
+    ; funky when we return a pill to the pool. Instances have some internal
+    ; data that gets manipulated during a return that poison pills don't have,
+    ; and we'd get null pointer exceptions if this code path tried to access
+    ; those non-existent properties on the pill object
+    (jruby-testutils/with-pool-context
+      pool-context
+      jruby-testutils/default-services
+      (jruby-test-config 2)
+      (let [pool (jruby-core/get-pool pool-context)
+            pill (ShutdownPoisonPill. pool)]
+        ; Returning a pill should be a noop
+        (jruby-core/return-to-pool pool-context pill :test [])))))
