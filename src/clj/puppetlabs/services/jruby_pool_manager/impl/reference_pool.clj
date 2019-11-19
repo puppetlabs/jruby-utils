@@ -9,9 +9,7 @@
 
   (fill
     [this]
-    (let [modify-instance-agent (jruby-agents/get-modify-instance-agent this)]
-      (jruby-agents/send-agent modify-instance-agent
-                               #(jruby-agents/add-instance this 1))))
+    (jruby-agents/add-instance this 1))
 
   (shutdown
     [this]
@@ -59,6 +57,7 @@
                  ;; another one. If the pool is locked for some other reason,
                  ;; we'll flush later. `borrow-count` does not get set back to
                  ;; 0 until a flush succeeds.
+                 ;; THIS IS RACY
                  (not (.isLocked pool)))
         (jruby-agents/send-agent modify-instance-agent #(pool-protocol/flush-pool this)))))
 

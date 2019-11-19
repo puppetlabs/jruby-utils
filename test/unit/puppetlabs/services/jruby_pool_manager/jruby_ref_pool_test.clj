@@ -12,6 +12,16 @@
                                   :multithreaded true
                                   :max-borrows-per-instance max-borrows})))
 
+(defn add-watch-for-flush-complete
+  [pool-context]
+  (let [flush-complete (promise)]
+    (add-watch (get-in pool-context [:internal :modify-instance-agent]) :flush-callback
+               (fn [k a old-state new-state]
+                 (when (= k :flush-callback)
+                   (remove-watch a :flush-callback)
+                   (deliver flush-complete true))))
+    flush-complete))
+
 (deftest more-borrows-than-mrpi
   (testing "flushing due to max borrows succeeds when we've over-borrowed")
   (jruby-testutils/with-pool-context
@@ -19,13 +29,19 @@
     jruby-testutils/default-services
     ;; We can check out the instance more times than `max-borrows` and return
     ;; them each in sequence, and nothing blocks or fails
-    (jruby-testutils/jruby-config {:max-active-instances 4
+    (jruby-testutils/jruby-config {:max-active-instances 3
                                    :multithreaded true
-                                   :max-borrows-per-instance 3})
-    (let [instance (jruby-core/borrow-from-pool pool-context :test [])]
-      (is (= 1 (:id instance)))
-      (jruby-core/return-to-pool pool-context instance :test []))
-    (jruby-testutils/drain-and-refill pool-context)
+                                   :max-borrows-per-instance 2})
+    (let [instance1 (jruby-core/borrow-from-pool pool-context :test [])
+          instance2 (jruby-core/borrow-from-pool pool-context :test [])
+          instance3 (jruby-core/borrow-from-pool pool-context :test [])
+          flush-complete (add-watch-for-flush-complete pool-context)]
+      (jruby-core/return-to-pool pool-context instance1 :test [])
+      (is (not (realized? flush-complete)))
+      (jruby-core/return-to-pool pool-context instance2 :test [])
+      (is (not (realized? flush-complete)))
+      (jruby-core/return-to-pool pool-context instance3 :test [])
+      (is @flush-complete))
     (let [instance (jruby-core/borrow-from-pool pool-context :test [])]
       (is (= 2 (:id instance)))
       (jruby-core/return-to-pool pool-context instance :test []))))
