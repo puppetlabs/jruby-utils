@@ -48,15 +48,10 @@
 (schema/defn add-instance
   [{:keys [config] :as pool-context} :- jruby-schemas/PoolContext
    id :- schema/Int]
-  (let [pool (jruby-internal/get-pool pool-context)
-        instance-count (jruby-internal/get-pool-size pool-context)]
+  (let [pool (jruby-internal/get-pool pool-context)]
     (try
-      (log/debug (i18n/trs "Priming JRubyInstance {0} of {1}"
-                           id instance-count))
       (jruby-internal/create-pool-instance! pool id config
                                             (:splay-instance-flush config))
-      (log/info (i18n/trs "Finished creating JRubyInstance {0} of {1}"
-                          id instance-count))
       (catch Exception e
         (.clear pool)
         (jruby-internal/insert-poison-pill pool e)
@@ -77,7 +72,11 @@
         count (.remainingCapacity pool)]
     (dotimes [i count]
       (let [id (inc i)]
-        (add-instance pool-context id)))))
+        (log/debug (i18n/trs "Priming JRubyInstance {0} of {1}"
+                             id count))
+        (add-instance pool-context id)
+        (log/info (i18n/trs "Finished creating JRubyInstance {0} of {1}"
+                            id count))))))
 
 
 (schema/defn ^:always-validate

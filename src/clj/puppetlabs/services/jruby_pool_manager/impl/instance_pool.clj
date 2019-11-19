@@ -50,7 +50,7 @@
                  (>= (:borrow-count new-state) borrow-limit))
           (do
             (log/info
-                (i18n/trs "Flushing JRubyInstance {0} because it has exceeded its borrow limit of ({1})"
+                (i18n/trs "Flushing JRubyInstance {0} because it has exceeded its borrow limit of {1}"
                           (:id instance)
                           borrow-limit))
             (jruby-agents/send-flush-instance! this instance))

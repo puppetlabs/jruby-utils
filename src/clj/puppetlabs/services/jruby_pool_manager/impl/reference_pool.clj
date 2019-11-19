@@ -2,7 +2,9 @@
   (:require [puppetlabs.services.protocols.jruby-pool :as pool-protocol]
             [puppetlabs.services.jruby-pool-manager.impl.jruby-agents :as jruby-agents]
             [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
-            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas])
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
+            [clojure.tools.logging :as log]
+            [puppetlabs.i18n.core :as i18n])
   (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas ReferencePool)))
 
 (extend-type ReferencePool
@@ -71,11 +73,12 @@
             borrow-count (:borrow-count this)
             cleanup-fn (get-in this [:config :lifecycle :cleanup])
             old-instance (.borrowItem pool)
-            prev-id (:id old-instance)
+            id (inc (:id old-instance))
             _ (.releaseItem pool old-instance)]
         ;; This will block waiting for all borrows to be returned
         (jruby-internal/cleanup-pool-instance! old-instance cleanup-fn)
-        (jruby-agents/add-instance this (inc prev-id))
+        (jruby-agents/add-instance this id)
+        (log/info (i18n/trs "Finished creating JRuby instance with id {0}" id))
         (reset! borrow-count 0))
       (finally
         (pool-protocol/unlock this)))))
