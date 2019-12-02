@@ -19,6 +19,9 @@
   (borrow
     [this])
 
+  (borrow-with-timeout
+    [this timeout])
+
   (return
     [this instance])
 

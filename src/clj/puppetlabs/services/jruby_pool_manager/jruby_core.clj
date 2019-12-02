@@ -200,7 +200,7 @@
    reason :- schema/Any
    event-callbacks :- [IFn]]
   (let [requested-event (jruby-events/instance-requested event-callbacks reason)
-        instance (jruby-internal/borrow-from-pool pool-context)]
+        instance (pool-protocol/borrow pool-context)]
     (jruby-events/instance-borrowed event-callbacks requested-event instance)
     instance))
 
@@ -219,7 +219,7 @@
    event-callbacks :- [IFn]]
   (let [timeout (get-in pool-context [:config :borrow-timeout])
         requested-event (jruby-events/instance-requested event-callbacks reason)
-        instance (jruby-internal/borrow-from-pool-with-timeout
+        instance (pool-protocol/borrow-with-timeout
                    pool-context
                    timeout)]
     (jruby-events/instance-borrowed event-callbacks requested-event instance)

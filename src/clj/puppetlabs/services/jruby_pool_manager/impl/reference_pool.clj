@@ -41,8 +41,11 @@
 
   (borrow
     [this]
-    (let [pool (jruby-internal/get-pool this)]
-      (.borrowItem pool)))
+    (jruby-internal/borrow-from-pool this))
+
+  (borrow-with-timeout
+    [this timeout]
+    (jruby-internal/borrow-from-pool-with-timeout this timeout))
 
   (return
     [this instance]
