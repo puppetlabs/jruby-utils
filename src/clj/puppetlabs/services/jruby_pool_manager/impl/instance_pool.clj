@@ -10,40 +10,40 @@
 (extend-type InstancePool
   pool-protocol/JRubyPool
   (fill
-    [this]
-    (let [modify-instance-agent (jruby-agents/get-modify-instance-agent this)]
+    [pool-context]
+    (let [modify-instance-agent (jruby-agents/get-modify-instance-agent pool-context)]
       (jruby-agents/send-agent modify-instance-agent
-                               #(jruby-agents/prime-pool! this))))
+                               #(jruby-agents/prime-pool! pool-context))))
 
   (shutdown
-    [this]
-    (jruby-agents/flush-pool-for-shutdown! this))
+    [pool-context]
+    (jruby-agents/flush-pool-for-shutdown! pool-context))
 
   (lock
-    [this]
-    (let [pool (jruby-internal/get-pool this)]
+    [pool-context]
+    (let [pool (jruby-internal/get-pool pool-context)]
       (.lock pool)))
 
   (lock-with-timeout
-    [this timeout time-unit]
-    (let [pool (jruby-internal/get-pool this)]
+    [pool-context timeout time-unit]
+    (let [pool (jruby-internal/get-pool pool-context)]
       (.lockWithTimeout pool timeout time-unit)))
 
   (unlock
-    [this]
-    (let [pool (jruby-internal/get-pool this)]
+    [pool-context]
+    (let [pool (jruby-internal/get-pool pool-context)]
       (.unlock pool)))
 
   (borrow
-    [this]
-    (jruby-internal/borrow-from-pool this))
+    [pool-context]
+    (jruby-internal/borrow-from-pool pool-context))
 
   (borrow-with-timeout
-    [this timeout]
-    (jruby-internal/borrow-from-pool-with-timeout this timeout))
+    [pool-context timeout]
+    (jruby-internal/borrow-from-pool-with-timeout pool-context timeout))
 
   (return
-    [this instance]
+    [pool-context instance]
     (when (jruby-schemas/jruby-instance? instance)
       (let [new-state (swap! (jruby-internal/get-instance-state-container instance)
                              update-in [:borrow-count] inc)
@@ -56,10 +56,10 @@
                 (i18n/trs "Flushing JRubyInstance {0} because it has exceeded its borrow limit of {1}"
                           (:id instance)
                           borrow-limit))
-            (jruby-agents/send-flush-instance! this instance))
+            (jruby-agents/send-flush-instance! pool-context instance))
           (.releaseItem pool instance)))))
 
   (flush-pool
-    [this]
-    (jruby-agents/flush-and-repopulate-pool! this)))
+    [pool-context]
+    (jruby-agents/flush-and-repopulate-pool! pool-context)))
 

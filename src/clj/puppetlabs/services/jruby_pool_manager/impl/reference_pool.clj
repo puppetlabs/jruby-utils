@@ -11,13 +11,13 @@
   pool-protocol/JRubyPool
 
   (fill
-    [this]
-    (jruby-agents/add-instance this 1))
+    [pool-context]
+    (jruby-agents/add-instance pool-context 1))
 
   (shutdown
-    [this]
-    (let [pool (jruby-internal/get-pool this)
-          cleanup-fn (get-in this [:config :lifecycle :cleanup])
+    [pool-context]
+    (let [pool (jruby-internal/get-pool pool-context)
+          cleanup-fn (get-in pool-context [:config :lifecycle :cleanup])
           instance (.borrowItem pool)
           _ (.releaseItem pool instance)]
       (jruby-internal/insert-shutdown-poison-pill pool)
@@ -25,35 +25,35 @@
       (jruby-internal/cleanup-pool-instance! instance cleanup-fn)))
 
   (lock
-    [this]
-    (let [pool (jruby-internal/get-pool this)]
+    [pool-context]
+    (let [pool (jruby-internal/get-pool pool-context)]
       (.lock pool)))
 
   (lock-with-timeout
-    [this timeout time-unit]
-    (let [pool (jruby-internal/get-pool this)]
+    [pool-context timeout time-unit]
+    (let [pool (jruby-internal/get-pool pool-context)]
       (.lockWithTimeout pool timeout time-unit)))
 
   (unlock
-    [this]
-    (let [pool (jruby-internal/get-pool this)]
+    [pool-context]
+    (let [pool (jruby-internal/get-pool pool-context)]
       (.unlock pool)))
 
   (borrow
-    [this]
-    (jruby-internal/borrow-from-pool this))
+    [pool-context]
+    (jruby-internal/borrow-from-pool pool-context))
 
   (borrow-with-timeout
-    [this timeout]
-    (jruby-internal/borrow-from-pool-with-timeout this timeout))
+    [pool-context timeout]
+    (jruby-internal/borrow-from-pool-with-timeout pool-context timeout))
 
   (return
-    [this instance]
+    [pool-context instance]
     (when (jruby-schemas/jruby-instance? instance)
-      (let [pool (jruby-internal/get-pool this)
-            borrow-count (:borrow-count this)
+      (let [pool (jruby-internal/get-pool pool-context)
+            borrow-count (:borrow-count pool-context)
             max-borrows (get-in instance [:internal :max-borrows])
-            modify-instance-agent (jruby-agents/get-modify-instance-agent this)]
+            modify-instance-agent (jruby-agents/get-modify-instance-agent pool-context)]
         (.releaseItem pool instance)
         (swap! borrow-count inc)
         ;; If max-borrows is 0, never flush the instance
@@ -66,24 +66,24 @@
                    ;; 0 until a flush succeeds.
                    ;; THIS IS RACY
                    (not (.isLocked pool)))
-          (jruby-agents/send-agent modify-instance-agent #(pool-protocol/flush-pool this))))))
+          (jruby-agents/send-agent modify-instance-agent #(pool-protocol/flush-pool pool-context))))))
 
   (flush-pool
-    [this]
-    (pool-protocol/lock this)
+    [pool-context]
+    (pool-protocol/lock pool-context)
     (try
-      (let [pool (jruby-internal/get-pool this)
-            borrow-count (:borrow-count this)
-            cleanup-fn (get-in this [:config :lifecycle :cleanup])
+      (let [pool (jruby-internal/get-pool pool-context)
+            borrow-count (:borrow-count pool-context)
+            cleanup-fn (get-in pool-context [:config :lifecycle :cleanup])
             old-instance (.borrowItem pool)
             id (inc (:id old-instance))
             _ (.releaseItem pool old-instance)]
         ;; This will block waiting for all borrows to be returned
         (jruby-internal/cleanup-pool-instance! old-instance cleanup-fn)
-        (jruby-agents/add-instance this id)
+        (jruby-agents/add-instance pool-context id)
         (log/info (i18n/trs "Finished creating JRuby instance with id {0}" id))
         (reset! borrow-count 0))
       (finally
-        (pool-protocol/unlock this)))))
+        (pool-protocol/unlock pool-context)))))
 
 
