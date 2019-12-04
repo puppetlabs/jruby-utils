@@ -12,15 +12,44 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Private
 
+(schema/defn flush-pool
+  "Flushes the pool, assuming it has already been locked by the calling function.
+  Do not call this without first locking the pool, or the flush may never complete,
+  since it requires that all references be returned to proceed."
+  [pool-context :- jruby-schemas/PoolContext]
+  (let [pool (jruby-internal/get-pool pool-context)
+        borrow-count (:borrow-count pool-context)
+        cleanup-fn (get-in pool-context [:config :lifecycle :cleanup])
+        old-instance (.borrowItem pool)
+        id (inc (:id old-instance))
+        _ (.releaseItem pool old-instance)]
+    ;; This will block waiting for all borrows to be returned
+    (jruby-internal/cleanup-pool-instance! old-instance cleanup-fn)
+    (jruby-agents/add-instance pool-context id)
+    (log/info (i18n/trs "Finished creating JRuby instance with id {0}" id))
+    (reset! borrow-count 0)))
+
+(schema/defn max-borrows-exceeded :- schema/Bool
+  "Returns true if max-borrows is set and the current borrow count has
+  exceeded the allowed maximum."
+  [current-borrows :- schema/Int
+   max-borrows :- schema/Int]
+  (and (pos? max-borrows)
+       (>= current-borrows max-borrows)))
+
 (schema/defn flush-if-at-max-borrows
   [pool-context :- jruby-schemas/PoolContext
    instance :- JRubyInstance]
   (let [borrow-count (:borrow-count pool-context)
         max-borrows (get-in instance [:internal :max-borrows])]
-    ;; If max-borrows is 0, never flush the instance
-    (when (and (pos? max-borrows)
-               (>= @borrow-count max-borrows))
-      (pool-protocol/flush-pool pool-context))))
+    (pool-protocol/lock pool-context)
+    (try
+      ;; Now that we've successfully acquired the lock, check the borrows again
+      ;; to make sure the pool wasn't flushed while we were waiting.
+      (when (max-borrows-exceeded @borrow-count max-borrows)
+        (flush-pool pool-context))
+      (finally
+        (pool-protocol/unlock pool-context)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ReferencePool definition
@@ -72,27 +101,19 @@
     (when (jruby-schemas/jruby-instance? instance)
       (let [pool (jruby-internal/get-pool pool-context)
             borrow-count (:borrow-count pool-context)
+            max-borrows (get-in instance [:internal :max-borrows])
             modify-instance-agent (jruby-agents/get-modify-instance-agent pool-context)]
         (.releaseItem pool instance)
         (swap! borrow-count inc)
-        (jruby-agents/send-agent modify-instance-agent
-                                 #(flush-if-at-max-borrows pool-context instance)))))
+        (when (max-borrows-exceeded @borrow-count max-borrows)
+          (jruby-agents/send-agent modify-instance-agent
+                                   #(flush-if-at-max-borrows pool-context instance))))))
 
   (flush-pool
     [pool-context]
     (pool-protocol/lock pool-context)
     (try
-      (let [pool (jruby-internal/get-pool pool-context)
-            borrow-count (:borrow-count pool-context)
-            cleanup-fn (get-in pool-context [:config :lifecycle :cleanup])
-            old-instance (.borrowItem pool)
-            id (inc (:id old-instance))
-            _ (.releaseItem pool old-instance)]
-        ;; This will block waiting for all borrows to be returned
-        (jruby-internal/cleanup-pool-instance! old-instance cleanup-fn)
-        (jruby-agents/add-instance pool-context id)
-        (log/info (i18n/trs "Finished creating JRuby instance with id {0}" id))
-        (reset! borrow-count 0))
+      (flush-pool pool-context)
       (finally
         (pool-protocol/unlock pool-context)))))
 
