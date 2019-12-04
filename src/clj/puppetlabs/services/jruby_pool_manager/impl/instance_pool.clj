@@ -46,7 +46,7 @@
     [pool-context instance]
     (when (jruby-schemas/jruby-instance? instance)
       (let [new-state (swap! (jruby-internal/get-instance-state-container instance)
-                             update-in [:borrow-count] inc)
+                             #(update-in % [:borrow-count] inc))
             {:keys [initial-borrows max-borrows pool]} (:internal instance)
             borrow-limit (or initial-borrows max-borrows)]
         (if (and (pos? borrow-limit)

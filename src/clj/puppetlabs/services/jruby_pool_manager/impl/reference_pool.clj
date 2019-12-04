@@ -4,8 +4,26 @@
             [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
             [clojure.tools.logging :as log]
-            [puppetlabs.i18n.core :as i18n])
-  (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas ReferencePool)))
+            [puppetlabs.i18n.core :as i18n]
+            [schema.core :as schema])
+  (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas ReferencePool
+                                                                 JRubyInstance)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Private
+
+(schema/defn flush-if-at-max-borrows
+  [pool-context :- jruby-schemas/PoolContext
+   instance :- JRubyInstance]
+  (let [borrow-count (:borrow-count pool-context)
+        max-borrows (get-in instance [:internal :max-borrows])]
+    ;; If max-borrows is 0, never flush the instance
+    (when (and (pos? max-borrows)
+               (>= @borrow-count max-borrows))
+      (pool-protocol/flush-pool pool-context))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ReferencePool definition
 
 (extend-type ReferencePool
   pool-protocol/JRubyPool
@@ -52,21 +70,11 @@
     (when (jruby-schemas/jruby-instance? instance)
       (let [pool (jruby-internal/get-pool pool-context)
             borrow-count (:borrow-count pool-context)
-            max-borrows (get-in instance [:internal :max-borrows])
             modify-instance-agent (jruby-agents/get-modify-instance-agent pool-context)]
         (.releaseItem pool instance)
         (swap! borrow-count inc)
-        ;; If max-borrows is 0, never flush the instance
-        (when (and (pos? max-borrows)
-                   (>= @borrow-count max-borrows)
-                   ;; If the pool is already locked, there's a good chance
-                   ;; a flush is already in progress, and we shouldn't queue
-                   ;; another one. If the pool is locked for some other reason,
-                   ;; we'll flush later. `borrow-count` does not get set back to
-                   ;; 0 until a flush succeeds.
-                   ;; THIS IS RACY
-                   (not (.isLocked pool)))
-          (jruby-agents/send-agent modify-instance-agent #(pool-protocol/flush-pool pool-context))))))
+        (jruby-agents/send-agent modify-instance-agent
+                                 #(flush-if-at-max-borrows pool-context instance)))))
 
   (flush-pool
     [pool-context]
