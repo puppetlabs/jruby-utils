@@ -30,7 +30,9 @@
 
   (fill
     [pool-context]
-    (jruby-agents/add-instance pool-context 1))
+    (let [modify-instance-agent (jruby-agents/get-modify-instance-agent pool-context)]
+      (jruby-agents/send-agent modify-instance-agent
+                               #(jruby-agents/add-instance pool-context 1))))
 
   (shutdown
     [pool-context]
