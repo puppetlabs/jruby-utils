@@ -48,9 +48,9 @@
 (defn add-watch-for-flush-complete
   [pool-context]
   (let [flush-complete (promise)]
-    (add-watch (get-in pool-context [:internal :modify-instance-agent]) :flush-callback
-               (fn [k a _ _]
-                 (when (= k :flush-callback)
+    (add-watch (:borrow-count pool-context) :flush-callback
+               (fn [k a old-count new-count]
+                 (when (and (= k :flush-callback ) (< new-count old-count))
                    (remove-watch a :flush-callback)
                    (deliver flush-complete true))))
     flush-complete))
@@ -60,12 +60,15 @@
     (jruby-testutils/with-pool-context
       pool-context
       jruby-testutils/default-services
-      (jruby-test-config 2)
+      (jruby-testutils/jruby-config {:max-active-instances 1
+                                     :multithreaded true
+                                     :max-borrows-per-instance 2})
       (let [instance (jruby-core/borrow-from-pool pool-context :test [])
             id (:id instance)]
         (jruby-core/return-to-pool pool-context instance :test [])
         (let [instance (jruby-core/borrow-from-pool pool-context :test [])
               flush-complete (add-watch-for-flush-complete pool-context)]
+          (is (not (realized? flush-complete)))
           (is (= id (:id instance)))
           ;; This return will trigger the flush
           (jruby-core/return-to-pool pool-context instance :test [])
@@ -75,15 +78,12 @@
               new-pool-context (assoc-in pool-context [:config :borrow-timeout] timeout)]
           (pool-protocol/lock new-pool-context)
           (is (nil? @(future (jruby-core/borrow-from-pool-with-timeout
-                                new-pool-context
-                                :test
-                                []))))
+                               new-pool-context
+                               :test
+                               []))))
           (pool-protocol/unlock new-pool-context)
-          (let [instance @(future (jruby-core/borrow-from-pool-with-timeout
-                                     new-pool-context
-                                     :test
-                                     []))]
-            (is (not (nil? instance)))
+          (let [instance (jruby-core/borrow-from-pool new-pool-context :test [])]
+            (is (= 2 (:id instance)))
             (jruby-core/return-to-pool pool-context instance :test []))))))
   (testing "flushing due to max borrows succeeds when we've over-borrowed"
     (jruby-testutils/with-pool-context
