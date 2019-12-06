@@ -56,7 +56,7 @@ public final class ReferencePool<E> implements LockablePool<E> {
     private final Condition borrowsAvailable = borrowLock.newCondition();
 
     // Condition signaled when the pool has been unlocked.  Awaited when a
-    // request has been made to borrow an reference or lock the pool but the pool
+    // request has been made to borrow a reference or lock the pool but the pool
     // is currently locked.
     private final Condition poolNotLocked = borrowLock.newCondition();
 
@@ -113,12 +113,12 @@ public final class ReferencePool<E> implements LockablePool<E> {
         final ReentrantLock lock = this.borrowLock;
         lock.lock();
         try {
-            if (instance != null) {
+            if (this.instance != null) {
                 throw new IllegalStateException(
                         "Unable to register additional instance, pool full");
             }
 
-            instance = e;
+            this.instance = e;
             currentBorrowCount.set(0);
 
             signalPoolNotEmpty();
@@ -190,8 +190,8 @@ public final class ReferencePool<E> implements LockablePool<E> {
         final ReentrantLock lock = this.borrowLock;
         long remainingMaxTimeToWait = unit.toNanos(timeout);
 
-        // `borrowLock.lockInterruptibly()` is called here as opposed to just
-        // `borrowLock.borrowLock` to follow the pattern that the JDK's
+        // `lockInterruptibly()` is called here as opposed to just
+        // `lock()` to follow the pattern that the JDK's
         // `LinkedBlockingDeque` does for a timed poll from a deque.  See:
         // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/687fd7c7986d/src/share/classes/java/util/concurrent/LinkedBlockingDeque.java#l516
         lock.lockInterruptibly();
@@ -520,6 +520,6 @@ public final class ReferencePool<E> implements LockablePool<E> {
     }
 
     private boolean isPoolLockHeldByAnotherThread(Thread currentThread) {
-        return (poolLockThread != null) && (poolLockThread != currentThread);
+        return isPoolLockHeld() && !isPoolLockHeldByCurrentThread(currentThread);
     }
 }

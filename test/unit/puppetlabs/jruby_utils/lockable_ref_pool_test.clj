@@ -144,7 +144,7 @@
                         borrow-after-lock-acquired-thread))
                 (str "timed out waiting for the borrow after lock acquired "
                      "thread to finish")))))
-            (is (not (.isLocked pool))))))
+      (is (not (.isLocked pool))))))
 
 (deftest pool-lock-supersedes-existing-borrows-test
   (testing "if there are pending borrows when pool.lock() is called, they aren't fulfilled until after unlock()"
@@ -169,14 +169,18 @@
       @blocked-borrow-thread-started?
       @lock-thread-started?
       (is (not (realized? blocked-borrow-thread-borrowed?)))
+      ;; Ensure that the pool is locked before returning any instances
       (let [start (System/currentTimeMillis)]
         (while (and (not (.isLocked pool))
                     (< (- (System/currentTimeMillis) start) 10000))
           (Thread/yield)))
       (is (.isLocked pool))
+      ;; Borrows are blocked, but lock cannot yet proceed because
+      ;; some instances are still borrowed
       (is (not (realized? lock-acquired?)))
 
       (return-instances pool instances)
+      ;; Lock can proceed, but threads are still blocked
       (is (not (realized? blocked-borrow-thread-borrowed?)))
       (is (not (realized? lock-thread)))
       (is (true? (timed-deref lock-acquired?))
@@ -184,6 +188,7 @@
       (is (.isLocked pool))
 
       (deliver unlock? true)
+      ;; Lock thread completes, then borrows can proceed
       (is (true? (timed-deref lock-thread))
           "timed out waiting for the lock thread to finish")
       (is (true? (timed-deref blocked-borrow-thread-borrowed?))
@@ -206,7 +211,8 @@
       (is (not (.isLocked pool))))))
 
 (deftest pool-lock-reentrant-with-many-borrows-test
-  (testing "the thread that holds the pool lock may borrow instances while holding the lock, even with other borrows queued"
+  (testing "the thread that holds the pool lock may borrow instances while holding the lock,
+           even with other borrows queued"
     (let [pool (create-populated-pool 2)]
       (is (not (.isLocked pool)))
       (.lock pool)
@@ -240,7 +246,7 @@
             "timed out waiting for first borrow thread to finish")
         (is (true? (timed-deref borrow-thread-2))
             "timed out waiting for second borrow thread to finish"))
-        (is (not (.isLocked pool))))))
+      (is (not (.isLocked pool))))))
 
 (deftest pool-lock-reentrant-for-many-locks-test
   (testing "multiple threads cannot lock the pool while it is already locked"
@@ -271,7 +277,7 @@
             "timed out waiting for first lock thread to finish")
         (is (true? (timed-deref lock-thread-2))
             "timed out waiting for second lock thread to finish"))
-        (is (not (.isLocked pool))))))
+      (is (not (.isLocked pool))))))
 
 (deftest pool-lock-not-held-after-thread-interrupt
   (let [pool (create-populated-pool 1)
@@ -285,8 +291,8 @@
                   "instances to be returned")
       (.interrupt @lock-thread-obj)
       (is (thrown? ExecutionException (timed-deref lock-thread)))
-      (is (not (realized? lock-thread-locked?))))
       (is (not (.isLocked pool)))
+      (is (not (realized? lock-thread-locked?))))
 
     (.releaseItem pool item)
     (testing "new write lock can be taken after prior write lock interrupted"
@@ -554,8 +560,8 @@
 
   (testing "second insert doesn't change the pill"
     (let [pool (create-populated-pool 1)
-          first-pill (str "pill clinton")
-          second-pill (str "pillary clinton")]
+          first-pill "pill clinton"
+          second-pill "pillary clinton"]
       (.insertPill pool first-pill)
       (is (identical? first-pill (.borrowItem pool)))
 
@@ -567,8 +573,8 @@
 (deftest release-item-exceptions-test
   (testing "releasing a different pill than the one that was inserted errors"
     (let [pool (create-populated-pool 1)
-          first-pill (str "a city upon a pill")
-          second-pill (str "capitol pill")]
+          first-pill "a city upon a pill"
+          second-pill "capitol pill"]
       (.insertPill pool first-pill)
       ; Only to show that it does not error
       (is (nil? (.releaseItem pool first-pill)))
@@ -601,13 +607,13 @@
       ; Make it so the pool is not full
       (.borrowItem pool)
 
-      ; Exceptions thrown from the future will be returned as InterruptedException,
-      ; so we can't use thrown-with-msg?. We'll catch it, return it instead of
-      ; throwing it, and inspect it manually below
+      ; Exceptions thrown from a future will be returned and then thrown when the
+      ; future is dereferenced, so we can't use `throw-with-msg?`. Instead, we catch
+      ; the exception and return it so it can be inspected below.
       (let [blocked-lock-future (future (try (.lock pool)
                                              (catch InterruptedException e
                                                e)))]
-        ; The future's thread will take the lock, and then block waiting for
+        ; The future's thread will take the lock, and then block while waiting for
         ; either the pool to fill up, or a pill to be inserted
         (jruby-testutils/wait-for-pool-to-be-locked pool)
         (.insertPill pool pill)

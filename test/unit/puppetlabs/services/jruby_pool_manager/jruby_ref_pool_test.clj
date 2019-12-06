@@ -19,8 +19,7 @@
       (jruby-testutils/with-pool-context
         pool-context
         jruby-testutils/default-services
-        (jruby-testutils/jruby-config {:max-active-instances pool-size
-                                       :multithreaded true})
+        (jruby-test-config 0 pool-size)
         ;; borrow both instances from the pool
         (let [drained-instances (jruby-testutils/drain-pool pool-context pool-size)]
           (try
@@ -60,9 +59,7 @@
     (jruby-testutils/with-pool-context
       pool-context
       jruby-testutils/default-services
-      (jruby-testutils/jruby-config {:max-active-instances 1
-                                     :multithreaded true
-                                     :max-borrows-per-instance 2})
+      (jruby-test-config 2 1)
       (let [instance (jruby-core/borrow-from-pool pool-context :test [])
             id (:id instance)]
         (jruby-core/return-to-pool pool-context instance :test [])
@@ -91,9 +88,7 @@
       jruby-testutils/default-services
       ;; We can check out the instance more times than `max-borrows` and return
       ;; them each in sequence, and nothing blocks or fails
-      (jruby-testutils/jruby-config {:max-active-instances 3
-                                     :multithreaded true
-                                     :max-borrows-per-instance 2})
+      (jruby-test-config 2 3)
       (let [instance1 (jruby-core/borrow-from-pool pool-context :test [])
             instance2 (jruby-core/borrow-from-pool pool-context :test [])
             instance3 (jruby-core/borrow-from-pool pool-context :test [])

@@ -12,7 +12,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Private
 
-(schema/defn flush-pool
+(schema/defn flush-pool*
   "Flushes the pool, assuming it has already been locked by the calling function.
   Do not call this without first locking the pool, or the flush may never complete,
   since it requires that all references be returned to proceed."
@@ -47,7 +47,7 @@
       ;; Now that we've successfully acquired the lock, check the borrows again
       ;; to make sure the pool wasn't flushed while we were waiting.
       (when (max-borrows-exceeded @borrow-count max-borrows)
-        (flush-pool pool-context))
+        (flush-pool* pool-context))
       (finally
         (pool-protocol/unlock pool-context)))))
 
@@ -113,7 +113,7 @@
     [pool-context]
     (pool-protocol/lock pool-context)
     (try
-      (flush-pool pool-context)
+      (flush-pool* pool-context)
       (finally
         (pool-protocol/unlock pool-context)))))
 
