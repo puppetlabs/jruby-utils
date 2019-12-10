@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.jruby_utils \n"
-"X-Git-Ref: 77f789b3e24c443f69f2414d38f007725d124a1c\n"
+"X-Git-Ref: d34f8b72598fa3b5cb145e59c505bb6e5a12a58d\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -17,6 +17,15 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/instance_pool.clj
+msgid ""
+"Flushing JRubyInstance {0} because it has exceeded its borrow limit of {1}"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
+msgid "There was a problem adding a JRubyInstance to the pool."
+msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
 msgid "Initializing JRubyInstances with the following settings:"
@@ -28,10 +37,6 @@ msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
 msgid "Finished creating JRubyInstance {0} of {1}"
-msgstr ""
-
-#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
-msgid "There was a problem adding a JRubyInstance to the pool."
 msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
@@ -108,11 +113,6 @@ msgid "Borrowed unrecognized object from pool!: {0}"
 msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
-msgid ""
-"Flushing JRubyInstance {0} because it has exceeded its borrow limit of ({1})"
-msgstr ""
-
-#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
 msgid "Exception raised while generating thread dump"
 msgstr ""
 
@@ -120,6 +120,10 @@ msgstr ""
 msgid ""
 "JRuby management interface not enabled. Add ''-Djruby.management."
 "enabled=true'' to JAVA_ARGS to enable thread dumps."
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/reference_pool.clj
+msgid "Finished creating JRuby instance with id {0}"
 msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
