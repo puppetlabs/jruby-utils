@@ -27,8 +27,11 @@ public interface LockablePool<E> {
      * {@link #getRegisteredElements()}.
      *
      * @param e the element to remove from the list of registered elements
+     * @throws InterruptedException if the calling thread is interrupted while
+     *                              it waits for all instances to be returned
+     *                              to the pool
      */
-    void unregister(E e);
+    void unregister(E e) throws InterruptedException;
 
     /**
      * Borrow an element from the pool.  This method will block until
@@ -104,7 +107,7 @@ public interface LockablePool<E> {
      * have been borrowed but not yet returned to the pool at the time this
      * method is called will remain registered.
      */
-    void clear();
+    void clear() throws InterruptedException;
 
     /**
      * Returns the number of elements that can be added into the pool.  Equal
@@ -117,7 +120,7 @@ public interface LockablePool<E> {
      * Returns the number of elements that have been registered with but not
      * borrowed from the pool.
      */
-    int size();
+    int currentSize();
 
    /**
     * Lock the pool. This method should make the following guarantees:

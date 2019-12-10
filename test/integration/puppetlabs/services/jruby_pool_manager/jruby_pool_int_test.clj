@@ -100,7 +100,7 @@
                      [])
            loop-count 0]
       (let [borrow-count (:borrow-count (jruby-core/get-instance-state instance))]
-        (jruby-core/return-to-pool instance :borrow-until-desired-borrow-count [])
+        (jruby-core/return-to-pool pool-context instance :borrow-until-desired-borrow-count [])
         (cond
           (= (inc borrow-count) desired-borrow-count) true
           (= loop-count max-borrow-wait-count) false
@@ -144,11 +144,11 @@
            pool (:pool pool-state)]
        ;; wait for all jrubies to be added to the pool
        (jruby-testutils/wait-for-jrubies-from-pool-context pool-context)
-       (is (= 4 (.size (jruby-core/get-pool pool-context))))
+       (is (= 4 (.currentSize (jruby-core/get-pool pool-context))))
        (jruby-core/flush-pool-for-shutdown! pool-context)
 
        ;; flushing the pool should remove all JRubyInstances
-       (is (= 0 (.size pool)))
+       (is (= 0 (.currentSize pool)))
        ;; any borrows should now return shutdown poison pill
        (is (jruby-schemas/shutdown-poison-pill? (.borrowItem pool)))))))
 
@@ -178,14 +178,14 @@
          (borrow-until-desired-borrow-count pool-context 9)
          (let [instance-to-flush (jruby-core/borrow-from-pool pool-context :instance-to-flush [])]
            (is (= 9 (:borrow-count (jruby-core/get-instance-state instance-to-flush))))
-           (jruby-core/return-to-pool instance-to-flush :instance-to-flush []))
+           (jruby-core/return-to-pool pool-context instance-to-flush :instance-to-flush []))
 
          (is (nil? (.runScriptlet sc "$unique_file.close"))
              "Unexpected response on attempt to close unique file")
          (finally
            (.runScriptlet sc "$unique_file.unlink")))
        ;; return the instance
-       (jruby-core/return-to-pool instance :hold-file-handle-while-another-instance-is-flushed [])
+       (jruby-core/return-to-pool pool-context instance :hold-file-handle-while-another-instance-is-flushed [])
        ;; Show that the instance-to-flush instance did actually get flushed
        (check-jrubies-for-constant-counts pool-context 3 1)))))
 
@@ -232,14 +232,14 @@
 
              ;; now we're going to return instance2 to the pool.  This should cause it
              ;; to get flushed. The main pool flush operation is still blocked.
-             (jruby-core/return-to-pool instance2
+             (jruby-core/return-to-pool pool-context instance2
                                         :max-borrows-flush-while-pool-flush-in-progress-test
                                         [])
              ;; Wait until instance2 is returned
              (is (jruby-testutils/wait-for-instances pool 3) "Timed out waiting for instance2 to return to pool")
 
              ;; and finally, we return the last instance we borrowed to the pool
-             (jruby-core/return-to-pool instance1
+             (jruby-core/return-to-pool pool-context instance1
                                         :max-borrows-flush-while-pool-flush-in-progress-test
                                         [])
 
@@ -279,7 +279,7 @@
                        :initialization-and-cleanup-hooks-test
                        [])]
          (is (= "FOO" (deref (:foo instance))))
-         (jruby-core/return-to-pool instance :initialization-and-cleanup-hooks-test [])
+         (jruby-core/return-to-pool pool-context instance :initialization-and-cleanup-hooks-test [])
 
          (jruby-core/flush-pool! pool-context)
          ; wait until the flush is complete
@@ -310,6 +310,7 @@
          (.remove jruby-env "RUBY")
          (is (= {"CUSTOMENV" "foobar"} jruby-env))
          (jruby-core/return-to-pool
-          instance
-          :initialize-environment-variables-test
-          []))))))
+           pool-context
+           instance
+           :initialize-environment-variables-test
+           []))))))

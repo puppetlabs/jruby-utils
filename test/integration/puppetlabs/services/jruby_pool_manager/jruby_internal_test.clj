@@ -44,13 +44,13 @@
                    {:compile-mode :jit
                     :profiler-output-file profiler-file
                     :profiling-mode :flat}))
-          instance (jruby-internal/create-pool-instance! pool 0 config #())
-          instance-two (jruby-internal/create-pool-instance! pool 1 config #())
+          instance (jruby-internal/create-pool-instance! pool 0 config)
+          instance-two (jruby-internal/create-pool-instance! pool 1 config)
           container (:scripting-container instance)
           container-two (:scripting-container instance-two)]
       (try
         (is (= RubyInstanceConfig$CompileMode/JIT
-            (.getCompileMode container)))
+              (.getCompileMode container)))
         (is (= RubyInstanceConfig$ProfilingMode/FLAT
                (.getProfilingMode container)))
         (finally
@@ -70,7 +70,7 @@
     (let [pool (JRubyPool. 1)
           config (logutils/with-test-logging
                   (jruby-testutils/jruby-config {}))
-          instance (jruby-internal/create-pool-instance! pool 0 config #())
+          instance (jruby-internal/create-pool-instance! pool 0 config)
           container (:scripting-container instance)]
       (try
         (is (= RubyInstanceConfig$CompileMode/JIT
@@ -84,7 +84,7 @@
     (let [pool (JRubyPool. 1)
           config (logutils/with-test-logging
                   (jruby-testutils/jruby-config {}))
-          instance (jruby-internal/create-pool-instance! pool 0 config #())
+          instance (jruby-internal/create-pool-instance! pool 0 config)
           result (jruby-internal/get-instance-thread-dump instance)]
       (is (some? (:error result)))
       (is (re-find #"JRuby management interface not enabled" (:error result)))))
@@ -93,7 +93,7 @@
     (let [pool (JRubyPool. 1)
           config (logutils/with-test-logging
                   (jruby-testutils/jruby-config {}))
-          instance (jruby-internal/create-pool-instance! pool 0 config #())
+          instance (jruby-internal/create-pool-instance! pool 0 config)
           _ (-> (:scripting-container instance)
                 (.runScriptlet (StringReader.
                                 "def naptime
@@ -110,7 +110,7 @@
     (let [pool (JRubyPool. 1)
           config (logutils/with-test-logging
                   (jruby-testutils/jruby-config {}))
-          instance (jruby-internal/create-pool-instance! pool 0 config #())
+          instance (jruby-internal/create-pool-instance! pool 0 config)
           mbean-name (jruby-internal/jmx-bean-name instance "Runtime")
           _ (jmx/unregister-mbean mbean-name)
           failing-mbean (proxy [org.jruby.management.Runtime]

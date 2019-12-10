@@ -11,7 +11,8 @@
             [clojure.tools.logging :as log]
             [slingshot.slingshot :as sling]
             [puppetlabs.i18n.core :as i18n]
-            [me.raynes.fs :as fs])
+            [me.raynes.fs :as fs]
+            [puppetlabs.services.protocols.jruby-pool :as pool-protocol])
   (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance)
            (clojure.lang IFn)
            (java.util.concurrent TimeUnit)
@@ -71,7 +72,7 @@
   "Returns the number of JRubyInstances available in the pool."
   [pool :- jruby-schemas/pool-queue-type]
   {:post [(>= % 0)]}
-  (.size pool))
+  (.currentSize pool))
 
 (schema/defn ^:always-validate
   get-instance-state :- jruby-schemas/JRubyInstanceState
@@ -199,7 +200,7 @@
    reason :- schema/Any
    event-callbacks :- [IFn]]
   (let [requested-event (jruby-events/instance-requested event-callbacks reason)
-        instance (jruby-internal/borrow-from-pool pool-context)]
+        instance (pool-protocol/borrow pool-context)]
     (jruby-events/instance-borrowed event-callbacks requested-event instance)
     instance))
 
@@ -218,7 +219,7 @@
    event-callbacks :- [IFn]]
   (let [timeout (get-in pool-context [:config :borrow-timeout])
         requested-event (jruby-events/instance-requested event-callbacks reason)
-        instance (jruby-internal/borrow-from-pool-with-timeout
+        instance (pool-protocol/borrow-with-timeout
                    pool-context
                    timeout)]
     (jruby-events/instance-borrowed event-callbacks requested-event instance)
@@ -227,34 +228,35 @@
 (schema/defn ^:always-validate
   return-to-pool
   "Return a borrowed pool instance to its free pool."
-  [instance :- jruby-schemas/JRubyInstanceOrPill
+  [pool-context :- jruby-schemas/PoolContext
+   instance :- jruby-schemas/JRubyInstanceOrPill
    reason :- schema/Any
    event-callbacks :- [IFn]]
   (jruby-events/instance-returned event-callbacks instance reason)
-  (jruby-internal/return-to-pool instance))
+  (pool-protocol/return pool-context instance))
 
 (schema/defn ^:always-validate
   flush-pool!
   "Flush all the current JRubyInstances and repopulate the pool."
   [pool-context]
-  (jruby-agents/flush-and-repopulate-pool! pool-context))
+  (pool-protocol/flush-pool pool-context))
 
 (schema/defn ^:always-validate
   flush-pool-for-shutdown!
   "Flush all the current JRubyInstances so that the pool can be shutdown
   without any instances being active."
   [pool-context]
-  (jruby-agents/flush-pool-for-shutdown! pool-context))
+  (pool-protocol/shutdown pool-context))
 
 (schema/defn ^:always-validate
   lock-pool
   "Locks the JRuby pool for exclusive access."
-  [pool :- jruby-schemas/pool-queue-type
+  [pool-context :- jruby-schemas/PoolContext
    reason :- schema/Any
    event-callbacks :- [IFn]]
   (log/debug (i18n/trs "Acquiring lock on JRubyPool..."))
   (jruby-events/lock-requested event-callbacks reason)
-  (.lock pool)
+  (pool-protocol/lock pool-context)
   (jruby-events/lock-acquired event-callbacks reason)
   (log/debug (i18n/trs "Lock acquired")))
 
@@ -263,23 +265,23 @@
   "Locks the JRuby pool for exclusive access using a timeout in milliseconds.
   If the timeout is exceeded, a TimeoutException will be thrown and
   the pool will remain unlocked"
-  [pool :- jruby-schemas/pool-queue-type
+  [pool-context :- jruby-schemas/PoolContext
    timeout-ms :- schema/Int
    reason :- schema/Any
    event-callbacks :- [IFn]]
   (log/debug (i18n/trs "Acquiring lock on JRubyPool..."))
   (jruby-events/lock-requested event-callbacks reason)
-  (.lockWithTimeout pool timeout-ms TimeUnit/MILLISECONDS)
+  (pool-protocol/lock-with-timeout pool-context timeout-ms TimeUnit/MILLISECONDS)
   (jruby-events/lock-acquired event-callbacks reason)
   (log/debug (i18n/trs "Lock acquired")))
 
 (schema/defn ^:always-validate
   unlock-pool
   "Unlocks the JRuby pool, restoring concurernt access."
-  [pool :- jruby-schemas/pool-queue-type
+  [pool-context :- jruby-schemas/PoolContext
    reason :- schema/Any
    event-callbacks :- [IFn]]
-  (.unlock pool)
+  (pool-protocol/unlock pool-context)
   (jruby-events/lock-released event-callbacks reason)
   (log/debug (i18n/trs "Lock on JRubyPool released")))
 
@@ -327,7 +329,7 @@
           {:kind ::jruby-timeout
            :msg (i18n/tru "Attempt to borrow a JRubyInstance from the pool timed out.")}))
        (when (jruby-schemas/shutdown-poison-pill? pool-instance#)
-         (return-to-pool pool-instance# ~reason event-callbacks#)
+         (return-to-pool ~pool-context pool-instance# ~reason event-callbacks#)
          (ringutils/throw-service-unavailable!
           (format "%s %s"
                   (i18n/tru "Attempted to borrow a JRubyInstance from the pool during a shutdown.")
@@ -336,31 +338,29 @@
          (try
            ~@body
            (finally
-             (return-to-pool pool-instance# ~reason event-callbacks#)))))))
+             (return-to-pool ~pool-context pool-instance# ~reason event-callbacks#)))))))
 
 (defmacro with-lock
   "Acquires a lock on the pool, executes the body, and releases the lock."
   [pool-context reason & body]
-  `(let [pool# (get-pool ~pool-context)
-         event-callbacks# (get-event-callbacks ~pool-context)]
-     (lock-pool pool# ~reason event-callbacks#)
+  `(let [event-callbacks# (get-event-callbacks ~pool-context)]
+     (lock-pool ~pool-context ~reason event-callbacks#)
      (try
        ~@body
        (finally
-         (unlock-pool pool# ~reason event-callbacks#)))))
+         (unlock-pool ~pool-context ~reason event-callbacks#)))))
 
 (defmacro with-lock-with-timeout
   "Acquires a lock on the pool with a timeout in milliseconds,
   executes the body, and releases the lock. If the timeout is exceeded,
   a TimeoutException will be thrown"
   [pool-context timeout-ms reason & body]
-  `(let [pool# (get-pool ~pool-context)
-         event-callbacks# (get-event-callbacks ~pool-context)]
-     (lock-pool-with-timeout pool# ~timeout-ms ~reason event-callbacks#)
+  `(let [event-callbacks# (get-event-callbacks ~pool-context)]
+     (lock-pool-with-timeout ~pool-context ~timeout-ms ~reason event-callbacks#)
      (try
        ~@body
        (finally
-         (unlock-pool pool# ~reason event-callbacks#)))))
+         (unlock-pool ~pool-context ~reason event-callbacks#)))))
 
 (def jruby-version-info
   "Default version info string for jruby"

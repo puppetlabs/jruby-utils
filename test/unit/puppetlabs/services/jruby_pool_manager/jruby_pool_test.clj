@@ -8,7 +8,8 @@
             [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
             [puppetlabs.trapperkeeper.testutils.logging :as logutils]
             [puppetlabs.services.jruby-pool-manager.impl.jruby-pool-manager-core :as jruby-pool-manager-core]
-            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas])
+            [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
+            [puppetlabs.services.protocols.jruby-pool :as pool-protocol])
   (:import (clojure.lang ExceptionInfo)
            (puppetlabs.services.jruby_pool_manager.jruby_schemas ShutdownPoisonPill)))
 
@@ -82,7 +83,7 @@
             (is (= 0 (jruby-core/free-instance-count pool)))
             (doseq [instance all-the-jrubys]
               (is (not (nil? instance)) "One of JRubyInstances is nil"))
-            (jruby-testutils/fill-drained-pool all-the-jrubys)
+            (jruby-testutils/fill-drained-pool pool-context all-the-jrubys)
             (is (= pool-size (jruby-core/free-instance-count pool)))))
 
         (testing "Borrowing from an empty pool with a timeout returns nil within the
@@ -92,14 +93,14 @@
             (is (nil? (jruby-core/borrow-from-pool-with-timeout pool-context :test [])))
             (is (>= (- (System/currentTimeMillis) test-start-in-millis) timeout)
                 "The timeout value was not honored.")
-            (jruby-testutils/fill-drained-pool all-the-jrubys)
+            (jruby-testutils/fill-drained-pool pool-context all-the-jrubys)
             (is (= (jruby-core/free-instance-count pool) pool-size)
                 "All JRubyInstances were not returned to the pool.")))
 
         (testing "Removing an instance decrements the pool size by 1."
           (let [jruby-instance (jruby-core/borrow-from-pool pool-context :test [])]
             (is (= (jruby-core/free-instance-count pool) (dec pool-size)))
-            (jruby-core/return-to-pool jruby-instance :test [])))
+            (jruby-core/return-to-pool pool-context jruby-instance :test [])))
 
         (testing "Borrowing an instance increments its request count."
           (let [drain-via (fn [borrow-fn] (doall (repeatedly pool-size borrow-fn)))
@@ -111,10 +112,10 @@
                               #(jruby-core/borrow-from-pool-with-timeout pool-context :test [])]]
               (let [jrubies (drain-via drain-fn)
                     counts (get-counts jrubies)]
-                (jruby-testutils/fill-drained-pool jrubies)
+                (jruby-testutils/fill-drained-pool pool-context jrubies)
                 (let [jrubies (drain-via drain-fn)
                       new-counts (get-counts jrubies)]
-                  (jruby-testutils/fill-drained-pool jrubies)
+                  (jruby-testutils/fill-drained-pool pool-context jrubies)
                   (is (= (ks/keyset counts) (ks/keyset new-counts)))
                   (doseq [k (keys counts)]
                     (is (= (inc (counts k)) (new-counts k)))))))))
@@ -149,10 +150,9 @@
           ;; now the borrow can complete
           (is (jruby-schemas/jruby-instance? @borrow-instance))
           (finally
-            (jruby-core/return-to-pool
-             @borrow-instance
-             :borrow-during-pool-init-test
-             []))))))))
+            (jruby-core/return-to-pool pool-context @borrow-instance
+                                       :borrow-during-pool-init-test
+                                       []))))))))
 
 (deftest borrow-while-no-instances-available-test
   (testing "when all instances are in use, borrow blocks until an instance becomes available"
@@ -174,15 +174,15 @@
              (is (not (realized? borrow-instance)))
 
              ;; return an instance to the pool
-             (jruby-core/return-to-pool
-              (first drained-instances)
-              :borrow-with-no-free-instances-test
-              [])
+             (jruby-core/return-to-pool pool-context
+               (first drained-instances)
+               :borrow-with-no-free-instances-test
+               [])
 
              ;; now the borrow can complete
              (is (some? @borrow-instance)))
            (finally
-             (jruby-testutils/fill-drained-pool drained-instances))))))))
+             (jruby-testutils/fill-drained-pool pool-context drained-instances))))))))
 
 (deftest prime-pools-failure
   (let [pool-size 2
@@ -273,10 +273,10 @@
      (jruby-test-config 2)
      (let [instance (jruby-core/borrow-from-pool pool-context :test [])
            id (:id instance)]
-       (jruby-core/return-to-pool instance :test [])
+       (jruby-core/return-to-pool pool-context instance :test [])
        (let [instance (jruby-core/borrow-from-pool pool-context :test [])]
          (is (= id (:id instance)))
-         (jruby-core/return-to-pool instance :test [])))))
+         (jruby-core/return-to-pool pool-context instance :test [])))))
   (testing "JRubyInstance is flushed after exceeding max borrows"
     (jruby-testutils/with-pool-context
      pool-context
@@ -286,30 +286,29 @@
      (is (= 1 (count (jruby-core/registered-instances pool-context))))
      (let [instance (jruby-core/borrow-from-pool pool-context :test [])
            id (:id instance)]
-       (jruby-core/return-to-pool instance :test [])
+       (jruby-core/return-to-pool pool-context instance :test [])
        (jruby-core/borrow-from-pool pool-context :test [])
-       (jruby-core/return-to-pool instance :test [])
+       (jruby-core/return-to-pool pool-context instance :test [])
        (let [instance (jruby-core/borrow-from-pool pool-context :test [])]
          (is (not= id (:id instance)))
-         (jruby-core/return-to-pool instance :test []))
+         (jruby-core/return-to-pool pool-context instance :test []))
        (testing "instance is removed from registered elements after flushing"
          (is (= 1 (count (jruby-core/registered-instances pool-context))))))
      (testing "Can lock pool after a flush via max borrows"
        (let [timeout 1
-             new-pool-context (assoc-in pool-context [:config :borrow-timeout] timeout)
-             pool (jruby-internal/get-pool new-pool-context)]
-         (.lock pool)
+             new-pool-context (assoc-in pool-context [:config :borrow-timeout] timeout)]
+         (pool-protocol/lock new-pool-context)
          (is (nil? @(future (jruby-core/borrow-from-pool-with-timeout
                              new-pool-context
                              :test
                              []))))
-         (.unlock pool)
+         (pool-protocol/unlock new-pool-context)
          (let [instance @(future (jruby-core/borrow-from-pool-with-timeout
                                   new-pool-context
                                   :test
                                   []))]
            (is (not (nil? instance)))
-           (jruby-core/return-to-pool instance :test []))))))
+           (jruby-core/return-to-pool pool-context instance :test []))))))
   (testing "JRubyInstance is not flushed if max borrows setting is set to 0"
     (jruby-testutils/with-pool-context
      pool-context
@@ -317,10 +316,10 @@
      (jruby-test-config 0)
      (let [instance (jruby-core/borrow-from-pool pool-context :test [])
            id (:id instance)]
-       (jruby-core/return-to-pool instance :test [])
+       (jruby-core/return-to-pool pool-context instance :test [])
        (let [instance (jruby-core/borrow-from-pool pool-context :test [])]
          (is (= id (:id instance)))
-         (jruby-core/return-to-pool instance :test [])))))
+         (jruby-core/return-to-pool pool-context instance :test [])))))
   (testing "Can flush a JRubyInstance that is not the first one in the pool"
     (jruby-testutils/with-pool-context
      pool-context
@@ -329,16 +328,16 @@
      (let [instance1 (jruby-core/borrow-from-pool pool-context :test [])
            instance2 (jruby-core/borrow-from-pool pool-context :test [])
            id (:id instance2)]
-       (jruby-core/return-to-pool instance2 :test [])
+       (jruby-core/return-to-pool pool-context instance2 :test [])
        ;; borrow it a second time and confirm we get the same instance
        (let [instance2 (jruby-core/borrow-from-pool pool-context :test [])]
          (is (= id (:id instance2)))
-         (jruby-core/return-to-pool instance2 :test []))
+         (jruby-core/return-to-pool pool-context instance2 :test []))
        ;; borrow it a third time and confirm that we get a different instance
        (let [instance2 (jruby-core/borrow-from-pool pool-context :test [])]
          (is (not= id (:id instance2)))
-         (jruby-core/return-to-pool instance2 :test []))
-       (jruby-core/return-to-pool instance1 :test [])))))
+         (jruby-core/return-to-pool pool-context instance2 :test []))
+       (jruby-core/return-to-pool pool-context instance1 :test [])))))
 
 (deftest return-pill-to-pool-test
   (testing "Returning a pill to the pool does not throw"
@@ -354,4 +353,4 @@
      (let [pool (jruby-core/get-pool pool-context)
            pill (ShutdownPoisonPill. pool)]
        ; Returning a pill should be a noop
-       (jruby-core/return-to-pool pill :test [])))))
+       (jruby-core/return-to-pool pool-context pill :test [])))))
