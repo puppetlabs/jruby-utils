@@ -66,12 +66,19 @@
   (shutdown
     [pool-context]
     (let [pool (jruby-internal/get-pool pool-context)
-          cleanup-fn (get-in pool-context [:config :lifecycle :cleanup])
-          instance (.borrowItem pool)
-          _ (.releaseItem pool instance)]
-      (jruby-internal/insert-shutdown-poison-pill pool)
-      ;; This will block until all borrows have been returned
-      (jruby-internal/cleanup-pool-instance! instance cleanup-fn)))
+          cleanup-fn (get-in pool-context [:config :lifecycle :cleanup])]
+      ;; Lock the pool so no borrows or flushes can occur while we're shutting down
+      (pool-protocol/lock pool-context)
+      (try
+        (let [instance (.borrowItem pool)
+              _ (.releaseItem pool instance)]
+          ;; This will block until all borrows have been returned
+          (jruby-internal/cleanup-pool-instance! instance cleanup-fn))
+        ;; Insert a shutdown pill to ensure that all pending borrows and locks
+        ;; are rejected with the appropriate logging
+        (jruby-internal/insert-shutdown-poison-pill pool)
+        (finally
+          (pool-protocol/unlock pool-context)))))
 
   (lock
     [pool-context]

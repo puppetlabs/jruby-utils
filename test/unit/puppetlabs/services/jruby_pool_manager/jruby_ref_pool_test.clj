@@ -2,7 +2,9 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
             [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
-            [puppetlabs.services.protocols.jruby-pool :as pool-protocol])
+            [puppetlabs.services.protocols.jruby-pool :as pool-protocol]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-pool-manager-core :as jruby-pool-manager-core]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-agents :as jruby-agents])
   (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas ShutdownPoisonPill)))
 
 (defn jruby-test-config
@@ -131,3 +133,38 @@
             pill (ShutdownPoisonPill. pool)]
         ; Returning a pill should be a noop
         (jruby-core/return-to-pool pool-context pill :test [])))))
+
+(deftest shutdown-prevents-flush
+  (testing "Triggering a flush after shutdown has been requested does not break shutdown"
+    (let [config (jruby-test-config 0 2)
+          ;; Set up the pool manually, since we trigger a shutdown in this test,
+          ;; and the macro would also try to shutdown. It's not a valid operation
+          ;; to shutdown twice.
+          pool-context (jruby-pool-manager-core/create-pool-context config)
+          _ (jruby-agents/prime-pool! pool-context)
+          pool (jruby-core/get-pool pool-context)
+          _ (jruby-testutils/wait-for-jrubies-from-pool-context pool-context)
+          ;; Set up test
+          instance (pool-protocol/borrow pool-context)
+          shutdown-complete? (promise)
+          _ (future
+              (pool-protocol/shutdown pool-context)
+              (deliver shutdown-complete? true))
+          _ (jruby-testutils/wait-for-pool-to-be-locked pool)
+          ;; When the shutdown inserts the pill, it should interrupt the
+          ;; pending lock from the flush. So we catch that exception and return it.
+          flush-thread (future
+                         (try (pool-protocol/flush-pool pool-context)
+                              (catch InterruptedException e
+                                e)))]
+      ;; Shutdown should be blocked because an instance has been borrowed
+      (is (not (realized? shutdown-complete?)))
+      (is (not (realized? flush-thread)))
+      (pool-protocol/return pool-context instance)
+      @shutdown-complete?
+      (let [exception @flush-thread]
+        (is (= InterruptedException (type exception)))
+        (is (= "Lock can't be granted because a pill has been inserted"
+               (.getMessage exception)))))))
+
+
