@@ -7,7 +7,8 @@
             [puppetlabs.i18n.core :as i18n]
             [schema.core :as schema])
   (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas ReferencePool
-                                                                 JRubyInstance)))
+                                                                 JRubyInstance)
+           (java.util.concurrent TimeUnit TimeoutException)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Private
@@ -41,15 +42,21 @@
   [pool-context :- jruby-schemas/PoolContext
    instance :- JRubyInstance]
   (let [borrow-count (:borrow-count pool-context)
-        max-borrows (get-in instance [:internal :max-borrows])]
-    (pool-protocol/lock pool-context)
+        max-borrows (get-in instance [:internal :max-borrows])
+        flush-timeout (jruby-internal/get-flush-timeout pool-context)]
     (try
-      ;; Now that we've successfully acquired the lock, check the borrows again
-      ;; to make sure the pool wasn't flushed while we were waiting.
-      (when (max-borrows-exceeded @borrow-count max-borrows)
-        (flush-pool* pool-context))
-      (finally
-        (pool-protocol/unlock pool-context)))))
+      ;; Lock will block until all references have been returned to the pool or
+      ;; until flush-timeout is reached
+      (pool-protocol/lock-with-timeout pool-context flush-timeout TimeUnit/MILLISECONDS)
+      (try
+        ;; Now that we've successfully acquired the lock, check the borrows again
+        ;; to make sure the pool wasn't flushed while we were waiting.
+        (when (max-borrows-exceeded @borrow-count max-borrows)
+          (flush-pool* pool-context))
+        (finally
+          (pool-protocol/unlock pool-context)))
+      (catch TimeoutException e
+        (log/warn (i18n/trs "Max borrows reached, but JRubyPool could not be flushed because lock could not be acquired. Will try again later."))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ReferencePool definition
@@ -66,9 +73,13 @@
   (shutdown
     [pool-context]
     (let [pool (jruby-internal/get-pool pool-context)
-          cleanup-fn (get-in pool-context [:config :lifecycle :cleanup])]
+          cleanup-fn (get-in pool-context [:config :lifecycle :cleanup])
+          flush-timeout (jruby-internal/get-flush-timeout pool-context)]
       ;; Lock the pool so no borrows or flushes can occur while we're shutting down
-      (pool-protocol/lock pool-context)
+      (try
+        (pool-protocol/lock-with-timeout pool-context flush-timeout TimeUnit/MILLISECONDS)
+        (catch TimeoutException e
+          (jruby-internal/throw-jruby-lock-timeout e)))
       (try
         (let [instance (.borrowItem pool)
               _ (.releaseItem pool instance)]
@@ -118,10 +129,14 @@
 
   (flush-pool
     [pool-context]
-    (pool-protocol/lock pool-context)
-    (try
-      (flush-pool* pool-context)
-      (finally
-        (pool-protocol/unlock pool-context)))))
-
-
+    (let [flush-timeout (jruby-internal/get-flush-timeout pool-context)]
+    ;; Lock will block until all references have been returned to the pool or
+    ;; until flush-timeout is reached
+      (try
+        (pool-protocol/lock-with-timeout pool-context flush-timeout TimeUnit/MILLISECONDS)
+        (catch TimeoutException e
+          (jruby-internal/throw-jruby-lock-timeout e)))
+      (try
+        (flush-pool* pool-context)
+        (finally
+          (pool-protocol/unlock pool-context))))))
