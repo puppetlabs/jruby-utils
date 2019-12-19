@@ -1,13 +1,13 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR Puppet <docs@puppet.com>
-# This file is distributed under the same license as the PACKAGE package.
+# This file is distributed under the same license as the puppetlabs.jruby_utils package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.jruby_utils \n"
-"X-Git-Ref: d34f8b72598fa3b5cb145e59c505bb6e5a12a58d\n"
+"X-Git-Ref: 2f5897fa01123f5d930c9e07ae93e8bfacd17811\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -41,10 +41,6 @@ msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
 msgid "There was a problem borrowing a JRubyInstance from the pool."
-msgstr ""
-
-#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
-msgid "An attempt to lock the JRubyPool failed with a timeout"
 msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_agents.clj
@@ -113,6 +109,10 @@ msgid "Borrowed unrecognized object from pool!: {0}"
 msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
+msgid "An attempt to lock the JRubyPool failed with a timeout"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/jruby_internal.clj
 msgid "Exception raised while generating thread dump"
 msgstr ""
 
@@ -124,6 +124,12 @@ msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/impl/reference_pool.clj
 msgid "Finished creating JRuby instance with id {0}"
+msgstr ""
+
+#: src/clj/puppetlabs/services/jruby_pool_manager/impl/reference_pool.clj
+msgid ""
+"Max borrows reached, but JRubyPool could not be flushed because lock could "
+"not be acquired. Will try again later."
 msgstr ""
 
 #: src/clj/puppetlabs/services/jruby_pool_manager/jruby_core.clj
