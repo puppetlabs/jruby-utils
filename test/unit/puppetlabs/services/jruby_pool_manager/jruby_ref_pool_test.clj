@@ -157,7 +157,7 @@
       (jruby-test-config 2 1 {:flush-timeout 0})
       ;; Borrow an instance so that the lock can't be acquired
       (let [instance (pool-protocol/borrow pool-context)]
-        (is (thrown+? [:kind :puppetlabs.services.jruby-pool-manager.impl.reference-pool/jruby-lock-timeout
+        (is (thrown+? [:kind :puppetlabs.services.jruby-pool-manager.impl.jruby-internal/jruby-lock-timeout
                        :msg "An attempt to lock the JRubyPool failed with a timeout"]
                       (pool-protocol/flush-pool pool-context)))
         ;; Return the instance so that shutdown can proceed (otherwise this hangs)
@@ -224,6 +224,6 @@
           _ (jruby-testutils/wait-for-jrubies-from-pool-context pool-context)]
       ;; Borrow an instance so that the lock can't be acquired
       (pool-protocol/borrow pool-context)
-      (is (thrown+? [:kind :puppetlabs.services.jruby-pool-manager.impl.reference-pool/jruby-lock-timeout
+      (is (thrown+? [:kind :puppetlabs.services.jruby-pool-manager.impl.jruby-internal/jruby-lock-timeout
                      :msg "An attempt to lock the JRubyPool failed with a timeout"]
                     (pool-protocol/shutdown pool-context))))))

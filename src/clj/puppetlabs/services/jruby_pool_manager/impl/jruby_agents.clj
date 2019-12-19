@@ -4,8 +4,7 @@
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
-            [puppetlabs.i18n.core :as i18n]
-            [slingshot.slingshot :as sling])
+            [puppetlabs.i18n.core :as i18n])
   (:import (clojure.lang IFn IDeref)
            (puppetlabs.services.jruby_pool_manager.jruby_schemas PoisonPill JRubyInstance)
            (java.util.concurrent TimeUnit TimeoutException)))
@@ -128,9 +127,7 @@
     (try
       (.lockWithTimeout pool flush-timeout TimeUnit/MILLISECONDS)
       (catch TimeoutException e
-        (sling/throw+ {:kind ::jruby-lock-timeout
-                       :msg (i18n/trs "An attempt to lock the JRubyPool failed with a timeout")}
-                      e)))
+        (jruby-internal/throw-jruby-lock-timeout e)))
 
     ; Bit of a hack to work around shutdown-on-error behavior:
     ; shutdown-on-error will either return the jrubies as expected,

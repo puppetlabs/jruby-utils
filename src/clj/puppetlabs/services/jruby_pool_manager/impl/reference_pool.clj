@@ -5,7 +5,6 @@
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
             [clojure.tools.logging :as log]
             [puppetlabs.i18n.core :as i18n]
-            [slingshot.slingshot :as sling]
             [schema.core :as schema])
   (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas ReferencePool
                                                                  JRubyInstance)
@@ -80,9 +79,7 @@
       (try
         (pool-protocol/lock-with-timeout pool-context flush-timeout TimeUnit/MILLISECONDS)
         (catch TimeoutException e
-          (sling/throw+ {:kind ::jruby-lock-timeout
-                         :msg (i18n/trs "An attempt to lock the JRubyPool failed with a timeout")}
-                        e)))
+          (jruby-internal/throw-jruby-lock-timeout e)))
       (try
         (let [instance (.borrowItem pool)
               _ (.releaseItem pool instance)]
@@ -138,9 +135,7 @@
       (try
         (pool-protocol/lock-with-timeout pool-context flush-timeout TimeUnit/MILLISECONDS)
         (catch TimeoutException e
-          (sling/throw+ {:kind ::jruby-lock-timeout
-                         :msg (i18n/trs "An attempt to lock the JRubyPool failed with a timeout")}
-                        e)))
+          (jruby-internal/throw-jruby-lock-timeout e)))
       (try
         (flush-pool* pool-context)
         (finally

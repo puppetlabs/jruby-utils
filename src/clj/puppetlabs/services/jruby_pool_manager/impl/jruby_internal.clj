@@ -8,6 +8,7 @@
             [me.raynes.fs :as fs]
             [puppetlabs.i18n.core :as i18n]
             [puppetlabs.services.jruby-pool-manager.jruby-schemas :as jruby-schemas]
+            [slingshot.slingshot :as sling]
             [schema.core :as schema])
   (:import (clojure.lang IFn)
            (com.puppetlabs.jruby_utils.pool JRubyPool ReferencePool)
@@ -345,6 +346,12 @@
   {:pre  [(>= timeout 0)]}
   (borrow-from-pool!* (partial borrow-with-timeout-fn timeout)
                       (get-pool pool-context)))
+
+(defn throw-jruby-lock-timeout
+  [exception]
+  (sling/throw+ {:kind ::jruby-lock-timeout
+                 :msg (i18n/trs "An attempt to lock the JRubyPool failed with a timeout")}
+                 exception))
 
 (schema/defn ^:always-validate
   get-instance-thread-dump
