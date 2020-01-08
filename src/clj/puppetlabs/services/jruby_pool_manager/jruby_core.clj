@@ -72,7 +72,7 @@
   "Returns the number of JRubyInstances available in the pool."
   [pool :- jruby-schemas/pool-queue-type]
   {:post [(>= % 0)]}
-  (.availableJRubies pool))
+  (.currentSize pool))
 
 (schema/defn ^:always-validate
   get-instance-state :- jruby-schemas/JRubyInstanceState
