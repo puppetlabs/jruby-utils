@@ -122,7 +122,12 @@ public interface LockablePool<E> {
      */
     int currentSize();
 
-   /**
+    /**
+     * Returns the number of available (i.e. unused) JRuby instances in the pool.
+     */
+    int availableJRubies();
+
+    /**
     * Lock the pool. This method should make the following guarantees:
     *
     *  a) blocks until all registered elements are returned to the pool
