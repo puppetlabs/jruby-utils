@@ -323,15 +323,6 @@ public final class ReferencePool<E> implements LockablePool<E> {
         return size;
     }
 
-    @Override
-    public int availableJRubies() {
-        if (this.currentBorrowCount.get() == 0) {
-            return 1;
-        } else {
-            return 0;
-        }
-    }
-
     /**
      * Lock the pool. Blocks until the lock is granted and the pool has been filled
      * back up to its full capacity

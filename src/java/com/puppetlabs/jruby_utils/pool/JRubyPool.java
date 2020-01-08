@@ -308,11 +308,6 @@ public final class JRubyPool<E> implements LockablePool<E> {
         return size;
     }
 
-    @Override
-    public int availableJRubies() {
-        return currentSize();
-    }
-
     /**
      * Lock the pool. Blocks until the lock is granted and the pool has been filled
      * back up to its full capacity
