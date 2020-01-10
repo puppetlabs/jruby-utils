@@ -25,18 +25,20 @@
 
   (borrow
     [pool-context]
-    "Returns a reference to a JRuby instance. Will block if the pool is locked or no instances
-    are available.")
+    "Returns a reference to a JRuby instance and a worker id (instance id or thread id).
+    Will block if the pool is locked or no instances are available.")
 
 
   (borrow-with-timeout
     [pool-context timeout]
-    "Returns a reference to a JRuby instance. Will block if the pool is locked or no instances
-    are available, timing out when the supplied number of milliseconds has elapsed.")
+    "Returns a reference to a JRuby instance and a worker id (instance id or thread id).
+    Will block if the pool is locked or no instances are available, timing out when the
+    supplied number of milliseconds has elapsed.")
 
   (return
     [pool-context instance]
-    "Releases a held reference to a JRuby instance back to the pool. If `max-requests-per-instance`
+    "Releases a held reference to a JRuby instance back to the pool and returns the worker id
+    (instance id or thread id) for the thing being returned. If `max-requests-per-instance`
     is configured and has been reached for this instance, this function will trigger a flush of
     the instance. Note that when using the ReferencePool, this will also cause the pool to be locked.
 

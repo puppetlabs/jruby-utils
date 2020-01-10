@@ -198,6 +198,10 @@
                         shutdown-poison-pill?
                         jruby-instance?)))
 
+(def JRubyWorkerId
+  (schema/pred (some-fn nil?
+                        (partial instance? Long))))
+
 (def JRubyMain
   (schema/pred jruby-main-instance?))
 
@@ -261,12 +265,14 @@
   {:type (schema/eq :instance-borrowed)
    :reason JRubyEventReason
    :requested-event JRubyRequestedEvent
-   :instance JRubyBorrowResult})
+   :instance JRubyBorrowResult
+   :worker-id JRubyWorkerId})
 
 (def JRubyReturnedEvent
   {:type (schema/eq :instance-returned)
    :reason JRubyEventReason
-   :instance JRubyInstanceOrPill})
+   :instance JRubyInstanceOrPill
+   :worker-id JRubyWorkerId})
 
 (def JRubyLockRequestedEvent
   {:type (schema/eq :lock-requested)

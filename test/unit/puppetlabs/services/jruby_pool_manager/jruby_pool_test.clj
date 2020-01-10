@@ -220,6 +220,16 @@
    (jruby-testutils/jruby-config {:max-active-instances max-instances
                                   :max-borrows-per-instance max-borrows})))
 
+(deftest worker-id-persists
+  (testing "worker id is the same at borrow time and return time"
+    (jruby-testutils/with-pool-context
+      pool-context
+      jruby-testutils/default-services
+      (jruby-test-config 2)
+      (let [[instance borrowed-id] (pool-protocol/borrow pool-context)
+            returned-id (pool-protocol/return pool-context instance)]
+        (is (= borrowed-id returned-id))))))
+
 (deftest splay-jruby-instance-flushing
   (testing "Disabled JRuby instance splaying -"
     (jruby-testutils/with-pool-context

@@ -36,11 +36,15 @@
 
   (borrow
     [pool-context]
-    (jruby-internal/borrow-from-pool pool-context))
+    (let [instance (jruby-internal/borrow-from-pool pool-context)
+          worker-id (:id instance)]
+      [instance worker-id]))
 
   (borrow-with-timeout
     [pool-context timeout]
-    (jruby-internal/borrow-from-pool-with-timeout pool-context timeout))
+    (let [instance (jruby-internal/borrow-from-pool-with-timeout pool-context timeout)
+          worker-id (:id instance)]
+      [instance worker-id]))
 
   (return
     [pool-context instance]
@@ -48,16 +52,19 @@
       (let [new-state (swap! (jruby-internal/get-instance-state-container instance)
                              #(update-in % [:borrow-count] inc))
             {:keys [initial-borrows max-borrows pool]} (:internal instance)
-            borrow-limit (or initial-borrows max-borrows)]
+            borrow-limit (or initial-borrows max-borrows)
+            worker-id (:id instance)]
         (if (and (pos? borrow-limit)
                  (>= (:borrow-count new-state) borrow-limit))
           (do
             (log/info
                 (i18n/trs "Flushing JRubyInstance {0} because it has exceeded its borrow limit of {1}"
-                          (:id instance)
+                          worker-id
                           borrow-limit))
             (jruby-agents/send-flush-instance! pool-context instance))
-          (.releaseItem pool instance)))))
+          (.releaseItem pool instance))
+        ;; Return the worker-id, to be used in metrics and event logging
+        worker-id)))
 
   (flush-pool
     [pool-context]

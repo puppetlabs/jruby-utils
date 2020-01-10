@@ -108,11 +108,15 @@
 
   (borrow
     [pool-context]
-    (jruby-internal/borrow-from-pool pool-context))
+    (let [instance (jruby-internal/borrow-from-pool pool-context)
+          worker-id (.getId (Thread/currentThread))]
+      [instance worker-id]))
 
   (borrow-with-timeout
     [pool-context timeout]
-    (jruby-internal/borrow-from-pool-with-timeout pool-context timeout))
+    (let [instance (jruby-internal/borrow-from-pool-with-timeout pool-context timeout)
+          worker-id (.getId (Thread/currentThread))]
+      [instance worker-id]))
 
   (return
     [pool-context instance]
@@ -125,7 +129,9 @@
         (swap! borrow-count inc)
         (when (max-borrows-exceeded @borrow-count max-borrows)
           (jruby-agents/send-agent modify-instance-agent
-                                   #(flush-if-at-max-borrows pool-context instance))))))
+                                   #(flush-if-at-max-borrows pool-context instance)))
+        ;; Return the worker-id, to be used in metrics and event logging
+        (.getId (Thread/currentThread)))))
 
   (flush-pool
     [pool-context]
