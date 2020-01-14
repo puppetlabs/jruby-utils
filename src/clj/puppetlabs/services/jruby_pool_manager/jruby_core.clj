@@ -220,8 +220,8 @@
   (let [timeout (get-in pool-context [:config :borrow-timeout])
         requested-event (jruby-events/instance-requested event-callbacks reason)
         [instance worker-id] (pool-protocol/borrow-with-timeout
-                          pool-context
-                          timeout)]
+                               pool-context
+                               timeout)]
     (jruby-events/instance-borrowed event-callbacks requested-event instance worker-id)
     instance))
 
