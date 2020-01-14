@@ -32,8 +32,7 @@
       (let [[instance borrowed-id] (pool-protocol/borrow pool-context)
             returned-id (pool-protocol/return pool-context instance)]
         (is (= (.getId (Thread/currentThread)) borrowed-id))
-        (is (= (.getId (Thread/currentThread)) returned-id))
-        (is (= borrowed-id returned-id))))))
+        (is (= (.getId (Thread/currentThread)) returned-id))))))
 
 (deftest borrow-while-no-instances-available-test
   (testing "when all instances are in use, borrow blocks until an instance becomes available"
