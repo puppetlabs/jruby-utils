@@ -23,6 +23,17 @@
                                           :max-borrows-per-instance max-borrows}
                                          options))))
 
+(deftest worker-id-persists
+  (testing "worker id is the same at borrow time and return time"
+    (jruby-testutils/with-pool-context
+      pool-context
+      jruby-testutils/default-services
+      (jruby-test-config 2)
+      (let [[instance borrowed-id] (pool-protocol/borrow pool-context)
+            returned-id (pool-protocol/return pool-context instance)]
+        (is (= (.getId (Thread/currentThread)) borrowed-id))
+        (is (= (.getId (Thread/currentThread)) returned-id))))))
+
 (deftest borrow-while-no-instances-available-test
   (testing "when all instances are in use, borrow blocks until an instance becomes available"
     (let [pool-size 2]
@@ -135,8 +146,8 @@
       (jruby-test-config 1 2 {:flush-timeout 1})
       ;; Borrow instance1 so we can trigger a refresh when we return it
       ;; Borrow instance2 to prevent lock from being acquired when we return instance1
-      (let [instance1 (pool-protocol/borrow pool-context)
-            instance2 (pool-protocol/borrow pool-context)
+      (let [instance1 (first (pool-protocol/borrow pool-context))
+            instance2 (first (pool-protocol/borrow pool-context))
             flush-complete (add-watch-for-flush-complete pool-context)]
         (logutils/with-test-logging
           ;; Return to trigger flush, which should block since instance2 is still borrowed
@@ -156,7 +167,7 @@
       jruby-testutils/default-services
       (jruby-test-config 2 1 {:flush-timeout 0})
       ;; Borrow an instance so that the lock can't be acquired
-      (let [instance (pool-protocol/borrow pool-context)]
+      (let [instance (first (pool-protocol/borrow pool-context))]
         (is (thrown+? [:kind :puppetlabs.services.jruby-pool-manager.impl.jruby-internal/jruby-lock-timeout
                        :msg "An attempt to lock the JRubyPool failed with a timeout"]
                       (pool-protocol/flush-pool pool-context)))
@@ -190,7 +201,7 @@
           pool (jruby-core/get-pool pool-context)
           _ (jruby-testutils/wait-for-jrubies-from-pool-context pool-context)
           ;; Set up test
-          instance (pool-protocol/borrow pool-context)
+          instance (first (pool-protocol/borrow pool-context))
           shutdown-complete? (promise)
           _ (future
               (pool-protocol/shutdown pool-context)

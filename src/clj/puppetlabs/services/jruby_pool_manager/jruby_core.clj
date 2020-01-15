@@ -200,8 +200,8 @@
    reason :- schema/Any
    event-callbacks :- [IFn]]
   (let [requested-event (jruby-events/instance-requested event-callbacks reason)
-        instance (pool-protocol/borrow pool-context)]
-    (jruby-events/instance-borrowed event-callbacks requested-event instance)
+        [instance worker-id] (pool-protocol/borrow pool-context)]
+    (jruby-events/instance-borrowed event-callbacks requested-event instance worker-id)
     instance))
 
 ;; TODO: consider adding a second arity that allows for passing in a
@@ -219,10 +219,10 @@
    event-callbacks :- [IFn]]
   (let [timeout (get-in pool-context [:config :borrow-timeout])
         requested-event (jruby-events/instance-requested event-callbacks reason)
-        instance (pool-protocol/borrow-with-timeout
-                   pool-context
-                   timeout)]
-    (jruby-events/instance-borrowed event-callbacks requested-event instance)
+        [instance worker-id] (pool-protocol/borrow-with-timeout
+                               pool-context
+                               timeout)]
+    (jruby-events/instance-borrowed event-callbacks requested-event instance worker-id)
     instance))
 
 (schema/defn ^:always-validate
@@ -232,8 +232,8 @@
    instance :- jruby-schemas/JRubyInstanceOrPill
    reason :- schema/Any
    event-callbacks :- [IFn]]
-  (jruby-events/instance-returned event-callbacks instance reason)
-  (pool-protocol/return pool-context instance))
+  (let [worker-id (pool-protocol/return pool-context instance)]
+    (jruby-events/instance-returned event-callbacks instance reason worker-id)))
 
 (schema/defn ^:always-validate
   flush-pool!

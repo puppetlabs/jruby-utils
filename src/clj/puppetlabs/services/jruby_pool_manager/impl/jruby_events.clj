@@ -13,18 +13,22 @@
 
 (schema/defn create-borrowed-event :- jruby-schemas/JRubyBorrowedEvent
              [requested-event :- jruby-schemas/JRubyRequestedEvent
-              instance :- jruby-schemas/JRubyBorrowResult]
+              instance :- jruby-schemas/JRubyBorrowResult
+              worker-id :- jruby-schemas/JRubyWorkerId]
              {:type :instance-borrowed
               :reason (:reason requested-event)
               :requested-event requested-event
-              :instance instance})
+              :instance instance
+              :worker-id worker-id})
 
 (schema/defn create-returned-event :- jruby-schemas/JRubyReturnedEvent
              [instance :- jruby-schemas/JRubyInstanceOrPill
-              reason :- jruby-schemas/JRubyEventReason]
+              reason :- jruby-schemas/JRubyEventReason
+              worker-id :- jruby-schemas/JRubyWorkerId]
              {:type :instance-returned
               :reason reason
-              :instance instance})
+              :instance instance
+              :worker-id worker-id})
 
 (schema/defn create-lock-requested-event :- jruby-schemas/JRubyLockRequestedEvent
              [reason :- jruby-schemas/JRubyEventReason]
@@ -59,14 +63,16 @@
 (schema/defn instance-borrowed :- jruby-schemas/JRubyBorrowedEvent
              [event-callbacks :- [IFn]
               requested-event :- jruby-schemas/JRubyRequestedEvent
-              instance :- jruby-schemas/JRubyBorrowResult]
-             (notify-event-listeners event-callbacks (create-borrowed-event requested-event instance)))
+              instance :- jruby-schemas/JRubyBorrowResult
+              worker-id :- jruby-schemas/JRubyWorkerId]
+             (notify-event-listeners event-callbacks (create-borrowed-event requested-event instance worker-id)))
 
 (schema/defn instance-returned :- jruby-schemas/JRubyReturnedEvent
              [event-callbacks :- [IFn]
               instance :- jruby-schemas/JRubyInstanceOrPill
-              reason :- jruby-schemas/JRubyEventReason]
-             (notify-event-listeners event-callbacks (create-returned-event instance reason)))
+              reason :- jruby-schemas/JRubyEventReason
+              worker-id :- jruby-schemas/JRubyWorkerId]
+             (notify-event-listeners event-callbacks (create-returned-event instance reason worker-id)))
 
 (schema/defn lock-requested :- jruby-schemas/JRubyLockRequestedEvent
              [event-callbacks :- [IFn]
