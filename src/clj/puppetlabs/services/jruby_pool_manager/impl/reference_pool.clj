@@ -106,17 +106,19 @@
     (let [pool (jruby-internal/get-pool pool-context)]
       (.unlock pool)))
 
+  (worker-id
+    [pool-context instance]
+    (.getId (Thread/currentThread)))
+
   (borrow
     [pool-context]
-    (let [instance (jruby-internal/borrow-from-pool pool-context)
-          worker-id (.getId (Thread/currentThread))]
-      [instance worker-id]))
+    (let [instance (jruby-internal/borrow-from-pool pool-context)]
+      [instance (pool-protocol/worker-id pool-context instance)]))
 
   (borrow-with-timeout
     [pool-context timeout]
-    (let [instance (jruby-internal/borrow-from-pool-with-timeout pool-context timeout)
-          worker-id (.getId (Thread/currentThread))]
-      [instance worker-id]))
+    (let [instance (jruby-internal/borrow-from-pool-with-timeout pool-context timeout)]
+      [instance (pool-protocol/worker-id pool-context instance)]))
 
   (return
     [pool-context instance]
@@ -131,7 +133,7 @@
           (jruby-agents/send-agent modify-instance-agent
                                    #(flush-if-at-max-borrows pool-context instance)))
         ;; Return the worker-id, to be used in metrics and event logging
-        (.getId (Thread/currentThread)))))
+        (pool-protocol/worker-id pool-context instance))))
 
   (flush-pool
     [pool-context]

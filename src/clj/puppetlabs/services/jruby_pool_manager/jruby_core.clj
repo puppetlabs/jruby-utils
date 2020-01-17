@@ -232,8 +232,9 @@
    instance :- jruby-schemas/JRubyInstanceOrPill
    reason :- schema/Any
    event-callbacks :- [IFn]]
-  (let [worker-id (pool-protocol/return pool-context instance)]
-    (jruby-events/instance-returned event-callbacks instance reason worker-id)))
+  (let [worker-id (pool-protocol/worker-id pool-context instance)]
+    (jruby-events/instance-returned event-callbacks instance reason worker-id)
+    (pool-protocol/return pool-context instance)))
 
 (schema/defn ^:always-validate
   flush-pool!
