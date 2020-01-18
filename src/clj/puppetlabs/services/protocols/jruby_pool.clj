@@ -23,6 +23,10 @@
     [pool-context]
     "Unlocks the JRuby pool, allowing borrows to proceed.")
 
+  (worker-id
+    [pool-context instance]
+    "Returns the worker id for given instance (instance id or thread id).")
+
   (borrow
     [pool-context]
     "Returns a reference to a JRuby instance and a worker id (instance id or thread id).

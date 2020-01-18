@@ -34,17 +34,19 @@
     (let [pool (jruby-internal/get-pool pool-context)]
       (.unlock pool)))
 
+  (worker-id
+    [pool-context instance]
+    (:id instance))
+
   (borrow
     [pool-context]
-    (let [instance (jruby-internal/borrow-from-pool pool-context)
-          worker-id (:id instance)]
-      [instance worker-id]))
+    (let [instance (jruby-internal/borrow-from-pool pool-context)]
+      [instance (pool-protocol/worker-id pool-context instance)]))
 
   (borrow-with-timeout
     [pool-context timeout]
-    (let [instance (jruby-internal/borrow-from-pool-with-timeout pool-context timeout)
-          worker-id (:id instance)]
-      [instance worker-id]))
+    (let [instance (jruby-internal/borrow-from-pool-with-timeout pool-context timeout)]
+      [instance (pool-protocol/worker-id pool-context instance)]))
 
   (return
     [pool-context instance]
@@ -53,7 +55,7 @@
                              #(update-in % [:borrow-count] inc))
             {:keys [initial-borrows max-borrows pool]} (:internal instance)
             borrow-limit (or initial-borrows max-borrows)
-            worker-id (:id instance)]
+            worker-id (pool-protocol/worker-id pool-context instance)]
         (if (and (pos? borrow-limit)
                  (>= (:borrow-count new-state) borrow-limit))
           (do
