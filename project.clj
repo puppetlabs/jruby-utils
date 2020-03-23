@@ -1,4 +1,4 @@
-(defproject puppetlabs/jruby-utils "3.0.5-SNAPSHOT"
+(defproject puppetlabs/jruby-utils "3.1.0-SNAPSHOT"
   :description "A library for working with JRuby"
   :url "https://github.com/puppetlabs/jruby-utils"
   :license {:name "Apache License, Version 2.0"
@@ -23,7 +23,7 @@
                  [slingshot]
 
                  [org.yaml/snakeyaml "1.23"]
-                 [puppetlabs/jruby-deps "9.2.8.0-1"]
+                 [puppetlabs/jruby-deps "9.2.11.0-1"]
 
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
@@ -43,6 +43,7 @@
 
   :profiles {:dev {:dependencies  [[puppetlabs/kitchensink :classifier "test" :scope "test"]
                                    [puppetlabs/trapperkeeper :classifier "test" :scope "test"]
+                                   [org.bouncycastle/bcpkix-jdk15on]
                                    [org.tcrawley/dynapath]]
                    :jvm-opts ["-Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger"
                               "-Xms1G"
