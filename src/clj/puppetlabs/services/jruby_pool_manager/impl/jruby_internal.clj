@@ -101,6 +101,7 @@
       (.setCompileMode (get-compile-mode compile-mode)))
     (set-ruby-encoding KCode/UTF8 jruby)
     (setup-profiling jruby profiler-output-file profiling-mode)
+    (System/setProperty "jruby.invokedynamic.yield" "false")
     (initialize-scripting-container-fn jruby config)))
 
 (schema/defn ^:always-validate empty-scripting-container :- ScriptingContainer
