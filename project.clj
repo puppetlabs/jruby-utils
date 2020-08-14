@@ -1,4 +1,4 @@
-(defproject puppetlabs/jruby-utils "3.1.5-SNAPSHOT"
+(defproject puppetlabs/jruby-utils "3.2.0-SNAPSHOT"
   :description "A library for working with JRuby"
   :url "https://github.com/puppetlabs/jruby-utils"
   :license {:name "Apache License, Version 2.0"
@@ -23,7 +23,7 @@
                  [slingshot]
 
                  [org.yaml/snakeyaml "1.23"]
-                 [puppetlabs/jruby-deps "9.2.11.1-1"]
+                 [puppetlabs/jruby-deps "9.2.13.0-1"]
 
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
