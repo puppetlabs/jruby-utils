@@ -184,6 +184,10 @@
   [config :- jruby-schemas/JRubyConfig]
   (let [multithreaded (:multithreaded config)
         size (:max-active-instances config)]
+    (when (< size 1)
+      (throw (Exception.
+              (i18n/trs "Invalid pool size: {0}. Pool size must be at least 1."
+                        size))))
     (if multithreaded
       {:pool (instantiate-reference-pool size)
        :size 1}
