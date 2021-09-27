@@ -255,11 +255,11 @@
   [pool-context :- jruby-schemas/PoolContext
    reason :- schema/Any
    event-callbacks :- [IFn]]
-  (log/debug (i18n/trs "Acquiring lock on JRubyPool..."))
+  (log/info (i18n/trs "Acquiring lock on JRubyPool..."))
   (jruby-events/lock-requested event-callbacks reason)
   (pool-protocol/lock pool-context)
   (jruby-events/lock-acquired event-callbacks reason)
-  (log/debug (i18n/trs "Lock acquired")))
+  (log/info (i18n/trs "Lock acquired")))
 
 (schema/defn ^:always-validate
   lock-pool-with-timeout
@@ -270,11 +270,11 @@
    timeout-ms :- schema/Int
    reason :- schema/Any
    event-callbacks :- [IFn]]
-  (log/debug (i18n/trs "Acquiring lock on JRubyPool..."))
+  (log/info (i18n/trs "Acquiring lock on JRubyPool..."))
   (jruby-events/lock-requested event-callbacks reason)
   (pool-protocol/lock-with-timeout pool-context timeout-ms TimeUnit/MILLISECONDS)
   (jruby-events/lock-acquired event-callbacks reason)
-  (log/debug (i18n/trs "Lock acquired")))
+  (log/info (i18n/trs "Lock acquired")))
 
 (schema/defn ^:always-validate
   unlock-pool
@@ -284,7 +284,7 @@
    event-callbacks :- [IFn]]
   (pool-protocol/unlock pool-context)
   (jruby-events/lock-released event-callbacks reason)
-  (log/debug (i18n/trs "Lock on JRubyPool released")))
+  (log/info (i18n/trs "Lock on JRubyPool released")))
 
 (schema/defn ^:always-validate cli-ruby! :- jruby-schemas/JRubyMainStatus
   "Run JRuby as though native `ruby` were invoked with args on the CLI"
