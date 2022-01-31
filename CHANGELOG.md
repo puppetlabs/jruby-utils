@@ -1,3 +1,12 @@
+### 2.3.2
+
+* Pin jnr-posix to 3.1.8 to avoid a CVE
+* Log pool lock events at INFO
+
+### 2.3.1
+
+* Update JRuby to 9.2.17.0
+
 ### 2.3.0 2019-11-04
 
 * Update JRuby to 9.2.8.0
