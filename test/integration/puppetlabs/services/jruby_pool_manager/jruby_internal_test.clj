@@ -97,14 +97,14 @@
           _ (-> (:scripting-container instance)
                 (.runScriptlet (StringReader.
                                 "def naptime
-                                  Kernel.sleep(1)
-                                end
+                                   Kernel.sleep(1)
+                                 end
 
                                 Thread.new {naptime}")
                                "jruby-thread-dump.rb"))
           result (jruby-internal/get-instance-thread-dump instance)]
       (is (some? (:thread-dump result)))
-      (is (re-find #"naptime at jruby-thread-dump\.rb" (:thread-dump result)))))
+      (is (re-find #"jruby-thread-dump\.rb" (:thread-dump result)))))
   (testing "returns an error if an exception is raised"
     (.force Options/MANAGEMENT_ENABLED "true")
     (let [pool (JRubyPool. 1)
