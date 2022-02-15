@@ -21,7 +21,7 @@ jobs:
       with:
         snykToken: ${{ secrets.SNYK_PE_TOKEN }}
         rproxyKey: ${{ secrets.SEC_PUBLIC_RPROXY_KEY }}
-        snykOrg: 'puppet-foss'
+        snykOrg: 'puppet-enterprise'
         snykProject: 'jruby-utils'
     - name: Check output
       if: steps.scan.outputs.vulns != ''
