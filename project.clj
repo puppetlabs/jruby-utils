@@ -5,7 +5,7 @@
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
 
   :min-lein-version "2.9.1"
-  :parent-project {:coords [puppetlabs/clj-parent "4.9.2"]
+  :parent-project {:coords [puppetlabs/clj-parent "4.10.1"]
                    :inherit [:managed-dependencies]}
 
   :pedantic? :abort
