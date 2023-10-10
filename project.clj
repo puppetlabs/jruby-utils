@@ -1,11 +1,11 @@
-(defproject puppetlabs/jruby-utils "4.0.3"
+(defproject puppetlabs/jruby-utils "4.1.0-SNAPSHOT"
   :description "A library for working with JRuby"
   :url "https://github.com/puppetlabs/jruby-utils"
   :license {:name "Apache License, Version 2.0"
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
 
   :min-lein-version "2.9.1"
-  :parent-project {:coords [puppetlabs/clj-parent "4.10.1"]
+  :parent-project {:coords [puppetlabs/clj-parent "5.6.3"]
                    :inherit [:managed-dependencies]}
 
   :pedantic? :abort
@@ -22,7 +22,7 @@
                  [prismatic/schema]
                  [slingshot]
 
-                 [puppetlabs/jruby-deps "9.3.9.0-1"]
+                 [puppetlabs/jruby-deps "9.3.11.0-1"]
 
                  [puppetlabs/i18n]
                  [puppetlabs/kitchensink]
@@ -42,7 +42,7 @@
 
   :profiles {:dev {:dependencies  [[puppetlabs/kitchensink :classifier "test" :scope "test"]
                                    [puppetlabs/trapperkeeper :classifier "test" :scope "test"]
-                                   [org.bouncycastle/bcpkix-jdk15on]
+                                   [org.bouncycastle/bcpkix-jdk18on]
                                    [org.tcrawley/dynapath]]
                    :jvm-opts ["-Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger"
                               "-Xms1G"
