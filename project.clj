@@ -5,7 +5,7 @@
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
 
   :min-lein-version "2.9.1"
-  :parent-project {:coords [puppetlabs/clj-parent "4.10.1"]
+  :parent-project {:coords [puppetlabs/clj-parent "5.6.3"]
                    :inherit [:managed-dependencies]}
 
   :pedantic? :abort
@@ -42,7 +42,7 @@
 
   :profiles {:dev {:dependencies  [[puppetlabs/kitchensink :classifier "test" :scope "test"]
                                    [puppetlabs/trapperkeeper :classifier "test" :scope "test"]
-                                   [org.bouncycastle/bcpkix-jdk15on]
+                                   [org.bouncycastle/bcpkix-jdk18on]
                                    [org.tcrawley/dynapath]]
                    :jvm-opts ["-Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger"
                               "-Xms1G"
