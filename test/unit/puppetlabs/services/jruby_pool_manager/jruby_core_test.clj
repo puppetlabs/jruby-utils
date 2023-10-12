@@ -84,28 +84,30 @@
         (is (= 0 exit-code))
         ; The choice of json is arbitrary, just need something to scan for
         (is (re-find #"\bjson\b" out))))
-    (testing "irb"
-      (let [m (capture-out
-                (with-stdin-str "puts %{HELLO}\n"
-                  (jruby-core/cli-run! min-config "irb" ["-f"])))
-            {:keys [return out]} m
-            exit-code (.getStatus return)]
-        (is (= 0 exit-code))
-        (is (re-find #"\nHELLO\n" out)))
-      (let [m (capture-out
-                (with-stdin-str "Kernel.exit(42)\n"
-                  (jruby-core/cli-run! min-config "irb" ["-f"])))
-            {:keys [return _]} m
-            exit-code (.getStatus return)]
-        (is (= 42 exit-code))))
-    (testing "irb with -r foo"
-      (let [m (capture-out
-                (with-stdin-str "puts %{#{foo}}\n"
-                  (jruby-core/cli-run! min-config "irb" ["-r" "foo" "-f"])))
-            {:keys [return out]} m
-            exit-code (.getStatus return)]
-        (is (= 0 exit-code))
-        (is (re-find #"bar" out))))
+    ;; IRB testing does not work on *nix based systems until a version
+    ;; of io/console >= 0.6.0 is included in JRuby
+    ; (testing "irb"
+    ;   (let [m (capture-out
+    ;             (with-stdin-str "puts %{HELLO}\n"
+    ;               (jruby-core/cli-run! min-config "irb" ["-f"])))
+    ;         {:keys [return out]} m
+    ;         exit-code (.getStatus return)]
+    ;     (is (= 0 exit-code))
+    ;     (is (re-find #"\nHELLO\n" out)))
+    ;   (let [m (capture-out
+    ;             (with-stdin-str "Kernel.exit(42)\n"
+    ;               (jruby-core/cli-run! min-config "irb" ["-f"])))
+    ;         {:keys [return _]} m
+    ;         exit-code (.getStatus return)]
+    ;     (is (= 42 exit-code))))
+    ; (testing "irb with -r foo"
+    ;   (let [m (capture-out
+    ;             (with-stdin-str "puts %{#{foo}}\n"
+    ;               (jruby-core/cli-run! min-config "irb" ["-r" "foo" "-f"])))
+    ;         {:keys [return out]} m
+    ;         exit-code (.getStatus return)]
+    ;     (is (= 0 exit-code))
+    ;     (is (re-find #"bar" out))))
     (testing "non existing subcommand returns nil"
       (logutils/with-test-logging
         (is (nil? (jruby-core/cli-run! min-config "doesnotexist" [])))))))
