@@ -72,7 +72,9 @@
 
     * :profiler-output-file - A target file to direct profiler output to. If
         not set, defaults to a random file relative to the working directory
-        of the service."
+        of the service.
+    * :multithreaded - Instead of managing the number of JRuby Instances create
+        a single JRuby instance and manage the number of threads that may access it."
   {:ruby-load-path [schema/Str]
    :gem-home schema/Str
    :gem-path (schema/maybe schema/Str)
