@@ -15,7 +15,7 @@
            (com.puppetlabs.jruby_utils.jruby InternalScriptingContainer
                                              ScriptingContainer)
            (java.io File)
-           (java.util.concurrent TimeUnit)
+           (java.util.concurrent TimeUnit Executors ExecutorService)
            (org.jruby CompatVersion Main Ruby RubyInstanceConfig RubyInstanceConfig$CompileMode RubyInstanceConfig$ProfilingMode)
            (org.jruby.embed LocalContextScope)
            (org.jruby.runtime.profile.builtin ProfileOutput)
@@ -183,12 +183,16 @@
   "Create a new PoolState based on the config input."
   [config :- jruby-schemas/JRubyConfig]
   (let [multithreaded (:multithreaded config)
-        size (:max-active-instances config)]
+        size (:max-active-instances config)
+        creation-concurrency (get config :instance-creation-concurrency 4)
+        creation-service (Executors/newFixedThreadPool creation-concurrency)]
     (if multithreaded
       {:pool (instantiate-reference-pool size)
-       :size 1}
+       :size 1
+       :creation-service creation-service}
       {:pool (instantiate-instance-pool size)
-       :size size})))
+       :size size
+       :creation-service creation-service})))
 
 (schema/defn ^:always-validate
   cleanup-pool-instance!
@@ -280,6 +284,12 @@
   "Gets the size of the JRuby pool from the pool context."
   [context :- jruby-schemas/PoolContext]
   (:size (get-pool-state context)))
+
+(schema/defn
+  get-creation-service :- ExecutorService
+  "Gets the ExecutorService that will execute instance creation and termination."
+  [context :- jruby-schemas/PoolContext]
+  (:creation-service (get-pool-state context)))
 
 (schema/defn ^:always-validate
   get-flush-timeout :- schema/Int

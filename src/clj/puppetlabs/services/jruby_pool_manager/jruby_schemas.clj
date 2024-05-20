@@ -1,9 +1,10 @@
 (ns puppetlabs.services.jruby-pool-manager.jruby-schemas
   (:require [schema.core :as schema])
   (:import (clojure.lang Atom Agent IFn PersistentArrayMap PersistentHashMap)
+           (com.puppetlabs.jruby_utils.jruby ScriptingContainer)
            (com.puppetlabs.jruby_utils.pool LockablePool)
-           (org.jruby Main Main$Status RubyInstanceConfig)
-           (com.puppetlabs.jruby_utils.jruby ScriptingContainer)))
+           (java.util.concurrent ExecutorService)
+           (org.jruby Main Main$Status RubyInstanceConfig)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -73,8 +74,13 @@
     * :profiler-output-file - A target file to direct profiler output to. If
         not set, defaults to a random file relative to the working directory
         of the service.
+
     * :multithreaded - Instead of managing the number of JRuby Instances create
-        a single JRuby instance and manage the number of threads that may access it."
+        a single JRuby instance and manage the number of threads that may access it.
+
+    * :instance-creation-concurrency - How many instances to create at once. This
+        will improve start up and potentially reload times, but if too high may
+        create unaceptable load on the system during startup or reload."
   {:ruby-load-path [schema/Str]
    :gem-home schema/Str
    :gem-path (schema/maybe schema/Str)
@@ -88,7 +94,8 @@
    :environment-vars {schema/Keyword schema/Str}
    :profiling-mode SupportedJRubyProfilingModes
    :profiler-output-file schema/Str
-   :multithreaded schema/Bool})
+   :multithreaded schema/Bool
+   (schema/optional-key :instance-creation-concurrency) schema/Int})
 
 (def JRubyPoolAgent
   "An agent configured for use in managing JRuby pools"
@@ -102,8 +109,9 @@
 
 (def PoolState
   "A map that describes all attributes of a particular JRuby pool."
-  {:pool         pool-queue-type
-   :size schema/Int})
+  {:pool             pool-queue-type
+   :size             schema/Int
+   :creation-service ExecutorService})
 
 (def PoolStateContainer
   "An atom containing the current state of all of the JRuby pool."

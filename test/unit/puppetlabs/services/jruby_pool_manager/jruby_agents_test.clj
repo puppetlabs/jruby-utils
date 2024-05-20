@@ -4,10 +4,27 @@
             [puppetlabs.services.jruby-pool-manager.jruby-testutils :as jruby-testutils]
             [puppetlabs.services.jruby-pool-manager.jruby-core :as jruby-core]
             [puppetlabs.services.jruby-pool-manager.impl.jruby-agents :as jruby-agents]
+            [puppetlabs.services.jruby-pool-manager.impl.jruby-internal :as jruby-internal]
             [puppetlabs.services.jruby-pool-manager.impl.jruby-pool-manager-core :as jruby-pool-manager-core])
   (:import (puppetlabs.services.jruby_pool_manager.jruby_schemas JRubyInstance)))
 
 (use-fixtures :once schema-test/validate-schemas)
+
+(deftest execute-tasks!-test
+  (let [pool-context (jruby-pool-manager-core/create-pool-context
+                      (jruby-testutils/jruby-config {:instance-creation-concurrency 3}))
+        creation-service (jruby-internal/get-creation-service pool-context)]
+    (testing "creation-service is a FixedThreadPool of configured number of threads"
+      (is (= 3 (.getMaximumPoolSize creation-service))))
+    ;; this isn't a requirement and should be able to change in the future without issue,
+    ;; but none of the current callers require the result, so explictly test the assumption.
+    (testing "does not return results of task execution"
+      (let [tasks [(fn [] :foo) (fn [] :bar)]
+            results (jruby-agents/execute-tasks! tasks creation-service)]
+        (is (nil? results))))
+    (testing "throws original execptions"
+      (let [tasks [(fn [] (throw (IllegalStateException. "BOOM")))]]
+        (is (thrown? IllegalStateException (jruby-agents/execute-tasks! tasks creation-service)))))))
 
 (deftest next-instance-id-test
   (let [pool-context (jruby-pool-manager-core/create-pool-context

@@ -7,10 +7,20 @@
             [puppetlabs.i18n.core :as i18n])
   (:import (clojure.lang IFn IDeref)
            (puppetlabs.services.jruby_pool_manager.jruby_schemas PoisonPill JRubyInstance)
-           (java.util.concurrent TimeUnit TimeoutException)))
+           (java.util.concurrent TimeUnit TimeoutException ExecutionException Future ExecutorService)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Private
+
+(schema/defn execute-tasks!
+  [tasks :- [IFn]
+   task-executor :- ExecutorService]
+  (let [results (.invokeAll task-executor tasks)]
+    (try
+      (doseq [result results]
+        (.get ^Future result))
+      (catch ExecutionException ex
+        (throw (.getCause ex))))))
 
 (schema/defn ^:always-validate
   next-instance-id :- schema/Int
@@ -68,15 +78,17 @@
                      (i18n/trs "Initializing JRubyInstances with the following settings:")
                      (ks/pprint-to-string config)))
   (let [pool (jruby-internal/get-pool pool-context)
-        count (.remainingCapacity pool)]
-    (dotimes [i count]
-      (let [id (inc i)]
-        (log/debug (i18n/trs "Priming JRubyInstance {0} of {1}"
-                             id count))
-        (add-instance pool-context id)
-        (log/info (i18n/trs "Finished creating JRubyInstance {0} of {1}"
-                            id count))))))
-
+        creation-service (jruby-internal/get-creation-service pool-context)
+        total (.remainingCapacity pool)
+        ids (->> total range (map inc))
+        add-instance* (fn [id]
+                          (log/debug (i18n/trs "Priming JRubyInstance {0} of {1}"
+                                               id count))
+                          (add-instance pool-context id)
+                          (log/info (i18n/trs "Finished creating JRubyInstance {0} of {1}"
+                                              id count)))
+        tasks (for [id ids] (fn [] (add-instance* id)))]
+    (execute-tasks! tasks creation-service)))
 
 (schema/defn ^:always-validate
   flush-instance!
@@ -148,23 +160,28 @@
    refill? :- schema/Bool]
   (let [pool (jruby-internal/get-pool pool-context)
         pool-size (jruby-internal/get-pool-size pool-context)
+        creation-service (jruby-internal/get-creation-service pool-context)
         new-instance-ids (map inc (range pool-size))
         config (:config pool-context)
-        cleanup-fn (get-in config [:lifecycle :cleanup])]
-    (doseq [[old-instance new-id] (zipmap old-instances new-instance-ids)]
-      (try
-        (jruby-internal/cleanup-pool-instance! old-instance cleanup-fn)
-        (when refill?
-          (jruby-internal/create-pool-instance! pool new-id config
-                                                (:splay-instance-flush config))
-          (log/info (i18n/trs "Finished creating JRubyInstance {0} of {1}"
-                               new-id pool-size)))
-        (catch Exception e
-          (.clear pool)
-          (jruby-internal/insert-poison-pill pool e)
-          (throw (IllegalStateException.
-                  (i18n/trs "There was a problem creating a JRubyInstance for the pool.")
-                  e))))))
+        cleanup-fn (get-in config [:lifecycle :cleanup])
+        cleanup-and-refill-instance
+          (fn [old-instance new-id]
+              (try
+                (jruby-internal/cleanup-pool-instance! old-instance cleanup-fn)
+                (when refill?
+                  (jruby-internal/create-pool-instance! pool new-id config
+                                                        (:splay-instance-flush config))
+                  (log/info (i18n/trs "Finished creating JRubyInstance {0} of {1}"
+                                       new-id pool-size)))
+                (catch Exception e
+                  (.clear pool)
+                  (jruby-internal/insert-poison-pill pool e)
+                  (throw (IllegalStateException.
+                          (i18n/trs "There was a problem creating a JRubyInstance for the pool.")
+                          e)))))
+        cleanup-and-refill-tasks (for [[old-instance new-id] (zipmap old-instances new-instance-ids)]
+                                   (fn [] (cleanup-and-refill-instance old-instance new-id)))]
+    (execute-tasks! cleanup-and-refill-tasks creation-service))
   (if refill?
     (log/info (i18n/trs "Finished draining and refilling pool."))
     (log/info (i18n/trs "Finished draining pool."))))
