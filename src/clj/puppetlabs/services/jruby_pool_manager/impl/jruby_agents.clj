@@ -183,9 +183,13 @@
                   (throw (IllegalStateException.
                           (i18n/trs "There was a problem creating a JRubyInstance for the pool.")
                           e)))))
-        cleanup-and-refill-tasks (for [[old-instance new-id] (zipmap old-instances new-instance-ids)]
+        [[first-old-inst first-new-id] & remaining] (zipmap old-instances new-instance-ids)
+        first-task [(fn [] (cleanup-and-refill-instance first-old-inst first-new-id))]
+        remaining-tasks (for [[old-instance new-id] remaining]
                                    (fn [] (cleanup-and-refill-instance old-instance new-id)))]
-    (execute-tasks! cleanup-and-refill-tasks creation-service))
+    (execute-tasks! first-task creation-service)
+    (when remaining-tasks
+      (execute-tasks! remaining-tasks creation-service)))
   (if refill?
     (log/info (i18n/trs "Finished draining and refilling pool."))
     (log/info (i18n/trs "Finished draining pool."))))
