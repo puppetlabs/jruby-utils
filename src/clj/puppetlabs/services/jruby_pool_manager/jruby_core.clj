@@ -174,6 +174,7 @@
       (update-in [:environment-vars] #(or % {}))
       (update-in [:lifecycle] initialize-lifecycle-fns)
       (update-in [:multithreaded] #(if (nil? %) false %))
+      (update-in [:instance-creation-concurrency] #(if (nil? %) 3 %))
       jruby-internal/initialize-gem-path))
 
 (schema/defn register-event-handler

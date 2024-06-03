@@ -95,7 +95,7 @@
    :profiling-mode SupportedJRubyProfilingModes
    :profiler-output-file schema/Str
    :multithreaded schema/Bool
-   (schema/optional-key :instance-creation-concurrency) schema/Int})
+   :instance-creation-concurrency schema/Int})
 
 (def JRubyPoolAgent
   "An agent configured for use in managing JRuby pools"
