@@ -70,9 +70,10 @@
 
 (schema/defn ^:always-validate
   prime-pool!
-  "Sequentially fill the pool with new JRubyInstances.  NOTE: this
-  function should never be called except by the modify-instance-agent
-  to create a pool's initial jruby instances."
+  "Fill the pool with new JRubyInstances.  Instantiates the first JRuby (Puppet
+  will sometimes alter the filesystem on first instantiation) and the remaining
+  instances in parallel.  NOTE: this function should never be called except by
+  the modify-instance-agent to create a pool's initial jruby instances."
   [{:keys [config] :as pool-context} :- jruby-schemas/PoolContext]
   (log/debug (format "%s\n%s"
                      (i18n/trs "Initializing JRubyInstances with the following settings:")
@@ -80,15 +81,18 @@
   (let [pool (jruby-internal/get-pool pool-context)
         creation-service (jruby-internal/get-creation-service pool-context)
         total (.remainingCapacity pool)
-        ids (->> total range (map inc))
+        [first-id & ids] (->> total range (map inc))
         add-instance* (fn [id]
                           (log/debug (i18n/trs "Priming JRubyInstance {0} of {1}"
                                                id count))
                           (add-instance pool-context id)
                           (log/info (i18n/trs "Finished creating JRubyInstance {0} of {1}"
                                               id count)))
+        initial-task (fn [] (add-instance* first-id))
         tasks (for [id ids] (fn [] (add-instance* id)))]
-    (execute-tasks! tasks creation-service)))
+    (execute-tasks! [initial-task] creation-service)
+    (when (seq ids)
+      (execute-tasks! tasks creation-service))))
 
 (schema/defn ^:always-validate
   flush-instance!
@@ -179,9 +183,13 @@
                   (throw (IllegalStateException.
                           (i18n/trs "There was a problem creating a JRubyInstance for the pool.")
                           e)))))
-        cleanup-and-refill-tasks (for [[old-instance new-id] (zipmap old-instances new-instance-ids)]
+        [[first-old-inst first-new-id] & remaining] (zipmap old-instances new-instance-ids)
+        first-task [(fn [] (cleanup-and-refill-instance first-old-inst first-new-id))]
+        remaining-tasks (for [[old-instance new-id] remaining]
                                    (fn [] (cleanup-and-refill-instance old-instance new-id)))]
-    (execute-tasks! cleanup-and-refill-tasks creation-service))
+    (execute-tasks! first-task creation-service)
+    (when remaining-tasks
+      (execute-tasks! remaining-tasks creation-service)))
   (if refill?
     (log/info (i18n/trs "Finished draining and refilling pool."))
     (log/info (i18n/trs "Finished draining pool."))))

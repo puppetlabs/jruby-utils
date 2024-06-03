@@ -184,7 +184,7 @@
   [config :- jruby-schemas/JRubyConfig]
   (let [multithreaded (:multithreaded config)
         size (:max-active-instances config)
-        creation-concurrency (get config :instance-creation-concurrency 4)
+        creation-concurrency (:instance-creation-concurrency config)
         creation-service (Executors/newFixedThreadPool creation-concurrency)]
     (if multithreaded
       {:pool (instantiate-reference-pool size)
